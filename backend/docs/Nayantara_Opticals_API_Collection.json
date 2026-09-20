@@ -1,0 +1,220 @@
+{
+  "info": {
+    "name": "Nayantara Opticals - Enterprise API Collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Authentication",
+      "item": [
+        {
+          "name": "Register Customer",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Rahul Sharma\",\n  \"email\": \"rahul.sharma@example.com\",\n  \"password\": \"Password@1234\",\n  \"phone\": \"+919876543210\",\n  \"whatsappOptIn\": true\n}"
+            },
+            "url": "{{baseUrl}}/auth/register"
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"rahul.sharma@example.com\",\n  \"password\": \"Password@1234\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/login"
+          }
+        },
+        {
+          "name": "Phone OTP Request",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+919876543210\",\n  \"purpose\": \"LOGIN\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/phone-otp/request"
+          }
+        },
+        {
+          "name": "Phone OTP Verify",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+919876543210\",\n  \"otp\": \"123456\",\n  \"purpose\": \"LOGIN\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/phone-otp/verify"
+          }
+        },
+        {
+          "name": "Get Profile (Me)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/auth/me"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Product Catalog",
+      "item": [
+        {
+          "name": "List Products",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/products?category=Eyeglasses&page=1&limit=12"
+          }
+        },
+        {
+          "name": "Get Categories",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/products/categories"
+          }
+        },
+        {
+          "name": "Get Single Product",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/products/classic-acetate-square"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Appointments",
+      "item": [
+        {
+          "name": "Get Available Slots",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/appointments/slots?date=2026-09-15"
+          }
+        },
+        {
+          "name": "Book Appointment",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"EYE_TEST\",\n  \"appointmentDate\": \"2026-09-15\",\n  \"timeSlot\": \"11:30 AM\",\n  \"notes\": \"Need prescription renewal\"\n}"
+            },
+            "url": "{{baseUrl}}/appointments"
+          }
+        },
+        {
+          "name": "My Appointments",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/appointments/me"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Prescriptions",
+      "item": [
+        {
+          "name": "Get Presigned Upload URL",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fileName\": \"doctor-rx-scan.pdf\",\n  \"mimeType\": \"application/pdf\"\n}"
+            },
+            "url": "{{baseUrl}}/prescriptions/upload-url"
+          }
+        },
+        {
+          "name": "Submit Manual Prescription",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sphereOD\": \"-1.50\",\n  \"cylinderOD\": \"-0.50\",\n  \"axisOD\": \"90\",\n  \"sphereOS\": \"-1.75\",\n  \"cylinderOS\": \"-0.75\",\n  \"axisOS\": \"85\",\n  \"addition\": \"+1.25\"\n}"
+            },
+            "url": "{{baseUrl}}/prescriptions/manual"
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Cart & Orders",
+      "item": [
+        {
+          "name": "Get Cart",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/cart"
+          }
+        },
+        {
+          "name": "Create Order (COD / Online)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"addressId\": \"uuid-address-id\",\n  \"paymentMethod\": \"COD\",\n  \"items\": [\n    { \"productId\": \"uuid-product-id\", \"quantity\": 1 }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/orders/create"
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Active Time Analytics",
+      "item": [
+        {
+          "name": "Send Active Visible-Tab Heartbeat",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"anonymousId\": \"anon_session_abc123\",\n  \"eventName\": \"page_heartbeat\",\n  \"pagePath\": \"/shop\",\n  \"activeDurationSec\": 15\n}"
+            },
+            "url": "{{baseUrl}}/analytics/heartbeat"
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000/api/v1"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    }
+  ]
+}

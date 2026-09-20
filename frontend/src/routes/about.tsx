@@ -1,0 +1,3 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { AboutPage } from "@/components/pages/InfoPages";
+export const Route = createFileRoute("/about")({ staticData: { sitemap: true }, head: () => ({ meta: [{ title: "Our Story — Nayantara Opticals" }, { name: "description", content: "Discover Nayantara Opticals, serving New Delhi families with trusted optical care for 35+ years." }, { property: "og:title", content: "Our Story — Nayantara Opticals" }, { property: "og:description", content: "Independent optical expertise refined over 35+ years." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary_large_image" }] }), component: AboutPage });

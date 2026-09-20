@@ -1,0 +1,3 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { LensesPage } from "@/components/pages/InfoPages";
+export const Route = createFileRoute("/lenses")({ staticData: { sitemap: true }, head: () => ({ meta: [{ title: "Prescription Lenses — Nayantara Opticals" }, { name: "description", content: "Compare single-vision, progressive and anti-glare lens options with expert fitting in New Delhi." }, { property: "og:title", content: "Prescription Lenses — Nayantara Opticals" }, { property: "og:description", content: "Precision lens packages for how you see and live." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary_large_image" }] }), component: LensesPage });

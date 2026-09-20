@@ -1,0 +1,3 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { FormPage } from "@/components/pages/InfoPages";
+export const Route = createFileRoute("/book")({ staticData: { sitemap: true }, head: () => ({ meta: [{ title: "Book an Eye Check — Nayantara Opticals" }, { name: "description", content: "Request an eye check or optical consultation at Nayantara Opticals in Uttam Nagar." }, { property: "og:title", content: "Book an Eye Check — Nayantara Opticals" }, { property: "og:description", content: "Request an unhurried optical consultation in Uttam Nagar." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary_large_image" }] }), component: () => <FormPage kind="book" /> });

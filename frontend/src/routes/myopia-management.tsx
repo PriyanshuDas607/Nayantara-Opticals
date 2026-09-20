@@ -1,0 +1,3 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { MyopiaPage } from "@/components/pages/InfoPages";
+export const Route = createFileRoute("/myopia-management")({ staticData: { sitemap: true }, head: () => ({ meta: [{ title: "Myopia Management — Nayantara Opticals" }, { name: "description", content: "Structured myopia monitoring and follow-up support for children and young adults in New Delhi." }, { property: "og:title", content: "Myopia Management — Nayantara Opticals" }, { property: "og:description", content: "Measured, documented support for changing distance vision." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary_large_image" }] }), component: MyopiaPage });

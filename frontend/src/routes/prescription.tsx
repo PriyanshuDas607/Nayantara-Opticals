@@ -1,0 +1,3 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { FormPage } from "@/components/pages/InfoPages";
+export const Route = createFileRoute("/prescription")({ staticData: { sitemap: true }, head: () => ({ meta: [{ title: "Prescription Support — Nayantara Opticals" }, { name: "description", content: "Prepare your optical prescription details before an expert in-store confirmation." }, { property: "og:title", content: "Prescription Support — Nayantara Opticals" }, { property: "og:description", content: "Understand and prepare your lens prescription details." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary_large_image" }] }), component: () => <FormPage kind="prescription" /> });

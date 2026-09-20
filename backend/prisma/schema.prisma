@@ -1,0 +1,910 @@
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  OWNER
+  CUSTOMER
+}
+
+enum AccountStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+enum AddressType {
+  HOME
+  WORK
+  OTHER
+}
+
+enum AppointmentType {
+  EYE_TEST
+  FRAME_CONSULTATION
+  LENS_CONSULTATION
+  PRESCRIPTION_CONSULTATION
+  CONTACT_LENS_CONSULTATION
+  OTHER
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  RESCHEDULE_REQUESTED
+  RESCHEDULED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum PrescriptionType {
+  MANUAL
+  FILE
+}
+
+enum UploadStatus {
+  PENDING
+  SCANNING
+  AVAILABLE
+  REJECTED
+  DELETED
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAYMENT_FAILED
+  PAYMENT_CONFIRMED
+  PLACED
+  CONFIRMED
+  PROCESSING
+  READY_TO_SHIP
+  SHIPPED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+  RETURN_REQUESTED
+  RETURNED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  COD
+  RAZORPAY
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  SMS
+  WHATSAPP
+  PUSH
+}
+
+enum NotificationStatus {
+  PENDING
+  QUEUED
+  SENT
+  DELIVERED
+  FAILED
+}
+
+enum TryOnStatus {
+  CREATED
+  PROCESSING
+  COMPLETED
+  FAILED
+  EXPIRED
+}
+
+// -------------------------------------------------------------
+// 1. User & Identity Management
+// -------------------------------------------------------------
+
+model User {
+  id               String        @id @default(uuid())
+  email            String?       @unique
+  phone            String?       @unique
+  passwordHash     String?
+  role             Role          @default(CUSTOMER)
+  status           AccountStatus @default(ACTIVE)
+  isEmailVerified  Boolean       @default(false)
+  isPhoneVerified  Boolean       @default(false)
+  avatarUrl        String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  deletedAt        DateTime?
+
+  // Relations
+  customerProfile          CustomerProfile?
+  ownerProfile             OwnerProfile?
+  identities               AuthIdentity[]
+  refreshTokens            RefreshTokenSession[]
+  emailTokens              EmailVerificationToken[]
+  otpVerifications         OtpVerification[]
+  passwordResetTokens      PasswordResetToken[]
+  consents                 Consent[]
+  notificationPreferences  NotificationPreference?
+  notifications            Notification[]
+  addresses                Address[]
+  appointments             Appointment[]
+  prescriptions            Prescription[]
+  cart                     Cart?
+  wishlists                Wishlist[]
+  orders                   Order[]
+  couponRedemptions        CouponRedemption[]
+  analyticsSessions        AnalyticsSession[]
+  auditLogs                AuditLog[]
+  tryOnSessions            VirtualTryOnSession[]
+
+  @@index([role])
+  @@index([email])
+  @@index([phone])
+}
+
+model AuthIdentity {
+  id                String   @id @default(uuid())
+  userId            String
+  provider          String   // "google", "apple", "facebook"
+  providerUserId    String
+  profileData       Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@index([userId])
+}
+
+model RefreshTokenSession {
+  id           String    @id @default(uuid())
+  userId       String
+  tokenHash    String    @unique
+  deviceInfo   String?
+  ipAddress    String?
+  userAgent    String?
+  isRevoked    Boolean   @default(false)
+  expiresAt    DateTime
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model EmailVerificationToken {
+  id         String   @id @default(uuid())
+  userId     String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model OtpVerification {
+  id           String   @id @default(uuid())
+  userId       String?
+  identifier   String   // phone or email
+  otpHash      String
+  purpose      String   // "PHONE_VERIFY", "LOGIN", "PASSWORD_RESET"
+  attempts     Int      @default(0)
+  maxAttempts  Int      @default(3)
+  expiresAt    DateTime
+  isConsumed   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  user         User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([identifier, purpose])
+}
+
+model PasswordResetToken {
+  id         String   @id @default(uuid())
+  userId     String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  isConsumed Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// -------------------------------------------------------------
+// 2. Profiles, Stores & Addresses
+// -------------------------------------------------------------
+
+model CustomerProfile {
+  id                  String    @id @default(uuid())
+  userId              String    @unique
+  fullName            String
+  dateOfBirth         DateTime?
+  gender              Gender?
+  whatsappOptIn       Boolean   @default(false)
+  marketingOptIn      Boolean   @default(false)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Store {
+  id             String    @id @default(uuid())
+  name           String
+  slug           String    @unique
+  address        String
+  city           String
+  state          String
+  pincode        String
+  phone          String
+  email          String?
+  whatsappNumber String?
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  owners         OwnerProfile[]
+  appointments   Appointment[]
+  availabilities AppointmentAvailability[]
+  holidays       StoreHoliday[]
+  products       Product[]
+  orders         Order[]
+}
+
+model OwnerProfile {
+  id                  String    @id @default(uuid())
+  userId              String    @unique
+  storeId             String?
+  fullName            String
+  notificationPhone   String?
+  notificationEmail   String?
+  notificationWhatsapp String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  store               Store?    @relation(fields: [storeId], references: [id], onDelete: SetNull)
+}
+
+model Address {
+  id           String      @id @default(uuid())
+  userId       String
+  fullName     String
+  phone        String
+  addressLine1 String      // House/Flat/Building
+  addressLine2 String      // Street/Area
+  landmark     String?
+  city         String
+  state        String
+  pincode      String
+  country      String      @default("India")
+  type         AddressType @default(HOME)
+  isDefault    Boolean     @default(false)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders       Order[]
+
+  @@index([userId])
+}
+
+model Consent {
+  id             String   @id @default(uuid())
+  userId         String
+  policyType     String   // "TERMS_OF_SERVICE", "PRIVACY_POLICY", "WHATSAPP_MARKETING"
+  policyVersion  String
+  ipAddress      String?
+  userAgent      String?
+  acceptedAt     DateTime @default(now())
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model NotificationPreference {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  emailOrders    Boolean  @default(true)
+  emailMarketing Boolean  @default(false)
+  smsOrders      Boolean  @default(true)
+  smsMarketing   Boolean  @default(false)
+  whatsappOrders Boolean  @default(true)
+  whatsappMarketing Boolean @default(false)
+  updatedAt      DateTime @updatedAt
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// -------------------------------------------------------------
+// 3. Appointments
+// -------------------------------------------------------------
+
+model Appointment {
+  id              String            @id @default(uuid())
+  userId          String
+  storeId         String
+  type            AppointmentType   @default(EYE_TEST)
+  status          AppointmentStatus @default(PENDING)
+  appointmentDate DateTime          // UTC Date (YYYY-MM-DD)
+  timeSlot        String            // "10:30 AM"
+  notes           String?
+  cancellationReason String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  store           Store             @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  history         AppointmentStatusHistory[]
+  prescriptions   Prescription[]
+
+  @@unique([storeId, appointmentDate, timeSlot])
+  @@index([userId])
+  @@index([appointmentDate, status])
+}
+
+model AppointmentStatusHistory {
+  id            String            @id @default(uuid())
+  appointmentId String
+  status        AppointmentStatus
+  notes         String?
+  changedById   String?
+  createdAt     DateTime          @default(now())
+
+  appointment   Appointment       @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@index([appointmentId])
+}
+
+model AppointmentAvailability {
+  id           String   @id @default(uuid())
+  storeId      String
+  dayOfWeek    Int      // 0 = Sunday, 1 = Monday ... 6 = Saturday
+  openTime     String   // "10:00"
+  closeTime    String   // "20:00"
+  slotDuration Int      @default(30) // in minutes
+  maxPerSlot   Int      @default(1)
+  breakStart   String?  // "14:00"
+  breakEnd     String?  // "15:00"
+  isActive     Boolean  @default(true)
+
+  store        Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, dayOfWeek])
+}
+
+model StoreHoliday {
+  id        String   @id @default(uuid())
+  storeId   String
+  date      DateTime
+  reason    String?
+  createdAt DateTime @default(now())
+
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, date])
+}
+
+// -------------------------------------------------------------
+// 4. Prescriptions & File Vault
+// -------------------------------------------------------------
+
+model Prescription {
+  id               String           @id @default(uuid())
+  userId           String
+  appointmentId    String?
+  orderId          String?
+  type             PrescriptionType @default(MANUAL)
+  fileUploadId     String?          @unique
+
+  // Manual prescription fields (OD = Right, OS = Left)
+  sphereOD         String?
+  cylinderOD       String?
+  axisOD           String?
+  sphereOS         String?
+  cylinderOS       String?
+  axisOS           String?
+  addition         String?
+  pd               String?          // Pupillary distance
+  notes            String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  deletedAt        DateTime?
+
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appointment      Appointment?     @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  order            Order?           @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  fileUpload       FileUpload?      @relation(fields: [fileUploadId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+}
+
+model FileUpload {
+  id               String       @id @default(uuid())
+  objectKey        String       @unique
+  originalFileName String
+  mimeType         String
+  sizeBytes        Int
+  checksum         String?
+  uploadStatus     UploadStatus @default(PENDING)
+  scannedAt        DateTime?
+  uploadedAt       DateTime     @default(now())
+  deletedAt        DateTime?
+
+  prescription     Prescription?
+}
+
+// -------------------------------------------------------------
+// 5. Product Catalog & Inventory
+// -------------------------------------------------------------
+
+model Category {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  imageUrl    String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  products    Product[]
+}
+
+model Brand {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  slug        String    @unique
+  logoUrl     String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  products    Product[]
+}
+
+model Product {
+  id                  String   @id @default(uuid())
+  storeId             String?
+  categoryId          String
+  brandId             String?
+  name                String
+  slug                String   @unique
+  sku                 String   @unique
+  shortDescription    String?
+  description         String?
+  pricePaise          Int      // Price in paise (INR)
+  salePricePaise      Int?
+  gstPercentage       Int      @default(18)
+  frameType           String?  // Full Rim, Semi Rim, Rimless
+  frameShape          String?  // Square, Round, Aviator, Cat Eye, Rectangle
+  frameMaterial       String?  // Acetate, Titanium, Metal, TR90
+  gender              String?  // Men, Women, Unisex, Kids
+  color               String?
+  size                String?  // Small, Medium, Large, Universal
+  requiresPrescription Boolean  @default(false)
+  virtualTryOnEnabled Boolean  @default(false)
+  tryOnAssetUrl       String?
+  isFeatured          Boolean  @default(false)
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  deletedAt           DateTime?
+
+  store               Store?            @relation(fields: [storeId], references: [id], onDelete: SetNull)
+  category            Category          @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  brand               Brand?            @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  images              ProductImage[]
+  variants            ProductVariant[]
+  inventory           Inventory?
+  cartItems           CartItem[]
+  orderItems          OrderItem[]
+  wishlists           Wishlist[]
+  tryOnSessions       VirtualTryOnSession[]
+
+  @@index([categoryId])
+  @@index([slug])
+  @@index([isActive, isFeatured])
+}
+
+model ProductImage {
+  id        String   @id @default(uuid())
+  productId String
+  url       String
+  altText   String?
+  isPrimary Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+}
+
+model ProductVariant {
+  id          String     @id @default(uuid())
+  productId   String
+  sku         String     @unique
+  name        String     // e.g., "Tortoise / Medium"
+  color       String?
+  size        String?
+  priceDelta  Int        @default(0) // Additional price in paise
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  product     Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  inventory   Inventory?
+  cartItems   CartItem[]
+  orderItems  OrderItem[]
+
+  @@index([productId])
+}
+
+model Inventory {
+  id                String                 @id @default(uuid())
+  productId         String?                @unique
+  variantId         String?                @unique
+  quantity          Int                    @default(0)
+  reservedQuantity  Int                    @default(0)
+  lowStockThreshold Int                    @default(5)
+  updatedAt         DateTime               @updatedAt
+
+  product           Product?               @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant           ProductVariant?        @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  transactions      InventoryTransaction[]
+}
+
+model InventoryTransaction {
+  id            String    @id @default(uuid())
+  inventoryId   String
+  quantityDelta Int       // positive for stock in, negative for order
+  reason        String    // "ORDER_RESERVED", "ORDER_PLACED", "RESTOCK", "MANUAL_ADJUSTMENT"
+  referenceId   String?   // orderId or batchId
+  createdAt     DateTime  @default(now())
+
+  inventory     Inventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
+
+  @@index([inventoryId])
+}
+
+// -------------------------------------------------------------
+// 6. Cart & Wishlist
+// -------------------------------------------------------------
+
+model Cart {
+  id        String     @id @default(uuid())
+  userId    String     @unique
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+}
+
+model CartItem {
+  id        String          @id @default(uuid())
+  cartId    String
+  productId String
+  variantId String?
+  quantity  Int             @default(1)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  cart      Cart            @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product   Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+
+  @@unique([cartId, productId, variantId])
+}
+
+model Wishlist {
+  id        String   @id @default(uuid())
+  userId    String
+  productId String
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+}
+
+// -------------------------------------------------------------
+// 7. Orders & Payments
+// -------------------------------------------------------------
+
+model Coupon {
+  id             String             @id @default(uuid())
+  code           String             @unique
+  description    String?
+  discountType   String             // "PERCENTAGE", "FLAT"
+  discountValue  Int                // e.g. 10 (%) or 50000 (paise)
+  minOrderPaise  Int                @default(0)
+  maxDiscountPaise Int?
+  usageLimit     Int?
+  usageCount     Int                @default(0)
+  isActive       Boolean            @default(true)
+  startsAt       DateTime?
+  expiresAt      DateTime?
+  createdAt      DateTime           @default(now())
+
+  redemptions    CouponRedemption[]
+}
+
+model CouponRedemption {
+  id        String   @id @default(uuid())
+  couponId  String
+  userId    String
+  orderId   String
+  savedPaise Int
+  createdAt DateTime @default(now())
+
+  coupon    Coupon   @relation(fields: [couponId], references: [id], onDelete: Restrict)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Order {
+  id              String             @id @default(uuid())
+  orderNumber     String             @unique // e.g. "NO-2026-000001"
+  idempotencyKey  String?            @unique
+  userId          String
+  storeId         String?
+  addressId       String
+  status          OrderStatus        @default(PENDING_PAYMENT)
+  paymentMethod   PaymentMethod      @default(COD)
+  paymentStatus   PaymentStatus      @default(PENDING)
+  subtotalPaise   Int
+  discountPaise   Int                @default(0)
+  shippingPaise   Int                @default(0)
+  taxPaise        Int                @default(0)
+  totalPaise      Int
+  currency        String             @default("INR")
+  notes           String?
+  cancellationReason String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  user            User               @relation(fields: [userId], references: [id], onDelete: Restrict)
+  store           Store?             @relation(fields: [storeId], references: [id], onDelete: SetNull)
+  address         Address            @relation(fields: [addressId], references: [id], onDelete: Restrict)
+  items           OrderItem[]
+  history         OrderStatusHistory[]
+  payments        Payment[]
+  prescriptions   Prescription[]
+  couponRedemptions CouponRedemption[]
+
+  @@index([userId])
+  @@index([orderNumber])
+  @@index([status])
+}
+
+model OrderItem {
+  id             String          @id @default(uuid())
+  orderId        String
+  productId      String
+  variantId      String?
+  productName    String
+  sku            String
+  quantity       Int
+  unitPricePaise Int
+  totalPaise     Int
+  taxPaise       Int             @default(0)
+  variantName    String?
+  createdAt      DateTime        @default(now())
+
+  order          Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product        Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  variant        ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+}
+
+model OrderStatusHistory {
+  id          String      @id @default(uuid())
+  orderId     String
+  status      OrderStatus
+  notes       String?
+  changedById String?
+  createdAt   DateTime    @default(now())
+
+  order       Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+model Payment {
+  id                  String        @id @default(uuid())
+  orderId             String
+  razorpayOrderId     String?       @unique
+  razorpayPaymentId   String?       @unique
+  razorpaySignature   String?
+  amountPaise         Int
+  currency            String        @default("INR")
+  status              PaymentStatus @default(PENDING)
+  failureReason       String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  order               Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+model PaymentWebhookEvent {
+  id            String   @id @default(uuid())
+  eventId       String   @unique // Razorpay event ID
+  eventType     String
+  payload       Json
+  isProcessed   Boolean  @default(false)
+  processedAt   DateTime?
+  createdAt     DateTime @default(now())
+}
+
+// -------------------------------------------------------------
+// 8. Notifications & Queues
+// -------------------------------------------------------------
+
+model Notification {
+  id          String              @id @default(uuid())
+  userId      String
+  channel     NotificationChannel
+  title       String
+  body        String
+  metadata    Json?
+  status      NotificationStatus  @default(PENDING)
+  createdAt   DateTime            @default(now())
+
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  logs        NotificationDeliveryLog[]
+
+  @@index([userId])
+}
+
+model NotificationDeliveryLog {
+  id             String             @id @default(uuid())
+  notificationId String
+  channel        NotificationChannel
+  recipient      String
+  providerId     String?
+  status         NotificationStatus
+  errorMessage   String?
+  sentAt         DateTime?
+  deliveredAt    DateTime?
+  createdAt      DateTime           @default(now())
+
+  notification   Notification       @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@index([notificationId])
+}
+
+// -------------------------------------------------------------
+// 9. Active-Time Analytics & Audit Logs
+// -------------------------------------------------------------
+
+model AnalyticsSession {
+  id             String           @id @default(uuid())
+  userId         String?
+  anonymousId    String
+  deviceType     String?
+  browser        String?
+  ipHash         String?
+  startedAt      DateTime         @default(now())
+  endedAt        DateTime?
+  totalActiveSec Int              @default(0)
+
+  user           User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  events         AnalyticsEvent[]
+
+  @@index([anonymousId])
+  @@index([userId])
+}
+
+model AnalyticsEvent {
+  id             String           @id @default(uuid())
+  sessionId      String
+  eventName      String           // "page_view", "page_heartbeat", "product_view", "add_to_cart", "purchase"
+  pagePath       String
+  pageTitle      String?
+  productId      String?
+  activeDuration Int              @default(0) // active visible seconds in heartbeat
+  metadata       Json?
+  occurredAt     DateTime         @default(now())
+
+  session        AnalyticsSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([eventName])
+  @@index([pagePath])
+}
+
+model DailyAnalyticsAggregate {
+  id             String   @id @default(uuid())
+  date           DateTime @db.Date
+  pagePath       String
+  uniqueVisitors Int      @default(0)
+  totalViews     Int      @default(0)
+  totalActiveSec Int      @default(0)
+
+  @@unique([date, pagePath])
+  @@index([date])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  userId      String?
+  action      String   // e.g. "VIEW_PRESCRIPTION", "UPDATE_ORDER", "CREATE_OWNER"
+  resource    String   // e.g. "Prescription:rx_123"
+  ipAddress   String?
+  userAgent   String?
+  details     Json?
+  createdAt   DateTime @default(now())
+
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([action])
+}
+
+model FeatureFlag {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  isEnabled   Boolean  @default(false)
+  description String?
+  updatedAt   DateTime @updatedAt
+}
+
+// -------------------------------------------------------------
+// 10. Virtual Try-On Session Contracts (Prepared for AI Vision)
+// -------------------------------------------------------------
+
+model VirtualTryOnSession {
+  id                     String      @id @default(uuid())
+  userId                 String?
+  productId              String
+  status                 TryOnStatus @default(CREATED)
+  faceImageObjectKey     String?
+  renderedImageObjectKey String?
+  provider               String?     // e.g., "claude-vision", "custom-cv"
+  providerRequestId      String?
+  expiresAt              DateTime
+  createdAt              DateTime    @default(now())
+  updatedAt              DateTime    @updatedAt
+
+  user                   User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  product                Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([productId])
+}

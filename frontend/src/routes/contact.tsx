@@ -1,0 +1,3 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { FormPage } from "@/components/pages/InfoPages";
+export const Route = createFileRoute("/contact")({ staticData: { sitemap: true }, head: () => ({ meta: [{ title: "Contact & Visit — Nayantara Opticals" }, { name: "description", content: "Visit Nayantara Opticals near Metro Pillar 703 in Uttam Nagar, New Delhi." }, { property: "og:title", content: "Contact & Visit — Nayantara Opticals" }, { property: "og:description", content: "Store address, hours and directions for Nayantara Opticals." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary_large_image" }] }), component: () => <FormPage kind="contact" /> });

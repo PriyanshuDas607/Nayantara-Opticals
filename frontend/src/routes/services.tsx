@@ -1,0 +1,3 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { ServicesPage } from "@/components/pages/InfoPages";
+export const Route = createFileRoute("/services")({ staticData: { sitemap: true }, head: () => ({ meta: [{ title: "Optical Services — Nayantara Opticals" }, { name: "description", content: "Eye care, contact lens fittings, myopia management, hearing aids and vision support in New Delhi." }, { property: "og:title", content: "Optical Services — Nayantara Opticals" }, { property: "og:description", content: "Unhurried optical care and specialist support in Uttam Nagar." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary_large_image" }] }), component: ServicesPage });
