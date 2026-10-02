@@ -7,6 +7,7 @@ import { SITE, waLink } from "@/lib/site";
 import { useShop } from "@/store/shop";
 import { useAuth } from "@/store/auth";
 import { apiRequest } from "@/lib/api";
+import { EyecareChatbot } from "@/components/chatbot/EyecareChatbot";
 
 const NAV = [
   ["Shop", "/shop"],
@@ -109,13 +110,13 @@ export function SiteShell({ children }: { children: ReactNode }) {
         Trusted optical care in New Delhi for 35+ years
       </div>
       <header className="sticky top-0 z-40 border-b border-border/70 bg-background/90 backdrop-blur-xl">
-        <div className="mx-auto flex h-14 sm:h-15 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-          <Link to="/" className="group min-w-0" aria-label="Nayantara Opticals home">
-            <div className="flex items-center gap-3">
+        <div className="mx-auto flex h-14 sm:h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+          <Link to="/" className="group shrink-0" aria-label="Nayantara Opticals home">
+            <div className="flex items-center">
               <img
-                src="/logo.svg"
+                src="/logo.png"
                 alt="Nayantara Opticals"
-                className="h-8 sm:h-9 w-auto max-w-[12rem] object-contain object-left"
+                className="h-9 sm:h-11 md:h-12 w-auto max-w-[13rem] sm:max-w-[16rem] object-contain object-left transition-transform duration-200 group-hover:scale-[1.02]"
               />
             </div>
           </Link>
@@ -285,22 +286,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
           © 2026 Nayantara Opticals · New Delhi
         </div>
       </footer>
-      <Button
-        variant="hero"
-        size="icon"
-        asChild
-        className="fixed right-4 bottom-4 z-30 h-12 w-12 rounded-full shadow-lift sm:right-6 sm:bottom-6"
-        title="Ask on WhatsApp"
-      >
-        <a
-          href={waLink("Hi Nayantara Opticals, I'd like some help.")}
-          target="_blank"
-          rel="noreferrer"
-          aria-label="Ask Nayantara Opticals on WhatsApp"
-        >
-          <MessageCircle aria-hidden="true" />
-        </a>
-      </Button>
+      <EyecareChatbot />
       <CartDrawer />
     </div>
   );

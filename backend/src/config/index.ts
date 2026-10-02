@@ -25,12 +25,15 @@ export const config = {
   databaseUrl: process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/nayantara_opticals?schema=public",
   redisUrl: process.env.REDIS_URL || "redis://localhost:6379",
 
+  // Google Gemini AI
+  geminiApiKey: process.env.GEMINI_API_KEY || "",
+
   // Authentication
   jwt: {
     accessSecret: process.env.JWT_ACCESS_SECRET || "nayantara_super_secret_access_jwt_key_2026",
     refreshSecret: process.env.JWT_REFRESH_SECRET || "nayantara_super_secret_refresh_jwt_key_2026",
-    accessExpiresIn: "15m",
-    refreshExpiresInDays: 7,
+    accessExpiresIn: "30d",
+    refreshExpiresInDays: 30,
   },
 
   // Super Admin Default Credentials (for seeding)

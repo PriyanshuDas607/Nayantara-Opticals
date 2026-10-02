@@ -4,7 +4,7 @@ import { OrderService } from "../services/order.service.js";
 import { PaymentService } from "../services/payment.service.js";
 import { devStore } from "../utils/devStore.js";
 
-function withDbTimeout<T>(promise: Promise<T>, ms = 800): Promise<T> {
+function withDbTimeout<T>(promise: Promise<T>, ms = 10000): Promise<T> {
   return Promise.race([
     promise,
     new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Database connection timeout")), ms)),

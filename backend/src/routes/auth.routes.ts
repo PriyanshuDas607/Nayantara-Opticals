@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { AuthController } from "../controllers/auth.controller.js";
 import { validate } from "../middlewares/validate.js";
-import { authenticate } from "../middlewares/authenticate.js";
+import { authenticate, optionalAuthenticate } from "../middlewares/authenticate.js";
 import { authRateLimiter, otpRateLimiter } from "../middlewares/rateLimiter.js";
 import {
   registerSchema,
@@ -27,5 +27,13 @@ router.post("/refresh", validate(refreshTokenSchema), AuthController.refreshToke
 router.post("/logout", AuthController.logout);
 router.post("/logout-all", authenticate, AuthController.logoutAll);
 router.get("/me", authenticate, AuthController.getMe);
+router.put("/profile", authenticate, AuthController.updateProfile);
+
+// Address Management
+router.get("/addresses", optionalAuthenticate, AuthController.getAddresses);
+router.post("/addresses", optionalAuthenticate, AuthController.addAddress);
+router.put("/addresses/:id", optionalAuthenticate, AuthController.updateAddress);
+router.delete("/addresses/:id", optionalAuthenticate, AuthController.deleteAddress);
+router.patch("/addresses/:id/default", optionalAuthenticate, AuthController.setDefaultAddress);
 
 export default router;

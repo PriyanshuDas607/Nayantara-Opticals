@@ -9,7 +9,7 @@ import { devStore } from "../utils/devStore.js";
 import { Role as AppRole } from "../constants/index.js";
 import { errorMonitor } from "../services/errorMonitor.service.js";
 
-function withDbTimeout<T>(promise: Promise<T>, ms = 700): Promise<T> {
+function withDbTimeout<T>(promise: Promise<T>, ms = 10000): Promise<T> {
   return Promise.race([
     promise,
     new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Database connection timeout")), ms)),

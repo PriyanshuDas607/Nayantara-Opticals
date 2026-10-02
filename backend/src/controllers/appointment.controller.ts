@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
-import { AppointmentStatus } from "@prisma/client";
+import { AppointmentStatus, Role } from "@prisma/client";
 import { AppointmentService } from "../services/appointment.service.js";
+import { prisma } from "../utils/prisma.js";
 
 export class AppointmentController {
   static async getSlots(req: Request, res: Response, next: NextFunction) {
@@ -20,14 +21,67 @@ export class AppointmentController {
 
   static async book(req: Request, res: Response, next: NextFunction) {
     try {
-      if (!req.user?.userId) {
-        res.status(401).json({ success: false, message: "Unauthorized." });
-        return;
+      let userId = req.user?.userId;
+
+      if (!userId) {
+        const phone = req.body.phone?.trim();
+        const name = req.body.name?.trim() || "Customer";
+        const email = req.body.email?.trim() || null;
+
+        if (!phone) {
+          res.status(400).json({
+            success: false,
+            message: "Please provide a valid contact mobile number to book your appointment.",
+          });
+          return;
+        }
+
+        // Find or create customer user
+        let user = await prisma.user.findFirst({
+          where: {
+            OR: [{ phone }, ...(email ? [{ email }] : [])],
+          },
+          include: { customerProfile: true },
+        });
+
+        if (!user) {
+          user = await prisma.user.create({
+            data: {
+              phone,
+              email: email || undefined,
+              role: Role.CUSTOMER,
+              customerProfile: {
+                create: {
+                  fullName: name,
+                  whatsappOptIn: true,
+                },
+              },
+            },
+            include: { customerProfile: true },
+          });
+        } else if (!user.customerProfile) {
+          await prisma.customerProfile.create({
+            data: {
+              userId: user.id,
+              fullName: name,
+            },
+          });
+        }
+        userId = user.id;
       }
 
+      const notesArr: string[] = [];
+      if (req.body.notes?.trim()) notesArr.push(req.body.notes.trim());
+      if (req.body.patientAge) notesArr.push(`Patient Age: ${req.body.patientAge}`);
+      if (req.body.name && !req.user?.userId) notesArr.push(`Patient Name: ${req.body.name}`);
+
       const appointment = await AppointmentService.bookAppointment({
-        userId: req.user.userId,
-        ...req.body,
+        userId,
+        storeId: req.body.storeId,
+        type: req.body.type || "EYE_TEST",
+        appointmentDate: req.body.appointmentDate,
+        timeSlot: req.body.timeSlot,
+        notes: notesArr.length > 0 ? notesArr.join(" | ") : undefined,
       });
 
       res.status(201).json({

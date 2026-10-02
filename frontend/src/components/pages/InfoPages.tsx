@@ -1,16 +1,19 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useRef, useState, useEffect, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   ArrowRight,
   Check,
   CheckCircle2,
+  Clock,
   Clock3,
+  Calendar,
   Eye,
   FileText,
   Glasses,
   HeartPulse,
   HelpCircle,
   Layers,
+  Loader2,
   MapPin,
   MessageCircle,
   Phone,
@@ -32,6 +35,7 @@ import { Badge } from "@/components/ui/badge";
 import { SERVICES } from "@/data/content";
 import { LENS_PACKAGES } from "@/data/catalog";
 import { SITE, inr, waLink } from "@/lib/site";
+import { apiRequest } from "@/lib/api";
 
 export function PageIntro({
   eyebrow,
@@ -676,13 +680,59 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
     name: "",
     phone: "",
     age: "",
-    date: "",
+    date: new Date(Date.now() + 86400000).toISOString().split("T")[0] ?? "",
     note: "",
   });
   const [errors, setErrors] = useState<Partial<Record<BookFields, string>>>({});
+  const [consultationType, setConsultationType] = useState<
+    "EYE_TEST" | "LENS_CONSULTATION" | "FRAME_CONSULTATION" | "CONTACT_LENS_CONSULTATION"
+  >("EYE_TEST");
+
+  const DEFAULT_SLOTS = [
+    "10:30 AM", "11:00 AM", "11:30 AM", "12:00 PM",
+    "12:30 PM", "02:00 PM", "02:30 PM", "03:00 PM",
+    "03:30 PM", "04:00 PM", "04:30 PM", "05:00 PM",
+    "05:30 PM", "06:00 PM", "06:30 PM", "07:00 PM", "07:30 PM"
+  ];
+  const [availableSlots, setAvailableSlots] = useState<string[]>(DEFAULT_SLOTS);
+  const [selectedSlot, setSelectedSlot] = useState("11:30 AM");
+  const [isBookingLoading, setIsBookingLoading] = useState(false);
+  const [bookedData, setBookedData] = useState<{
+    id: string;
+    appointmentDate: string;
+    timeSlot: string;
+    type: string;
+    status: string;
+  } | null>(null);
+
   const [file, setFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync query params (e.g. ?type=myopia)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("type") === "myopia" || window.location.pathname.includes("myopia")) {
+        setConsultationType("LENS_CONSULTATION");
+        setValues((v) => ({ ...v, note: v.note || "Pediatric Myopia Assessment & Optical Management" }));
+      }
+    }
+  }, []);
+
+  // Fetch available slots when appointment date changes
+  useEffect(() => {
+    if (kind === "book" && values.date) {
+      apiRequest<{ availableSlots: string[] }>(`/appointments/slots?date=${values.date}`).then((res) => {
+        if (res.success && res.data?.availableSlots?.length) {
+          setAvailableSlots(res.data.availableSlots);
+          if (res.data.availableSlots[0] && !res.data.availableSlots.includes(selectedSlot)) {
+            setSelectedSlot(res.data.availableSlots[0]);
+          }
+        }
+      });
+    }
+  }, [values.date, kind]);
 
   const clearFile = () => {
     if (filePreview) URL.revokeObjectURL(filePreview);
@@ -751,12 +801,52 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
       </span>
     ) : null;
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!validateBooking()) {
       toast.error("Please fill in all required fields.");
       return;
     }
+
+    if (kind === "book") {
+      setIsBookingLoading(true);
+      try {
+        const payload = {
+          name: values.name.trim(),
+          phone: values.phone.trim(),
+          patientAge: values.age ? Number(values.age) : undefined,
+          appointmentDate: values.date,
+          timeSlot: selectedSlot || "11:30 AM",
+          type: consultationType,
+          notes: values.note.trim() || undefined,
+        };
+
+        const res = await apiRequest<{
+          id: string;
+          appointmentDate: string;
+          timeSlot: string;
+          type: string;
+          status: string;
+        }>("/appointments", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+
+        if (res.success && res.data) {
+          setBookedData(res.data);
+          setSubmitted(true);
+          toast.success("Appointment slot reserved and recorded in clinic database!");
+        } else {
+          toast.error(res.message || "Failed to book appointment. Please try another slot.");
+        }
+      } catch {
+        toast.error("An error occurred while booking. Please try again.");
+      } finally {
+        setIsBookingLoading(false);
+      }
+      return;
+    }
+
     setSubmitted(true);
     toast.success("Consultation request recorded! We will confirm via WhatsApp.");
   };
@@ -774,31 +864,159 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
           {/* Main Form Area */}
           <div>
             {submitted ? (
-              <div className="rounded-2xl border border-primary/30 bg-primary/5 p-8 text-center sm:text-left">
-                <CheckCircle2 className="h-10 w-10 text-primary mx-auto sm:mx-0" />
-                <h2 className="mt-4 font-display text-2xl font-semibold">Consultation Request Prepared!</h2>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  Thank you, <strong>{values.name || "Customer"}</strong>. Your booking details have been prepared. Connect directly with our optometrist on WhatsApp for instant confirmation.
+              <div className="rounded-2xl border-2 border-emerald-500/30 bg-emerald-500/5 p-8 text-center sm:text-left space-y-5 animate-in fade-in-50 duration-200">
+                <div className="flex items-center gap-3">
+                  <div className="h-12 w-12 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                    <CheckCircle2 className="h-7 w-7" />
+                  </div>
+                  <div>
+                    <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-xs">
+                      Confirmed in Database
+                    </Badge>
+                    <h2 className="font-display text-2xl font-bold mt-0.5">Appointment Confirmed!</h2>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-border/70 bg-card p-5 space-y-3 text-sm">
+                  {bookedData?.id && (
+                    <div className="flex justify-between items-center pb-2 border-b border-border/50 text-xs">
+                      <span className="text-muted-foreground font-mono">Reference No.</span>
+                      <strong className="font-mono text-primary">{bookedData.id.slice(0, 8).toUpperCase()}</strong>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="text-muted-foreground block">Patient</span>
+                      <strong className="text-foreground">{values.name || "Customer"}</strong>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block">Mobile</span>
+                      <strong className="text-foreground">{values.phone}</strong>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block">Scheduled Date</span>
+                      <strong className="text-foreground flex items-center gap-1">
+                        <Calendar className="h-3 w-3 text-primary" /> {values.date || "Today"}
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block">Time Slot</span>
+                      <strong className="text-foreground flex items-center gap-1">
+                        <Clock className="h-3 w-3 text-primary" /> {selectedSlot}
+                      </strong>
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t border-border/50 text-xs">
+                    <span className="text-muted-foreground block">Consultation Type</span>
+                    <strong className="text-primary font-medium">
+                      {consultationType === "LENS_CONSULTATION"
+                        ? "Pediatric Myopia & Specialized Lens Consultation"
+                        : consultationType === "FRAME_CONSULTATION"
+                          ? "Bespoke Frame Styling & Fitting"
+                          : consultationType === "CONTACT_LENS_CONSULTATION"
+                            ? "Contact Lens Trial & Fitting"
+                            : "Comprehensive Computer-Assisted Eye Test"}
+                    </strong>
+                  </div>
+                </div>
+
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Your appointment has been securely recorded in our optical clinic schedule. Our optometrist at Uttam Nagar will have your slot reserved.
                 </p>
-                <div className="mt-6 flex flex-wrap gap-3">
+
+                <div className="flex flex-wrap gap-3 pt-2">
                   <Button asChild variant="hero" size="default">
                     <a
                       href={waLink(
-                        `Hi Nayantara Opticals, I have booked a slot for ${values.name} on ${values.date || "today"}. Please confirm.`
+                        `Hi Nayantara Opticals, I have booked slot ${selectedSlot} on ${values.date} for ${values.name} (Ref: ${bookedData?.id?.slice(0, 8).toUpperCase() || "NEW"}). Please confirm.`
                       )}
                       target="_blank"
                       rel="noreferrer"
                     >
-                      <MessageCircle className="mr-1.5 h-4 w-4" /> Confirm on WhatsApp
+                      <MessageCircle className="mr-1.5 h-4 w-4" /> Message on WhatsApp
                     </a>
                   </Button>
                   <Button variant="outline" size="default" onClick={() => setSubmitted(false)}>
-                    Edit Request
+                    Book Another Slot
                   </Button>
                 </div>
               </div>
             ) : (
-              <form noValidate onSubmit={handleSubmit} className="space-y-4 rounded-2xl border border-border bg-card p-6 sm:p-8 shadow-soft">
+              <form noValidate onSubmit={handleSubmit} className="space-y-5 rounded-2xl border border-border bg-card p-6 sm:p-8 shadow-soft">
+                
+                {/* Consultation Type Selector */}
+                {kind === "book" && (
+                  <div className="space-y-2">
+                    <span className="text-xs font-semibold text-foreground">Select Consultation Type <span className="text-xs text-primary">*</span></span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => setConsultationType("EYE_TEST")}
+                        className={`text-left p-3 rounded-xl border text-xs transition-all ${
+                          consultationType === "EYE_TEST"
+                            ? "border-primary bg-primary/10 ring-1 ring-primary font-medium"
+                            : "border-border hover:border-primary/40 bg-muted/20"
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 font-semibold text-foreground">
+                          <Stethoscope className="h-3.5 w-3.5 text-primary" /> Comprehensive Eye Test
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-1">Computer autorefraction & vision testing</p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setConsultationType("LENS_CONSULTATION")}
+                        className={`text-left p-3 rounded-xl border text-xs transition-all ${
+                          consultationType === "LENS_CONSULTATION"
+                            ? "border-primary bg-primary/10 ring-1 ring-primary font-medium"
+                            : "border-border hover:border-primary/40 bg-muted/20"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between font-semibold text-foreground">
+                          <span className="flex items-center gap-1.5">
+                            <HeartPulse className="h-3.5 w-3.5 text-primary" /> Myopia Care & Lenses
+                          </span>
+                          <span className="text-[9px] bg-primary/20 text-primary px-1.5 py-0.5 rounded-full font-bold">
+                            Child Care
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-1">Pediatric myopia & control lenses (HALT/DIMS)</p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setConsultationType("FRAME_CONSULTATION")}
+                        className={`text-left p-3 rounded-xl border text-xs transition-all ${
+                          consultationType === "FRAME_CONSULTATION"
+                            ? "border-primary bg-primary/10 ring-1 ring-primary font-medium"
+                            : "border-border hover:border-primary/40 bg-muted/20"
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 font-semibold text-foreground">
+                          <Glasses className="h-3.5 w-3.5 text-primary" /> Frame Styling & Fit
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-1">Face shape analysis & titanium/acetate frames</p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setConsultationType("CONTACT_LENS_CONSULTATION")}
+                        className={`text-left p-3 rounded-xl border text-xs transition-all ${
+                          consultationType === "CONTACT_LENS_CONSULTATION"
+                            ? "border-primary bg-primary/10 ring-1 ring-primary font-medium"
+                            : "border-border hover:border-primary/40 bg-muted/20"
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 font-semibold text-foreground">
+                          <Eye className="h-3.5 w-3.5 text-primary" /> Contact Lens Trial
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-1">Trial lenses, corneal fitting & hygiene advice</p>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid gap-4 sm:grid-cols-2">
                   <label className="grid gap-1.5 text-sm font-medium">
                     <span>Full Name <span className="text-xs text-primary">*</span></span>
@@ -825,30 +1043,59 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
                 </div>
 
                 {kind === "book" ? (
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <label className="grid gap-1.5 text-sm font-medium">
-                      <span>Patient Age <span className="text-xs text-primary">*</span></span>
-                      <Input
-                        value={values.age}
-                        onChange={(e) => set("age", e.target.value)}
-                        type="number"
-                        placeholder="Age in years"
-                        min={1}
-                        max={120}
-                      />
-                      {fieldError("age")}
-                    </label>
+                  <>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <label className="grid gap-1.5 text-sm font-medium">
+                        <span>Patient Age <span className="text-xs text-primary">*</span></span>
+                        <Input
+                          value={values.age}
+                          onChange={(e) => set("age", e.target.value)}
+                          type="number"
+                          placeholder="Age in years"
+                          min={1}
+                          max={120}
+                        />
+                        {fieldError("age")}
+                      </label>
 
-                    <label className="grid gap-1.5 text-sm font-medium">
-                      <span>Preferred Appointment Date <span className="text-xs text-primary">*</span></span>
-                      <Input
-                        value={values.date}
-                        onChange={(e) => set("date", e.target.value)}
-                        type="date"
-                      />
-                      {fieldError("date")}
-                    </label>
-                  </div>
+                      <label className="grid gap-1.5 text-sm font-medium">
+                        <span>Preferred Appointment Date <span className="text-xs text-primary">*</span></span>
+                        <Input
+                          value={values.date}
+                          onChange={(e) => set("date", e.target.value)}
+                          type="date"
+                          min={new Date().toISOString().split("T")[0]}
+                        />
+                        {fieldError("date")}
+                      </label>
+                    </div>
+
+                    {/* Interactive Slot Picker */}
+                    <div className="space-y-2 pt-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                          <Clock className="h-3.5 w-3.5 text-primary" /> Choose Time Slot <span className="text-xs text-primary">*</span>
+                        </span>
+                        <span className="text-[11px] text-muted-foreground">30-minute dedicated consultation</span>
+                      </div>
+                      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                        {availableSlots.map((slot) => (
+                          <button
+                            key={slot}
+                            type="button"
+                            onClick={() => setSelectedSlot(slot)}
+                            className={`py-2 px-1 text-center rounded-lg text-xs transition-all border ${
+                              selectedSlot === slot
+                                ? "bg-primary text-primary-foreground border-primary font-bold shadow-sm"
+                                : "bg-muted/30 border-border hover:border-primary/40 text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            {slot}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </>
                 ) : null}
 
                 {kind === "prescription" ? (
@@ -902,8 +1149,14 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
                   />
                 </label>
 
-                <Button type="submit" variant="hero" size="lg" className="w-full shadow-gold">
-                  {copy.button}
+                <Button type="submit" variant="hero" size="lg" className="w-full shadow-gold" disabled={isBookingLoading}>
+                  {isBookingLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Reserving Slot in Clinic Database...
+                    </>
+                  ) : (
+                    copy.button
+                  )}
                 </Button>
               </form>
             )}

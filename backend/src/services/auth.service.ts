@@ -12,7 +12,7 @@ import { devStore } from "../utils/devStore.js";
 // In-memory dev OTP store for testing when DB is offline
 const devOtpStore = new Map<string, { otp: string; expiresAt: Date; attempts: number }>();
 
-function withDbTimeout<T>(promise: Promise<T>, ms = 1000): Promise<T> {
+function withDbTimeout<T>(promise: Promise<T>, ms = 10000): Promise<T> {
   return Promise.race([
     promise,
     new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Database connection timeout")), ms)),

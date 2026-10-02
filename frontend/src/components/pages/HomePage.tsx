@@ -110,7 +110,7 @@ export function HomePage() {
         <div className="relative mx-auto flex w-full max-w-7xl items-center px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
           <div className="animate-rise max-w-2xl">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-foreground/15 bg-background/60 px-3 py-1 text-[10.5px] font-semibold tracking-[0.16em] text-primary uppercase backdrop-blur-sm">
-              <Sparkles className="h-3 w-3" aria-hidden="true" /> Independent since 1990
+              <Sparkles className="h-3 w-3" aria-hidden="true" /> Independent Optical Boutique since 1990
             </span>
             <h1 className="mt-4 text-3xl leading-[1.04] font-semibold sm:text-5xl lg:text-6xl">
               See Life in

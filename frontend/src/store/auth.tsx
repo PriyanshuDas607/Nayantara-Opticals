@@ -11,6 +11,25 @@ import { apiRequest } from "@/lib/api";
 
 export type UserRole = "SUPER_ADMIN" | "OWNER" | "CUSTOMER";
 
+export interface SavedAddress {
+  id: string;
+  userId?: string;
+  fullName: string;
+  phone: string;
+  alternatePhone?: string;
+  addressLine1: string;
+  addressLine2?: string;
+  landmark?: string;
+  city: string;
+  state: string;
+  pincode: string;
+  country?: string;
+  type: "HOME" | "WORK" | "OTHER";
+  isDefault: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface UserProfile {
   id: string;
   email: string | null;
@@ -19,7 +38,10 @@ export interface UserProfile {
   avatarUrl?: string | null;
   customerProfile?: {
     fullName: string;
+    gender?: "MALE" | "FEMALE" | "OTHER" | "PREFER_NOT_TO_SAY" | null;
+    dateOfBirth?: string | null;
     whatsappOptIn?: boolean;
+    marketingOptIn?: boolean;
   };
   ownerProfile?: {
     fullName: string;
@@ -29,6 +51,7 @@ export interface UserProfile {
       name: string;
     };
   };
+  addresses?: SavedAddress[];
 }
 
 interface AuthContextType {

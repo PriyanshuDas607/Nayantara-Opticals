@@ -1,10 +1,33 @@
 import { Role as AppRole } from "../constants/index.js";
 import { CryptoUtil } from "./crypto.js";
 
+export interface DevAddress {
+  id: string;
+  userId: string;
+  fullName: string;
+  phone: string;
+  alternatePhone?: string;
+  addressLine1: string;
+  addressLine2: string;
+  landmark?: string;
+  city: string;
+  state: string;
+  pincode: string;
+  country: string;
+  type: "HOME" | "WORK" | "OTHER";
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface DevUser {
   id: string;
   email: string;
   phone?: string;
+  alternatePhone?: string;
+  gender?: "MALE" | "FEMALE" | "OTHER" | "PREFER_NOT_TO_SAY";
+  dateOfBirth?: string;
+  whatsappOptIn?: boolean;
   passwordHash: string;
   plainPassword?: string; // For rapid dev fallback verification
   role: AppRole;
@@ -419,6 +442,100 @@ class DevDataStore {
     return newOrder;
   }
 
+  public addresses: DevAddress[] = [
+    {
+      id: "addr-01",
+      userId: "user-customer-01",
+      fullName: "Aarav Sharma",
+      phone: "+919876543212",
+      alternatePhone: "+919811223344",
+      addressLine1: "Flat 402, Block C, Royal Palm Apartments",
+      addressLine2: "Sector 14, Dwarka",
+      landmark: "Opposite Metro Pillar 703",
+      city: "New Delhi",
+      state: "Delhi",
+      pincode: "110078",
+      country: "India",
+      type: "HOME",
+      isDefault: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+  ];
+
+  updateUserProfile(userId: string, updates: Partial<DevUser>): DevUser | null {
+    const idx = this.users.findIndex((u) => u.id === userId);
+    if (idx === -1) return null;
+    this.users[idx] = { ...this.users[idx], ...updates };
+    return this.users[idx];
+  }
+
+  getAddresses(userId: string): DevAddress[] {
+    return this.addresses.filter((a) => a.userId === userId);
+  }
+
+  addAddress(address: Omit<DevAddress, "id" | "createdAt" | "updatedAt">): DevAddress {
+    if (address.isDefault) {
+      this.addresses.forEach((a) => {
+        if (a.userId === address.userId) a.isDefault = false;
+      });
+    } else {
+      // If first address for user, make it default
+      const existing = this.addresses.filter((a) => a.userId === address.userId);
+      if (existing.length === 0) {
+        address.isDefault = true;
+      }
+    }
+
+    const newAddr: DevAddress = {
+      ...address,
+      id: `addr-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    this.addresses.push(newAddr);
+    return newAddr;
+  }
+
+  updateAddress(id: string, userId: string, updates: Partial<DevAddress>): DevAddress | null {
+    const idx = this.addresses.findIndex((a) => a.id === id && a.userId === userId);
+    if (idx === -1) return null;
+
+    if (updates.isDefault) {
+      this.addresses.forEach((a) => {
+        if (a.userId === userId) a.isDefault = false;
+      });
+    }
+
+    this.addresses[idx] = {
+      ...this.addresses[idx],
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
+    return this.addresses[idx];
+  }
+
+  deleteAddress(id: string, userId: string): boolean {
+    const initialLen = this.addresses.length;
+    this.addresses = this.addresses.filter((a) => !(a.id === id && a.userId === userId));
+    return this.addresses.length < initialLen;
+  }
+
+  setDefaultAddress(id: string, userId: string): boolean {
+    let found = false;
+    this.addresses.forEach((a) => {
+      if (a.userId === userId) {
+        if (a.id === id) {
+          a.isDefault = true;
+          found = true;
+        } else {
+          a.isDefault = false;
+        }
+      }
+    });
+    return found;
+  }
+
   updateOrderStatus(id: string, status: string, paymentStatus?: string) {
     const order = this.orders.find((o) => o.id === id || o.orderNumber === id);
     if (!order) return null;
@@ -433,3 +550,4 @@ class DevDataStore {
 }
 
 export const devStore = new DevDataStore();
+

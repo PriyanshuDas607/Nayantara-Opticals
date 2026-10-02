@@ -10,6 +10,7 @@ import adminRoutes from "./admin.routes.js";
 import analyticsRoutes from "./analytics.routes.js";
 import virtualTryOnRoutes from "./virtual-try-on.routes.js";
 import webhookRoutes from "./webhook.routes.js";
+import chatRoutes from "./chat.routes.js";
 import { config } from "../config/index.js";
 
 const apiRouter = Router();
@@ -37,5 +38,6 @@ apiRouter.use("/admin", adminRoutes);
 apiRouter.use("/analytics", analyticsRoutes);
 apiRouter.use("/virtual-try-on", virtualTryOnRoutes);
 apiRouter.use("/webhooks", webhookRoutes);
+apiRouter.use("/chat", chatRoutes);
 
 export default apiRouter;

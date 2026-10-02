@@ -31,14 +31,21 @@ export const createProductSchema = z.object({
 
 export const bookAppointmentSchema = z.object({
   storeId: z.string().uuid().optional(),
-  type: z.enum([
-    "EYE_TEST",
-    "FRAME_CONSULTATION",
-    "LENS_CONSULTATION",
-    "PRESCRIPTION_CONSULTATION",
-    "CONTACT_LENS_CONSULTATION",
-    "OTHER",
-  ]),
+  name: z.string().optional(),
+  phone: z.string().optional(),
+  email: z.string().email().optional(),
+  patientAge: z.union([z.number(), z.string()]).optional(),
+  type: z
+    .enum([
+      "EYE_TEST",
+      "FRAME_CONSULTATION",
+      "LENS_CONSULTATION",
+      "PRESCRIPTION_CONSULTATION",
+      "CONTACT_LENS_CONSULTATION",
+      "OTHER",
+    ])
+    .optional()
+    .default("EYE_TEST"),
   appointmentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
   timeSlot: z.string().min(3, "Time slot is required (e.g. 10:30 AM)"),
   notes: z.string().optional(),

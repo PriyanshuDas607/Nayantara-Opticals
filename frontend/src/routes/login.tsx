@@ -20,6 +20,13 @@ import { useAuth } from "@/store/auth";
 import { apiRequest } from "@/lib/api";
 
 export const Route = createFileRoute("/login")({
+  staticData: { sitemap: false },
+  head: () => ({
+    meta: [
+      { title: "Sign In — Nayantara Opticals" },
+      { name: "description", content: "Sign in to your Nayantara Opticals account." },
+    ],
+  }),
   component: LoginPage,
 });
 

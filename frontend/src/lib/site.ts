@@ -8,6 +8,7 @@ export const SITE = {
   // TODO: replace with the shop's real WhatsApp link (https://wa.me/<number>)
   whatsappUrl: "https://wa.me/?text=Hi%20Nayantara%20Opticals%2C%20I%27d%20like%20some%20help",
   // TODO: replace with the shop's real phone number
+  phone: "+919876543210",
   phoneLabel: "Call the store",
   directionsUrl:
     "https://www.google.com/maps/search/?api=1&query=Nayantara+Opticals+Om+Vihar+Uttam+Nagar+New+Delhi",
