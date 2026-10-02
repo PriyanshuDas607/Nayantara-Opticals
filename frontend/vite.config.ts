@@ -6,7 +6,10 @@ import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
   plugins: [
-    tanstackStart({ server: { entry: "server" } }),
+    tanstackStart({
+      server: { entry: "server" },
+      prerender: { enabled: true },
+    }),
     viteReact(),
     tailwindcss(),
     tsconfigPaths(),
