@@ -12,12 +12,17 @@ import {
   forgotPasswordRequestSchema,
   resetPasswordSchema,
   refreshTokenSchema,
+  googleAuthSchema,
 } from "../validation/auth.schema.js";
 
 const router = Router();
 
 router.post("/register", authRateLimiter, validate(registerSchema), AuthController.register);
 router.post("/login", authRateLimiter, validate(loginSchema), AuthController.login);
+router.get("/google", AuthController.redirectToGoogle);
+router.get("/google/callback", AuthController.googleCallback);
+router.get("/google/config", AuthController.getGoogleConfig);
+router.post("/google", authRateLimiter, validate(googleAuthSchema), AuthController.googleAuth);
 router.post("/2fa/verify", authRateLimiter, validate(twoFactorVerifySchema), AuthController.verify2FA);
 router.post("/phone-otp/request", otpRateLimiter, validate(phoneOtpRequestSchema), AuthController.requestPhoneOtp);
 router.post("/phone-otp/verify", validate(phoneOtpVerifySchema), AuthController.verifyPhoneOtp);

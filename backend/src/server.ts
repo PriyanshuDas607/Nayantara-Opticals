@@ -3,6 +3,7 @@ import { createApp } from "./app.js";
 import { config } from "./config/index.js";
 import { Logger } from "./utils/logger.js";
 import { prisma } from "./utils/prisma.js";
+import { startKeepAliveCron } from "./utils/keepAlive.js";
 
 const app = createApp();
 
@@ -11,6 +12,9 @@ const server = app.listen(config.port, () => {
   Logger.info(`📡 Environment: ${config.nodeEnv}`);
   Logger.info(`🩺 Health Check: http://localhost:${config.port}/api/v1/health`);
   Logger.info(`📚 Swagger Documentation: http://localhost:${config.port}/docs`);
+
+  // Start 14-minute cron job to keep backend & database awake on Render
+  startKeepAliveCron();
 });
 
 // Graceful Shutdown

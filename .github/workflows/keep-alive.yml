@@ -1,0 +1,24 @@
+name: 14-Minute Backend & Database Keep-Alive
+
+on:
+  schedule:
+    # Runs every 14 minutes to prevent Render free instance from sleeping (15 min idle timeout)
+    - cron: '*/14 * * * *'
+  workflow_dispatch: # Allows manual trigger from GitHub Actions tab
+
+jobs:
+  ping-backend:
+    name: Ping Nayantara Opticals Backend & DB
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Backend Health Endpoint
+        run: |
+          echo "Pinging Nayantara Opticals Backend on Render..."
+          BACKEND_URL="${{ secrets.BACKEND_URL || 'https://nayantara-backend.onrender.com' }}"
+          STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$BACKEND_URL/api/v1/health" || true)
+          echo "Received HTTP status: $STATUS_CODE"
+          if [ "$STATUS_CODE" -eq 200 ]; then
+            echo "✅ Backend and Database are active and responsive!"
+          else
+            echo "⚠️ Non-200 response or waking up: $STATUS_CODE"
+          fi

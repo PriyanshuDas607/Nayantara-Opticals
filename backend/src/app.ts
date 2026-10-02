@@ -59,8 +59,9 @@ export const createApp = (): Application => {
     res.send(swaggerSpec);
   });
 
-  // Master API Route
+  // Master API Routes (supporting both /api/v1 and /api to match Google Console redirect URI)
   app.use("/api/v1", apiRouter);
+  app.use("/api", apiRouter);
 
   // 404 & Global Centralized Error Handlers
   app.use(notFoundHandler);

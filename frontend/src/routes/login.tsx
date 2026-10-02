@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import {
   Lock,
@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/store/auth";
 import { apiRequest } from "@/lib/api";
+import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
 
 export const Route = createFileRoute("/login")({
   staticData: { sitemap: false },
@@ -60,6 +61,57 @@ export function LoginPage() {
   const [twoFactorToken, setTwoFactorToken] = useState("");
   const [twoFactorCode, setTwoFactorCode] = useState("");
   const [verifying2FA, setVerifying2FA] = useState(false);
+
+  // Handle Google OAuth 2.0 Redirect from Backend
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const googleAuthStatus = params.get("google_auth");
+    const googleToken = params.get("token");
+    const error = params.get("error");
+
+    if (error) {
+      toast.error(decodeURIComponent(error));
+      window.history.replaceState({}, document.title, window.location.pathname);
+      return;
+    }
+
+    if (googleAuthStatus === "success" && googleToken) {
+      const userParam = params.get("user");
+      const refreshToken = params.get("refreshToken") || undefined;
+      let parsedUser = null;
+      if (userParam) {
+        try {
+          parsedUser = JSON.parse(decodeURIComponent(userParam));
+        } catch {
+          // Fallback to fetch below
+        }
+      }
+
+      if (parsedUser) {
+        login(googleToken, parsedUser, refreshToken);
+        toast.success(
+          `Welcome to Nayantara Opticals, ${
+            parsedUser.customerProfile?.fullName || parsedUser.fullName || "Valued Customer"
+          }!`
+        );
+        window.history.replaceState({}, document.title, window.location.pathname);
+        navigate({ to: "/account" });
+      } else {
+        // Fetch full profile from API
+        apiRequest<{ data: import("@/store/auth").UserProfile }>("/auth/me", {
+          token: googleToken,
+        }).then((res) => {
+          if (res.success && res.data) {
+            login(googleToken, res.data as any, refreshToken);
+            toast.success("Signed in with Google successfully!");
+            window.history.replaceState({}, document.title, window.location.pathname);
+            navigate({ to: "/account" });
+          }
+        });
+      }
+    }
+  }, [login, navigate]);
 
   // Redirect if already logged in
   if (isAuthenticated && user) {
@@ -365,6 +417,24 @@ export function LoginPage() {
 
             {/* Clean Form Container */}
             <div className="surface-glass mt-6 rounded-2xl p-6 sm:p-8 shadow-lift">
+              {/* Google Authentication */}
+              <div className="space-y-4 mb-6">
+                <GoogleAuthButton
+                  label={
+                    activeTab === "register"
+                      ? "Sign up with Google"
+                      : "Continue with Google"
+                  }
+                />
+
+                <div className="relative flex items-center justify-center">
+                  <div className="w-full border-t border-border/60" />
+                  <span className="relative bg-card px-2.5 text-[11px] uppercase tracking-wider text-muted-foreground font-medium">
+                    or continue with {activeTab === "phone-otp" ? "phone OTP" : activeTab === "register" ? "email" : "password"}
+                  </span>
+                </div>
+              </div>
+
               {/* TAB 1: Unified Sign In Form */}
               {activeTab === "signin" ? (
                 <form onSubmit={handleUnifiedLogin} className="space-y-4">

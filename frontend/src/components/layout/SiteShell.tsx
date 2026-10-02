@@ -168,8 +168,16 @@ export function SiteShell({ children }: { children: ReactNode }) {
               className="relative"
             >
               <Link to={isAuthenticated ? "/account" : "/login"} aria-label="Account">
-                <UserIcon className="h-5 w-5" />
-                {isAuthenticated ? (
+                {isAuthenticated && user?.avatarUrl ? (
+                  <img
+                    src={user.avatarUrl}
+                    alt={user.customerProfile?.fullName || "Account"}
+                    className="h-6 w-6 rounded-full object-cover border border-primary/40 ring-1 ring-primary/20"
+                  />
+                ) : (
+                  <UserIcon className="h-5 w-5" />
+                )}
+                {isAuthenticated && !user?.avatarUrl ? (
                   <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary" />
                 ) : null}
               </Link>

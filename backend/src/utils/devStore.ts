@@ -28,12 +28,13 @@ export interface DevUser {
   gender?: "MALE" | "FEMALE" | "OTHER" | "PREFER_NOT_TO_SAY";
   dateOfBirth?: string;
   whatsappOptIn?: boolean;
-  passwordHash: string;
+  passwordHash?: string;
   plainPassword?: string; // For rapid dev fallback verification
   role: AppRole;
   fullName: string;
   storeId?: string;
   status?: "ACTIVE" | "INACTIVE" | "SUSPENDED";
+  avatarUrl?: string;
   createdAt: string;
 }
 
@@ -324,6 +325,7 @@ class DevDataStore {
       fullName: user.fullName,
       storeId: user.storeId,
       status: user.status || "ACTIVE",
+      avatarUrl: user.avatarUrl,
       createdAt: new Date().toISOString(),
     };
     this.users.push(newUser);

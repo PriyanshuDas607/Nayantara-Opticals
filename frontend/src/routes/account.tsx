@@ -417,9 +417,17 @@ export function AccountPage() {
             
             {/* User Profile Mini Header */}
             <div className="surface-glass rounded-2xl p-5 shadow-soft border border-border/80 flex items-center gap-4">
-              <div className="h-14 w-14 rounded-full bg-gradient-to-tr from-primary to-primary/60 grid place-items-center text-white text-xl font-bold font-display shadow-md flex-shrink-0">
-                {(fullName || user.email || "U").charAt(0).toUpperCase()}
-              </div>
+              {user.avatarUrl ? (
+                <img
+                  src={user.avatarUrl}
+                  alt={fullName || "User Avatar"}
+                  className="h-14 w-14 rounded-full object-cover border-2 border-primary/40 shadow-md flex-shrink-0"
+                />
+              ) : (
+                <div className="h-14 w-14 rounded-full bg-gradient-to-tr from-primary to-primary/60 grid place-items-center text-white text-xl font-bold font-display shadow-md flex-shrink-0">
+                  {(fullName || user.email || "U").charAt(0).toUpperCase()}
+                </div>
+              )}
               <div className="min-w-0">
                 <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
                   Hello,

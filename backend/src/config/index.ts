@@ -25,8 +25,11 @@ export const config = {
   databaseUrl: process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/nayantara_opticals?schema=public",
   redisUrl: process.env.REDIS_URL || "redis://localhost:6379",
 
-  // Google Gemini AI
+  // Google Gemini AI & OAuth
   geminiApiKey: process.env.GEMINI_API_KEY || "",
+  googleClientId: process.env.GOOGLE_CLIENT_ID || "",
+  googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+  googleRedirectUri: process.env.GOOGLE_REDIRECT_URI || "http://localhost:5000/api/auth/google/callback",
 
   // Authentication
   jwt: {

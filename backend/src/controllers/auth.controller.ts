@@ -4,6 +4,8 @@ import { TokenService } from "../services/token.service.js";
 import { prisma } from "../utils/prisma.js";
 import { devStore } from "../utils/devStore.js";
 import { Role } from "../constants/index.js";
+import { config } from "../config/index.js";
+import { Logger } from "../utils/logger.js";
 
 export class AuthController {
   static async register(req: Request, res: Response, next: NextFunction) {
@@ -593,5 +595,154 @@ export class AuthController {
       next(error);
     }
   }
+
+  static async getGoogleConfig(req: Request, res: Response, next: NextFunction) {
+    try {
+      res.json({
+        success: true,
+        data: {
+          clientId: config.googleClientId || process.env.GOOGLE_CLIENT_ID || "",
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async googleAuth(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await AuthService.googleAuth({
+        ...req.body,
+        ipAddress: req.ip,
+        userAgent: req.headers["user-agent"],
+      });
+
+      if (result.tokens?.refreshToken) {
+        res.cookie("refreshToken", result.tokens.refreshToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          maxAge: 7 * 24 * 60 * 60 * 1000,
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "Google sign-in successful.",
+        data: result,
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        message: error.message || "Google authentication failed. Please try again.",
+      });
+    }
+  }
+
+  static async redirectToGoogle(req: Request, res: Response) {
+    const redirectUri = config.googleRedirectUri;
+    const clientId = config.googleClientId;
+    const state = req.query.redirectTo ? String(req.query.redirectTo) : "/";
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      response_type: "code",
+      scope: "openid email profile",
+      access_type: "offline",
+      prompt: "select_account",
+      state,
+    });
+    res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`);
+  }
+
+  static async googleCallback(req: Request, res: Response, next: NextFunction) {
+    try {
+      const code = req.query.code as string;
+      const error = req.query.error as string;
+      const clientOrigin = "http://localhost:5173";
+
+      if (error || !code) {
+        Logger.warn(`Google OAuth callback error or cancel: ${error || "missing code"}`);
+        res.redirect(`${clientOrigin}/login?error=${encodeURIComponent(error || "Google login cancelled")}`);
+        return;
+      }
+
+      // Exchange authorization code for tokens with Google using Google OAuth token endpoint
+      const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          code,
+          client_id: config.googleClientId,
+          client_secret: config.googleClientSecret,
+          redirect_uri: config.googleRedirectUri,
+          grant_type: "authorization_code",
+        }),
+      });
+
+      if (!tokenRes.ok) {
+        const tokenErr = await tokenRes.text();
+        Logger.error(`Google token exchange error: ${tokenErr}`);
+        res.redirect(`${clientOrigin}/login?error=Failed to exchange Google authorization token`);
+        return;
+      }
+
+      const tokenData = (await tokenRes.json()) as any;
+      const accessToken = tokenData.access_token;
+      const idToken = tokenData.id_token;
+
+      // Retrieve user profile directly from Google
+      let profile: any = {};
+      if (accessToken) {
+        const userinfoRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (userinfoRes.ok) {
+          profile = await userinfoRes.json();
+        }
+      }
+
+      const authResult = await AuthService.googleAuth({
+        credential: idToken,
+        accessToken,
+        profile: {
+          email: profile.email,
+          name: profile.name,
+          picture: profile.picture,
+          sub: profile.sub,
+        },
+        ipAddress: req.ip,
+        userAgent: req.headers["user-agent"],
+      });
+
+      // Set HttpOnly refresh token cookie
+      if (authResult.tokens?.refreshToken) {
+        res.cookie("refreshToken", authResult.tokens.refreshToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          maxAge: 7 * 24 * 60 * 60 * 1000,
+        });
+      }
+
+      // Redirect user to frontend with token & user info
+      const redirectUrl = new URL(`${clientOrigin}/login`);
+      redirectUrl.searchParams.set("google_auth", "success");
+      redirectUrl.searchParams.set("token", authResult.tokens.accessToken);
+      if (authResult.tokens?.refreshToken) {
+        redirectUrl.searchParams.set("refreshToken", authResult.tokens.refreshToken);
+      }
+      redirectUrl.searchParams.set("user", JSON.stringify(authResult.user));
+
+      res.redirect(redirectUrl.toString());
+    } catch (err: any) {
+      Logger.error(`Google callback exception: ${err?.message}`);
+      const clientOrigin = "http://localhost:5173";
+      res.redirect(
+        `${clientOrigin}/login?error=${encodeURIComponent(err?.message || "Google sign-in failed")}`
+      );
+    }
+  }
 }
+
 

@@ -42,3 +42,17 @@ export const resetPasswordSchema = z.object({
 export const refreshTokenSchema = z.object({
   refreshToken: z.string().min(1, "Refresh token is required"),
 });
+
+export const googleAuthSchema = z.object({
+  credential: z.string().optional(),
+  idToken: z.string().optional(),
+  accessToken: z.string().optional(),
+  profile: z
+    .object({
+      email: z.string().email("Invalid email address"),
+      name: z.string().optional(),
+      picture: z.string().optional(),
+      sub: z.string().optional(),
+    })
+    .optional(),
+});
