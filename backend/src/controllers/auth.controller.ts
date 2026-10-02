@@ -659,7 +659,7 @@ export class AuthController {
     try {
       const code = req.query.code as string;
       const error = req.query.error as string;
-      const clientOrigin = "http://localhost:5173";
+      const clientOrigin = config.clientUrl || "http://localhost:5173";
 
       if (error || !code) {
         Logger.warn(`Google OAuth callback error or cancel: ${error || "missing code"}`);
@@ -737,7 +737,7 @@ export class AuthController {
       res.redirect(redirectUrl.toString());
     } catch (err: any) {
       Logger.error(`Google callback exception: ${err?.message}`);
-      const clientOrigin = "http://localhost:5173";
+      const clientOrigin = config.clientUrl || "http://localhost:5173";
       res.redirect(
         `${clientOrigin}/login?error=${encodeURIComponent(err?.message || "Google sign-in failed")}`
       );

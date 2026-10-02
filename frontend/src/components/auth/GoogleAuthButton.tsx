@@ -86,8 +86,12 @@ export function GoogleAuthButton({
 
   const handleGoogleSignIn = () => {
     setLoading(true);
-    // Real Google OAuth 2.0 flow configured with user's Google Console redirect URI
-    window.location.href = "http://localhost:5000/api/auth/google";
+    // Real Google OAuth 2.0 flow configured with dynamic backend URL
+    const backendUrl =
+      (import.meta.env as Record<string, string | undefined>)["VITE_BACKEND_URL"] ||
+      (import.meta.env as Record<string, string | undefined>)["VITE_API_URL"]?.replace(/\/api\/v1\/?$/, "") ||
+      "http://localhost:5000";
+    window.location.href = `${backendUrl}/api/auth/google`;
   };
 
   return (

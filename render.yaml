@@ -12,7 +12,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: CLIENT_URL
-        value: https://nayantaraopticals.com
+        value: https://nayantara-opticals.vercel.app
       - key: DATABASE_URL
         sync: false
       - key: DIRECT_URL
@@ -21,6 +21,8 @@ services:
         generateValue: true
       - key: JWT_REFRESH_SECRET
         generateValue: true
+      - key: GEMINI_API_KEY
+        sync: false
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET
