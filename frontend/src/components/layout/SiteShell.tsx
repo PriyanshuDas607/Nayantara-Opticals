@@ -1,6 +1,6 @@
 import { useState, useEffect, type ReactNode } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
-import { Heart, MapPin, Menu, MessageCircle, ShoppingBag, X, User as UserIcon, ShieldCheck } from "lucide-react";
+import { Heart, MapPin, Menu, MessageCircle, ShoppingBag, X, User as UserIcon, ShieldCheck, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CartDrawer } from "@/components/shop/CartDrawer";
 import { SITE, waLink } from "@/lib/site";
@@ -183,40 +183,40 @@ export function SiteShell({ children }: { children: ReactNode }) {
               </Link>
             </Button>
 
-            {/* Saved Frames & Cart Bag only visible when logged in */}
-            {isAuthenticated ? (
-              <>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  asChild
-                  className="hidden sm:inline-flex"
-                  title="Saved frames"
-                >
-                  <Link to="/shop" aria-label={`${wishlist.length} saved frames`}>
-                    <Heart aria-hidden="true" />
-                  </Link>
-                </Button>
+            {/* Wishlist Button (Tablet & Desktop) */}
+            <Button
+              variant="ghost"
+              size="icon"
+              asChild
+              className="hidden sm:inline-flex"
+              title="Saved frames"
+            >
+              <Link to="/shop" aria-label={`${wishlist.length} saved frames`}>
+                <Heart aria-hidden="true" className={wishlist.length > 0 ? "fill-destructive text-destructive" : ""} />
+              </Link>
+            </Button>
 
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setCartOpen(true)}
-                  className="relative"
-                  aria-label={`Open bag, ${cartCount} items`}
-                >
-                  <ShoppingBag aria-hidden="true" />
-                  {cartCount > 0 ? (
-                    <span className="absolute -top-0.5 -right-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[9px] text-primary-foreground">
-                      {cartCount}
-                    </span>
-                  ) : null}
-                </Button>
-              </>
-            ) : null}
+            {/* Cart Bag Button (Always accessible to all mobile and desktop shoppers) */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setCartOpen(true)}
+              className="relative"
+              aria-label={`Open bag, ${cartCount} items`}
+            >
+              <ShoppingBag aria-hidden="true" />
+              {cartCount > 0 ? (
+                <span className="absolute -top-0.5 -right-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground animate-in zoom-in-50">
+                  {cartCount}
+                </span>
+              ) : null}
+            </Button>
+
             <Button variant="hero" size="pill" asChild className="hidden md:inline-flex">
               <Link to="/book">Book an eye check</Link>
             </Button>
+
+            {/* Mobile Hamburger Toggle */}
             <Button
               variant="ghost"
               size="icon"
@@ -229,10 +229,12 @@ export function SiteShell({ children }: { children: ReactNode }) {
             </Button>
           </div>
         </div>
+
+        {/* Mobile Navigation Drawer */}
         {menuOpen ? (
           <nav
             aria-label="Mobile navigation"
-            className="border-t border-border/70 bg-card px-4 py-4 lg:hidden"
+            className="border-t border-border/70 bg-card/95 backdrop-blur-xl px-4 py-4 lg:hidden animate-in fade-in-50 duration-200"
           >
             <div className="mx-auto grid max-w-7xl gap-1">
               {NAV.map(([label, to]) => (
@@ -240,18 +242,44 @@ export function SiteShell({ children }: { children: ReactNode }) {
                   key={to}
                   to={to}
                   onClick={() => setMenuOpen(false)}
-                  className="rounded-md px-3 py-3 text-sm hover:bg-muted"
+                  className="flex items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium hover:bg-muted active:bg-muted/80 transition-colors"
                 >
-                  {label}
+                  <span>{label}</span>
+                  <span className="text-xs text-muted-foreground">→</span>
                 </Link>
               ))}
-              <Link
-                to="/book"
-                onClick={() => setMenuOpen(false)}
-                className="mt-2 rounded-md bg-primary px-3 py-3 text-center text-sm font-medium text-primary-foreground"
-              >
-                Book an eye check
-              </Link>
+
+              <div className="my-2 border-t border-border/60 pt-2 grid gap-2">
+                <Link
+                  to="/book"
+                  onClick={() => setMenuOpen(false)}
+                  className="rounded-xl bg-primary px-4 py-3 text-center text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 transition-all flex items-center justify-center gap-2"
+                >
+                  Book an eye checkup
+                </Link>
+
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <a
+                    href="tel:+919876543210"
+                    className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs font-medium text-foreground hover:bg-muted transition-colors"
+                  >
+                    <Phone className="h-3.5 w-3.5 text-primary" /> Call Store
+                  </a>
+                  <a
+                    href={waLink("Hello Nayantara Opticals, I want to inquire about eyewear.")}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+                  >
+                    <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+                  </a>
+                </div>
+
+                <div className="mt-2 rounded-lg bg-muted/40 p-2.5 text-[11px] text-muted-foreground flex items-start gap-2">
+                  <MapPin className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+                  <span>Opp. Metro Pillar 703, Uttam Nagar · Open Mon-Sat 10AM-8:30PM</span>
+                </div>
+              </div>
             </div>
           </nav>
         ) : null}

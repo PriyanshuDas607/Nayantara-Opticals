@@ -209,7 +209,7 @@ export function HomePage() {
               }
             />
           </Reveal>
-          <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-7 grid grid-cols-2 gap-3 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {trending.map((product, index) => (
               <Reveal key={product.id} delay={index * 60}>
                 <ProductCard product={product} onQuickView={openProduct} />

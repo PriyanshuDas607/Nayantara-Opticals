@@ -42,20 +42,20 @@ const INITIAL_MESSAGES: ChatMessage[] = [
   {
     id: "m-welcome-1",
     sender: "bot",
-    text: "Namaste! 🙏 I'm **Tara**, your Optical & Eyecare Advisor at **Nayantara Opticals**.",
+    text: "Arre hello! Namaste! 👋 Main hoon **Tara** — aapki personal eyewear stylist aur optical buddy at **Nayantara Opticals**! 👓✨",
     timestamp: "Just now",
   },
   {
     id: "m-welcome-2",
     sender: "bot",
-    text: "How can I assist you today? You can ask me about **frame selection for your face**, **progressive or blue-cut lenses**, **pediatric myopia management**, or **booking an eye test** in Uttam Nagar!",
+    text: "Batao yaar, aaj kya plan hai? Naya stylish frame dekhna hai, screen strain / headaches se bachna hai, ya hamare Uttam Nagar clinic me **Free Computer Eye Test** book karna hai? Main hoon na, batao!",
     timestamp: "Just now",
     actions: [
-      { label: "👶 Myopia Control for Kids", href: "/myopia-management" },
-      { label: "👓 Frames by Face Shape", href: "/shop" },
-      { label: "🔍 Progressive vs Bifocal Lenses", href: "/services" },
-      { label: "📅 Book Eye Test Slot", href: "/book" },
-      { label: "📍 Store Location & Hours", href: "/contact" },
+      { label: "👓 Frame for my face shape", href: "/shop" },
+      { label: "💻 Blue-cut screen glasses", href: "/lenses" },
+      { label: "📅 Book Free Eye Test", href: "/book" },
+      { label: "📍 Store Opp. Pillar 703", href: "/contact" },
+      { label: "💬 Chat on WhatsApp", isWhatsApp: true },
     ],
   },
 ];
@@ -551,23 +551,23 @@ We dispense top global brands (Acuvue, Bausch & Lomb, Alcon):
     ],
   },
 
-  // 12. General Greetings
+  // 12. General Greetings & Buddy Chit-Chat
   {
-    keywords: ["hi", "hello", "hey", "namaste", "good morning", "good evening", "kaise ho"],
-    reply: `Namaste! 🙏 I'm **Tara**, your Optical & Eyecare Advisor at **Nayantara Opticals**.
+    keywords: ["hi", "hello", "hey", "namaste", "good morning", "good evening", "kaise ho", "kaisa hai", "kya haal", "sunao", "tara"],
+    reply: `Arre hello! Namaste! 👋 Main ekdum mast hoon, aap batao kaise ho? 😊
 
-I can assist you with:
-• **Eye Symptoms**: Burning eyes, strain, dry eyes, headaches, red eyes.
-• **Frames & Lenses**: Finding frames for your face, progressive lenses, blue-cut computer filters.
-• **Child Vision**: Slowing eyesight progression with HALT/DIMS lenses.
-• **Appointments**: Booking free computerized eye tests in Uttam Nagar, New Delhi.
+Nayantara Opticals par aapka swagat hai! Main aapki personal eyewear stylist aur optical buddy **Tara** hoon.
 
-How can I help you today?`,
+Batao yaar, aaj kya plan hai?
+• Apne face shape ke hisab se mast sexy frame dekhna hai?
+• Screen time ki wajah se aankhon me jalan ya sir me dard ho raha hai?
+• Uttam Nagar clinic me **Free Computer Eye Test** book karna hai?`,
     actions: [
-      { label: "👶 Myopia Control", href: "/myopia-management" },
-      { label: "👓 Explore Frames", href: "/shop" },
-      { label: "📅 Book Appointment", href: "/book" },
-      { label: "📍 Store Address", href: "/contact" },
+      { label: "👓 Frames by Face Shape", href: "/shop" },
+      { label: "💻 Blue-Cut Screen Lenses", href: "/lenses" },
+      { label: "📅 Book Free Eye Test", href: "/book" },
+      { label: "📍 Store Near Pillar 703", href: "/contact" },
+      { label: "💬 Chat on WhatsApp", isWhatsApp: true },
     ],
   },
 ];
@@ -675,36 +675,34 @@ export function EyecareChatbot() {
         /\b(kya|kaise|kyun|batao|chahiye|nahi|naam|kon|mera|apna|code|python|karo|likho)\b/i.test(query);
 
       if (isHindi) {
-        responseText = `माफ़ कीजिये! 🙏 मैं **तारा (Tara)** हूँ — **Nayantara Opticals** की AI आईकेयर व ऑप्टिकल एडवाइज़र।
+        responseText = `Haha arre yaar! Main aapki **Nayantara Opticals** ki eyewear stylist aur optical buddy **Tara** hoon! 😄
 
-मैं केवल **नयनतारा ऑप्टिकल्स (Nayantara Opticals)**, चश्मे (Eyewear), फ्रेम्स, आई लेंसेस, आँखों की सेहत (Eyecare) और हमारी क्लिनिक अपॉइंटमेंट से जुड़े सवालों के ही जवाब दे सकती हूँ।
+Coding, general trivia ya sports me toh main thodi kacchi hoon, par aapke face shape ke hisab se ekdum mast frame recommend karna, screen strain se bachana aur hamare Uttam Nagar clinic me **Free Computer Eye Test** book karna meri superpower hai! 👓✨
 
-मैं अन्य विषयों (जैसे कोडिंग, सामान्य ज्ञान, राजनीति आदि) में सहायता नहीं कर सकती।
-
-क्या आप इनमें से किसी विषय पर जानकारी चाहते हैं?
-• अपनी आँखों और चेहरे के हिसाब से सही फ्रेम चुनना
-• ब्लू-कट (Blue-Cut) या प्रोग्रेसिव लेंसेस
-• उत्तम नगर स्टोर में कंप्यूटर से फ्री आई टेस्ट की बुकिंग
-• बच्चों के मायोपिया कंट्रोल लेंसेस (HALT/DIMS)`;
+Batao yaar, aaj kya plan hai?
+• Apne face shape ke hisab se naya frame dekhna hai?
+• Laptop/phone screen pe kaam karke aankhon me strain/headache ho raha hai?
+• Hamare clinic par doctor checkup slot book karein?`;
         responseActions = [
-          { label: "📅 Book Eye Test Slot", href: "/book" },
-          { label: "👓 Explore Frames", href: "/shop" },
-          { label: "📍 Store Location & Hours", href: "/contact" },
+          { label: "👓 Explore Frame Catalog", href: "/shop" },
+          { label: "📅 Book Free Eye Test", href: "/book" },
+          { label: "📍 Store Near Pillar 703", href: "/contact" },
+          { label: "💬 Chat on WhatsApp", isWhatsApp: true },
         ];
       } else {
-        responseText = `I apologize, but as **Tara**, the Optical & Eyecare Advisor at **Nayantara Opticals**, I am strictly programmed to assist **only** with questions related to our optical showroom, eyewear, frames, lenses, eye health, and vision clinic appointments.
+        responseText = `Haha hey there! As your personal optical buddy & eyewear stylist at **Nayantara Opticals**, general trivia or coding isn't my superpower! 😄
 
-I cannot answer questions on other topics (such as general knowledge, coding, politics, sports, or recipes).
+But when it comes to finding flattering frames for your face, soothing screen eye fatigue with blue-cut lenses, or setting up a zero-error eye checkup at our Uttam Nagar clinic, I've got your back! 👓✨
 
-How can I assist you with your optical needs today? You can ask me about:
-• **Finding the right frame shape** for your face geometry
-• **Blue-Cut, Progressive, or Photochromic lenses**
-• **Pediatric myopia management (HALT/DIMS)** for children
-• **Booking a computerized eye exam** at our Uttam Nagar clinic`;
+What are we shopping or checking out today?
+• Finding a flattering frame shape for your face
+• Blue-Cut or Progressive lenses for screen comfort
+• Booking a free 20-point digital eye test in Uttam Nagar`;
         responseActions = [
-          { label: "📅 Book Clinic Slot", href: "/book" },
           { label: "👓 Explore Frames", href: "/shop" },
-          { label: "💬 Chat on WhatsApp", isWhatsApp: true },
+          { label: "📅 Book Free Eye Exam", href: "/book" },
+          { label: "🔍 Lens Technologies", href: "/services" },
+          { label: "💬 WhatsApp Us", isWhatsApp: true },
         ];
       }
     }
@@ -761,22 +759,22 @@ How can I assist you with your optical needs today? You can ask me about:
 
       {/* 2. Interactive Chat Window Modal */}
       {isOpen && (
-        <div className="fixed right-2 bottom-2 z-50 sm:right-6 sm:bottom-6 w-[95vw] sm:w-[420px] max-h-[85vh] h-[640px] flex flex-col rounded-3xl border border-border/80 bg-card/95 backdrop-blur-xl shadow-2xl overflow-hidden animate-in fade-in-50 zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 flex flex-col bg-card sm:inset-auto sm:right-6 sm:bottom-6 sm:w-[440px] sm:h-[650px] sm:max-h-[85vh] sm:rounded-3xl sm:border sm:border-border/80 sm:shadow-2xl overflow-hidden animate-in fade-in-50 zoom-in-95 duration-200">
           
           {/* Header */}
-          <div className="bg-gradient-to-r from-primary via-emerald-800 to-ink p-4 text-white flex items-center justify-between border-b border-white/10 shrink-0">
-            <div className="flex items-center gap-3">
+          <div className="bg-gradient-to-r from-primary via-emerald-800 to-ink p-3.5 sm:p-4 text-white flex items-center justify-between border-b border-white/10 shrink-0">
+            <div className="flex items-center gap-2.5 sm:gap-3">
               <div className="relative">
-                <div className="h-10 w-10 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-sm">
+                <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-sm">
                   <Glasses className="h-5 w-5 text-champagne" />
                 </div>
-                <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-400 ring-2 ring-primary" />
+                <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 sm:h-3 sm:w-3 rounded-full bg-emerald-400 ring-2 ring-primary" />
               </div>
               <div>
                 <div className="flex items-center gap-1.5">
                   <h3 className="font-display font-semibold text-sm text-white">Tara</h3>
                   <Badge variant="outline" className="bg-white/15 text-white/90 border-white/20 text-[9px] px-1.5 py-0">
-                    Eyecare AI
+                    Eyecare Buddy
                   </Badge>
                 </div>
                 <p className="text-[11px] text-white/75 flex items-center gap-1">
@@ -788,7 +786,7 @@ How can I assist you with your optical needs today? You can ask me about:
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setSoundEnabled(!soundEnabled)}
-                className="p-1.5 rounded-full hover:bg-white/10 text-white/80 transition-colors"
+                className="p-2 sm:p-1.5 rounded-full hover:bg-white/10 text-white/80 transition-colors"
                 title={soundEnabled ? "Mute audio" : "Enable audio"}
                 aria-label="Toggle Sound"
               >
@@ -796,7 +794,7 @@ How can I assist you with your optical needs today? You can ask me about:
               </button>
               <button
                 onClick={handleResetChat}
-                className="p-1.5 rounded-full hover:bg-white/10 text-white/80 transition-colors"
+                className="p-2 sm:p-1.5 rounded-full hover:bg-white/10 text-white/80 transition-colors"
                 title="Restart conversation"
                 aria-label="Restart Conversation"
               >
@@ -804,7 +802,7 @@ How can I assist you with your optical needs today? You can ask me about:
               </button>
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-1.5 rounded-full hover:bg-white/10 text-white transition-colors"
+                className="p-2 sm:p-1.5 rounded-full hover:bg-white/10 text-white transition-colors bg-white/10 sm:bg-transparent"
                 aria-label="Close Chat"
               >
                 <X className="h-5 w-5" />
@@ -913,81 +911,69 @@ How can I assist you with your optical needs today? You can ask me about:
           </div>
 
           {/* Quick Prompts Carousel */}
-          <div className="px-3 py-2 bg-background/50 border-t border-border flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0">
+          <div className="px-3 py-2 bg-background/60 border-t border-border flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0">
             <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider shrink-0 mr-1">
               Ask:
             </span>
             <button
-              onClick={() => handleSend("Website se lens kaise kharidein?")}
+              onClick={() => handleSend("Mera face round hai, mere face shape ke liye best frame recommend karo")}
               className="text-[11px] whitespace-nowrap bg-primary/10 text-primary font-medium hover:bg-primary/20 px-2.5 py-1 rounded-full border border-primary/20 transition-colors"
+            >
+              👓 Frame for my face shape
+            </button>
+            <button
+              onClick={() => handleSend("Laptop aur phone screen pe kaam karke sir me dard hota hai, blue cut lenses batao")}
+              className="text-[11px] whitespace-nowrap bg-muted/70 hover:bg-primary/10 hover:text-primary px-2.5 py-1 rounded-full border border-border/80 transition-colors"
+            >
+              💻 Blue-cut screen glasses
+            </button>
+            <button
+              onClick={() => handleSend("Uttam Nagar clinic me Free Computerized Eye Test kaise book karein?")}
+              className="text-[11px] whitespace-nowrap bg-muted/70 hover:bg-primary/10 hover:text-primary px-2.5 py-1 rounded-full border border-border/80 transition-colors"
+            >
+              📅 Free Eye Test booking
+            </button>
+            <button
+              onClick={() => handleSend("Website se lens kaise kharidein?")}
+              className="text-[11px] whitespace-nowrap bg-muted/70 hover:bg-primary/10 hover:text-primary px-2.5 py-1 rounded-full border border-border/80 transition-colors"
             >
               🛒 Lens kaise kharidein?
             </button>
             <button
-              onClick={() => handleSend("Website se chashma ya frame kaise order karein?")}
-              className="text-[11px] whitespace-nowrap bg-muted/60 hover:bg-primary/10 hover:text-primary px-2.5 py-1 rounded-full border border-border/80 transition-colors"
-            >
-              👓 Chashma kaise order karein?
-            </button>
-            <button
-              onClick={() => handleSend("Eye test appointment kaise book karein?")}
-              className="text-[11px] whitespace-nowrap bg-muted/60 hover:bg-primary/10 hover:text-primary px-2.5 py-1 rounded-full border border-border/80 transition-colors"
-            >
-              📅 Eye test booking
-            </button>
-            <button
               onClick={() => handleSend("Doctor ka prescription parcha kaise upload karein?")}
-              className="text-[11px] whitespace-nowrap bg-muted/60 hover:bg-primary/10 hover:text-primary px-2.5 py-1 rounded-full border border-border/80 transition-colors"
+              className="text-[11px] whitespace-nowrap bg-muted/70 hover:bg-primary/10 hover:text-primary px-2.5 py-1 rounded-full border border-border/80 transition-colors"
             >
               📄 Prescription upload
             </button>
             <button
-              onClick={() => handleSend("Nayantara Opticals website ka complete tour aur guide do")}
-              className="text-[11px] whitespace-nowrap bg-muted/60 hover:bg-primary/10 hover:text-primary px-2.5 py-1 rounded-full border border-border/80 transition-colors"
+              onClick={() => handleSend("Nayantara Opticals store address aur timings kya hain?")}
+              className="text-[11px] whitespace-nowrap bg-muted/70 hover:bg-primary/10 hover:text-primary px-2.5 py-1 rounded-full border border-border/80 transition-colors"
             >
-              🗺️ Website Tour
-            </button>
-            <button
-              onClick={() => handleSend("What frame shape suits a round face?")}
-              className="text-[11px] whitespace-nowrap bg-muted/60 hover:bg-primary/10 hover:text-primary px-2.5 py-1 rounded-full border border-border/80 transition-colors"
-            >
-              👓 Frames for my face
-            </button>
-            <button
-              onClick={() => handleSend("Tell me about myopia control for children")}
-              className="text-[11px] whitespace-nowrap bg-muted/60 hover:bg-primary/10 hover:text-primary px-2.5 py-1 rounded-full border border-border/80 transition-colors"
-            >
-              👶 Myopia for kids
-            </button>
-            <button
-              onClick={() => handleSend("What is the store address and clinic timings?")}
-              className="text-[11px] whitespace-nowrap bg-muted/60 hover:bg-primary/10 hover:text-primary px-2.5 py-1 rounded-full border border-border/80 transition-colors"
-            >
-              📍 Store address
+              📍 Metro Pillar 703 address
             </button>
           </div>
 
-          {/* Input Bar */}
+          {/* Input Bar with safe-area spacing */}
           <form
             onSubmit={(e) => {
               e.preventDefault();
               handleSend();
             }}
-            className="p-3 bg-card border-t border-border flex items-center gap-2 shrink-0"
+            className="p-2.5 sm:p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] bg-card border-t border-border flex items-center gap-2 shrink-0"
           >
             <input
               ref={inputRef}
               type="text"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              placeholder="Ask about frames, lenses, eye tests..."
-              className="flex-1 bg-muted/50 rounded-full px-4 py-2.5 text-xs sm:text-sm border border-border focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
+              placeholder="Ask Tara anything about frames, lenses, eye tests..."
+              className="flex-1 bg-muted/50 rounded-full px-4 py-2 sm:py-2.5 text-xs sm:text-sm border border-border focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
             />
             <Button
               type="submit"
               size="icon"
               variant="hero"
-              className="h-10 w-10 rounded-full shrink-0 shadow-md"
+              className="h-9 w-9 sm:h-10 sm:w-10 rounded-full shrink-0 shadow-md"
               disabled={!inputValue.trim()}
               title="Send question"
             >

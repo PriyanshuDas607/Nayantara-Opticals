@@ -312,7 +312,7 @@ export function ShopPage() {
       </div>
 
       {/* Product Grid */}
-      <div className={cn("mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3", filteredProducts.length === 0 && "block")}>
+      <div className={cn("mt-4 grid grid-cols-2 gap-3 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3", filteredProducts.length === 0 && "block")}>
         {filteredProducts.map((product) => (
           <ProductCard
             key={product.id}
