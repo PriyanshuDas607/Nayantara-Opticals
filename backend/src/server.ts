@@ -7,7 +7,7 @@ import { startKeepAliveCron } from "./utils/keepAlive.js";
 
 const app = createApp();
 
-const server = app.listen(config.port, () => {
+const server = app.listen(config.port, "0.0.0.0", () => {
   Logger.info(`🚀 Nayantara Opticals Backend running on port ${config.port}`);
   Logger.info(`📡 Environment: ${config.nodeEnv}`);
   Logger.info(`🩺 Health Check: http://localhost:${config.port}/api/v1/health`);

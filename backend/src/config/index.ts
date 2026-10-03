@@ -14,6 +14,9 @@ dotenv.config();
 if (!process.env.DATABASE_URL) {
   process.env.DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/nayantara_opticals?schema=public";
 }
+if (!process.env.DIRECT_URL) {
+  process.env.DIRECT_URL = process.env.DATABASE_URL;
+}
 
 export const config = {
   port: parseInt(process.env.PORT || "5000", 10),
