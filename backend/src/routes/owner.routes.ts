@@ -20,8 +20,10 @@ router.use(authenticate, authorize([Role.OWNER, Role.SUPER_ADMIN]));
 router.get("/finance", FinanceController.getOwnerFinance);
 
 // Store Products
+router.get("/products", ProductController.getProducts);
 router.post("/products", validate(createProductSchema), ProductController.createProduct);
 router.patch("/products/:id", ProductController.updateProduct);
+router.put("/products/:id", ProductController.updateProduct);
 router.delete("/products/:id", ProductController.deleteProduct);
 
 // Store Appointments

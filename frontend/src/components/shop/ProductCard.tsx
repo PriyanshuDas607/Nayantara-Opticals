@@ -27,11 +27,17 @@ export function ProductCard({
     <article className="card-3d group relative flex flex-col overflow-hidden rounded-2xl border border-border/70 bg-card shadow-soft">
       <div className="sheen relative aspect-square overflow-hidden bg-muted/60">
         <img
-          src={product.image}
-          alt={`${product.brand} ${product.name} — ${product.style} ${product.category.replace("-", " ")}`}
+          src={product.image || "https://images.unsplash.com/photo-1591076482161-42ce6da69f67?w=800&auto=format&fit=crop&q=80"}
+          alt={`${product.brand} ${product.name} — ${product.style} ${(product.category || "").replace("-", " ")}`}
           loading="lazy"
           width={800}
           height={800}
+          onError={(e) => {
+            const target = e.currentTarget;
+            if (!target.src.includes("unsplash")) {
+              target.src = "https://images.unsplash.com/photo-1591076482161-42ce6da69f67?w=800&auto=format&fit=crop&q=80";
+            }
+          }}
           className="h-full w-full object-cover transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.06]"
         />
         <div className="pointer-events-none absolute top-3 left-3 flex flex-wrap gap-1.5">

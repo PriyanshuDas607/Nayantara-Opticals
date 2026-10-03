@@ -50,36 +50,51 @@ export function ShopPage() {
 
   // Fetch live products from backend
   const fetchProducts = async () => {
+    setLoading(true);
     try {
       const res = await apiRequest<any[]>("/products");
-      if (res.success && Array.isArray(res.data) && res.data.length > 0) {
-        const mapped: Product[] = res.data.map((p) => ({
-          id: p.id || p.slug,
-          name: p.name,
-          brand: p.brand || "Nayantara Eyewear",
-          category: (p.categoryId || p.category?.toLowerCase() || "eyeglasses") as CategoryId,
-          price: p.price || (p.pricePaise ? p.pricePaise / 100 : 2999),
-          compareAt: p.originalPrice || (p.salePricePaise ? p.salePricePaise / 100 : undefined),
-          rating: 4.8,
-          reviews: 24,
-          image: p.image || p.images?.[0]?.url || PRESET_IMAGES[0]?.url || "",
-          badges: p.isBestSeller ? ["Bestseller", "New"] : p.isFeatured ? ["Featured"] : ["New"],
-          style: p.style || p.frameShape || "Modern",
-          material: p.frameMaterial || "Acetate",
-          colors: p.colors || [{ name: "Classic", token: "oklch(0.28 0.03 250)" }],
-          sizes: p.sizes || ["Medium"],
-          faceShapes: ["Oval", "Square", "Round"],
-          dimensions: p.dimensions || { lensWidth: 52, bridge: 18, templeLength: 145, weight: 24 },
-          description: p.description || "Handcrafted luxury frame by Nayantara Opticals.",
-          inStock: p.inStock !== false && (p.stockCount === undefined || p.stockCount > 0),
-        }));
+      if (res.success && Array.isArray(res.data)) {
+        const mapped: Product[] = res.data.map((p) => {
+          // Resolve category slug safely (avoid UUIDs)
+          const rawCat = p.category?.slug || (typeof p.category === "string" ? p.category : p.category?.name);
+          const normalizedCat = (rawCat || "eyeglasses").toLowerCase().replace(/\s+/g, "-");
+          const safeCat: CategoryId = (
+            ["eyeglasses", "sunglasses", "contact-lenses", "hearing-aids", "vision-aids"].includes(normalizedCat)
+              ? normalizedCat
+              : "eyeglasses"
+          ) as CategoryId;
 
-        const seenIds = new Set(mapped.map((m) => m.id));
-        const combined = [...mapped, ...STATIC_PRODUCTS.filter((sp) => !seenIds.has(sp.id))];
-        setProductsList(combined);
+          const primaryImg = p.image || p.images?.[0]?.url || PRESET_IMAGES[0]?.url || "";
+
+          return {
+            id: p.id || p.slug,
+            name: p.name,
+            brand: p.brand?.name || p.brand || "Nayantara Eyewear",
+            category: safeCat,
+            price: p.price || (p.pricePaise ? p.pricePaise / 100 : 2999),
+            compareAt: p.originalPrice || (p.salePricePaise ? p.salePricePaise / 100 : undefined),
+            rating: p.rating || 4.8,
+            reviews: p.reviews || 24,
+            image: primaryImg,
+            badges: p.badges || (p.isBestSeller ? ["Bestseller", "New"] : p.isFeatured ? ["Featured"] : ["New"]),
+            style: p.style || p.frameShape || "Modern",
+            material: p.material || p.frameMaterial || "Acetate",
+            colors: p.colors || [{ name: "Classic", token: "oklch(0.28 0.03 250)" }],
+            sizes: p.sizes || ["Medium"],
+            faceShapes: p.faceShapes || ["Oval", "Square", "Round"],
+            dimensions: p.dimensions || { lensWidth: 52, bridge: 18, templeLength: 145, weight: 24 },
+            description: p.description || "Handcrafted luxury frame by Nayantara Opticals.",
+            inStock: p.inStock !== false && (p.inventory?.quantity === undefined || p.inventory.quantity > 0) && (p.stockCount === undefined || p.stockCount > 0),
+          };
+        });
+
+        // Set products purely from backend DB (single source of truth)
+        setProductsList(mapped);
       }
     } catch {
-      // Fallback
+      setProductsList((prev) => (prev.length > 0 ? prev : STATIC_PRODUCTS));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -132,13 +147,12 @@ export function ShopPage() {
       });
 
       if (res.success) {
-        toast.success(`Product "${prod.name}" deleted.`);
-        setProductsList((prev) => prev.filter((p) => p.id !== prod.id));
+        toast.success(`Product "${prod.name}" deleted from store.`);
       } else {
-        // Optimistic removal for local dev
-        setProductsList((prev) => prev.filter((p) => p.id !== prod.id));
-        toast.success(`Product "${prod.name}" removed from catalog.`);
+        toast.info(`Product "${prod.name}" removed.`);
       }
+      setProductsList((prev) => prev.filter((p) => p.id !== prod.id));
+      await fetchProducts();
     } catch {
       setProductsList((prev) => prev.filter((p) => p.id !== prod.id));
       toast.success(`Product "${prod.name}" removed.`);
@@ -165,12 +179,13 @@ export function ShopPage() {
       frameMaterial: formMaterial,
       gender: formGender,
       price: priceNum,
-      pricePaise: priceNum * 100,
+      pricePaise: Math.round(priceNum * 100),
       originalPrice: compareNum,
+      salePricePaise: Math.round(compareNum * 100),
       description: formDesc.trim() || `${formShape} ${formMaterial} frame crafted for comfort and elegance.`,
       image: formImage,
       imageUrls: [formImage],
-      stockCount: parseInt(formStock, 10) || 10,
+      stockCount: parseInt(formStock, 10) || 15,
       isFeatured: formFeatured,
       isBestSeller: formBestseller,
     };
@@ -183,26 +198,11 @@ export function ShopPage() {
           body: JSON.stringify(payload),
         });
 
-        toast.success(`✨ Product "${formName}" updated successfully!`);
-        setProductsList((prev) =>
-          prev.map((p) =>
-            p.id === editingProduct.id
-              ? {
-                  ...p,
-                  name: formName.trim(),
-                  brand: formBrand.trim(),
-                  category: formCategory,
-                  price: priceNum,
-                  compareAt: compareNum,
-                  style: formShape,
-                  material: formMaterial,
-                  description: formDesc.trim(),
-                  image: formImage,
-                  badges: formBestseller ? ["Bestseller"] : formFeatured ? ["Featured"] : ["New"],
-                }
-              : p
-          )
-        );
+        if (res.success) {
+          toast.success(`✨ Product "${formName}" updated successfully!`);
+        } else {
+          toast.error(res.message || "Failed to update product.");
+        }
       } else {
         // CREATE (CRUD Create)
         const res = await apiRequest("/products", {
@@ -210,32 +210,15 @@ export function ShopPage() {
           body: JSON.stringify(payload),
         });
 
-        toast.success(`✨ Product "${formName}" published to shop!`);
-        const newLocalProduct: Product = {
-          id: `prod-${Date.now()}`,
-          name: formName.trim(),
-          brand: formBrand.trim(),
-          category: formCategory,
-          price: priceNum,
-          compareAt: compareNum,
-          rating: 5.0,
-          reviews: 1,
-          image: formImage,
-          badges: formBestseller ? ["Bestseller"] : ["New"],
-          style: formShape,
-          material: formMaterial,
-          colors: [{ name: "Classic", token: "oklch(0.28 0.03 250)" }],
-          sizes: ["Medium"],
-          faceShapes: ["All"],
-          dimensions: { lensWidth: 52, bridge: 18, templeLength: 145, weight: 24 },
-          description: formDesc.trim() || "Handcrafted luxury frame by Nayantara Opticals.",
-          inStock: true,
-        };
-        setProductsList((prev) => [newLocalProduct, ...prev]);
+        if (res.success) {
+          toast.success(`✨ Product "${formName}" published to shop!`);
+        } else {
+          toast.error(res.message || "Failed to publish product.");
+        }
       }
 
       setIsModalOpen(false);
-      fetchProducts();
+      await fetchProducts();
     } catch (err: any) {
       toast.error(err.message || "Failed to save product.");
     } finally {

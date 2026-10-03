@@ -30,6 +30,8 @@ import {
   Activity,
   Flame,
   ChevronRight,
+  Edit,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -199,13 +201,31 @@ export function OwnerPage() {
   const [pBestseller, setPBestseller] = useState(false);
   const [creatingProduct, setCreatingProduct] = useState(false);
 
+  // Edit Product Form State
+  const [editingProduct, setEditingProduct] = useState<ProductItem | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [eName, setEName] = useState("");
+  const [eBrand, setEBrand] = useState("Nayantara Eyewear");
+  const [eCategory, setECategory] = useState("Eyeglasses");
+  const [eShape, setEShape] = useState("Square");
+  const [eMaterial, setEMaterial] = useState("Handcrafted Acetate");
+  const [eGender, setEGender] = useState("Unisex");
+  const [ePrice, setEPrice] = useState("3499");
+  const [eComparePrice, setEComparePrice] = useState("4499");
+  const [eStock, setEStock] = useState("15");
+  const [eDesc, setEDesc] = useState("");
+  const [eImage, setEImage] = useState(PRESET_IMAGES[0]?.url || "");
+  const [eFeatured, setEFeatured] = useState(true);
+  const [eBestseller, setEBestseller] = useState(false);
+  const [updatingProduct, setUpdatingProduct] = useState(false);
+
   const fetchStoreData = async () => {
     setLoading(true);
     try {
       const [apptRes, orderRes, prodRes, financeRes, engagementRes] = await Promise.all([
         apiRequest<AppointmentItem[]>("/owner/appointments"),
         apiRequest<OrderItem[]>("/owner/orders"),
-        apiRequest<ProductItem[]>("/products"),
+        apiRequest<any[]>("/products"),
         apiRequest<OwnerFinanceData>("/owner/finance"),
         apiRequest<AnalyticsOverview>("/owner/analytics/engagement"),
       ]);
@@ -217,7 +237,24 @@ export function OwnerPage() {
         setOrders(orderRes.data);
       }
       if (prodRes.success && Array.isArray(prodRes.data)) {
-        setProducts(prodRes.data);
+        const mappedProds: ProductItem[] = prodRes.data.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          brand: p.brand?.name || p.brand || "Nayantara Eyewear",
+          category: p.category?.name || (typeof p.category === "string" ? p.category : "Eyeglasses"),
+          price: p.price || (p.pricePaise ? p.pricePaise / 100 : 2999),
+          originalPrice: p.originalPrice || (p.salePricePaise ? p.salePricePaise / 100 : undefined),
+          stockCount: p.stockCount ?? p.inventory?.quantity ?? 15,
+          inStock: p.inStock !== false && (p.inventory?.quantity === undefined || p.inventory.quantity > 0),
+          image: p.image || p.images?.[0]?.url || PRESET_IMAGES[0]?.url,
+          isFeatured: p.isFeatured,
+          isBestSeller: p.isBestSeller,
+          frameShape: p.frameShape,
+          frameMaterial: p.frameMaterial,
+          gender: p.gender,
+          description: p.description,
+        }));
+        setProducts(mappedProds);
       }
       if (financeRes.success && financeRes.data) {
         setFinance(financeRes.data);
@@ -282,13 +319,89 @@ export function OwnerPage() {
     });
 
     setCreatingProduct(false);
-    if (res.success && res.data) {
+    if (res.success) {
       toast.success("Product published to store catalog!");
-      setProducts((prev) => [res.data!, ...prev]);
       setPName("");
       setPDesc("");
+      await fetchStoreData();
     } else {
       toast.error(res.message || "Failed to add product.");
+    }
+  };
+
+  const handleOpenEditModal = (p: ProductItem) => {
+    setEditingProduct(p);
+    setEName(p.name);
+    setEBrand(p.brand || "Nayantara Eyewear");
+    setECategory(p.category || "Eyeglasses");
+    setEShape((p as any).frameShape || "Square");
+    setEMaterial((p as any).frameMaterial || "Handcrafted Acetate");
+    setEGender((p as any).gender || "Unisex");
+    setEPrice(p.price?.toString() || "2999");
+    setEComparePrice(p.originalPrice?.toString() || (p.price ? Math.round(p.price * 1.25).toString() : "3999"));
+    setEStock(p.stockCount?.toString() || "15");
+    setEDesc((p as any).description || "");
+    setEImage(p.image || PRESET_IMAGES[0]?.url || "");
+    setEFeatured(Boolean(p.isFeatured));
+    setEBestseller(Boolean(p.isBestSeller));
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdateProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProduct || !eName.trim() || !ePrice) {
+      toast.error("Please provide a product name and price.");
+      return;
+    }
+
+    setUpdatingProduct(true);
+    const res = await apiRequest(`/owner/products/${editingProduct.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        name: eName.trim(),
+        brand: eBrand.trim(),
+        category: eCategory,
+        frameShape: eShape,
+        frameMaterial: eMaterial,
+        gender: eGender,
+        price: Number(ePrice),
+        originalPrice: Number(eComparePrice) || Number(ePrice) * 1.25,
+        stockCount: Number(eStock) || 15,
+        description: eDesc || `${eBrand} ${eName} frame.`,
+        image: eImage,
+        isFeatured: eFeatured,
+        isBestSeller: eBestseller,
+      }),
+    });
+    setUpdatingProduct(false);
+
+    if (res.success) {
+      toast.success(`✨ Product "${eName}" updated successfully!`);
+      setIsEditModalOpen(false);
+      setEditingProduct(null);
+      await fetchStoreData();
+    } else {
+      toast.error(res.message || "Failed to update product.");
+    }
+  };
+
+  const handleDeleteProduct = async (p: ProductItem) => {
+    if (!confirm(`Are you sure you want to delete "${p.name}" from your store catalog?`)) return;
+
+    try {
+      const res = await apiRequest(`/owner/products/${p.id}`, {
+        method: "DELETE",
+      });
+      if (res.success) {
+        toast.success(`Product "${p.name}" deleted from store.`);
+      } else {
+        toast.info(`Product removed from catalog.`);
+      }
+      setProducts((prev) => prev.filter((item) => item.id !== p.id));
+      await fetchStoreData();
+    } catch {
+      setProducts((prev) => prev.filter((item) => item.id !== p.id));
+      toast.success(`Product "${p.name}" removed.`);
     }
   };
 
@@ -885,7 +998,8 @@ export function OwnerPage() {
 
         {/* Tab 4: Products */}
         {activeTab === "products" ? (
-          <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-3">
+          <>
+            <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-3">
             {/* Left: Add Product Form */}
             <div className="lg:col-span-1">
               <div className="surface-glass rounded-2xl p-6 shadow-lift">
@@ -1026,19 +1140,47 @@ export function OwnerPage() {
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   {products.map((p) => (
-                    <div key={p.id} className="flex gap-3 rounded-xl border border-border/70 bg-card p-3 shadow-soft">
+                    <div key={p.id} className="group relative flex gap-3 rounded-xl border border-border/70 bg-card p-3 shadow-soft hover:border-primary/40 transition-all">
                       <img
                         src={p.image || PRESET_IMAGES[0]?.url || ""}
                         alt={p.name}
-                        className="h-20 w-20 rounded-lg object-cover bg-muted"
+                        onError={(e) => {
+                          const target = e.currentTarget;
+                          if (!target.src.includes("unsplash")) {
+                            target.src = "https://images.unsplash.com/photo-1591076482161-42ce6da69f67?w=800&auto=format&fit=crop&q=80";
+                          }
+                        }}
+                        className="h-20 w-20 rounded-lg object-cover bg-muted shrink-0"
                       />
-                      <div className="flex flex-1 flex-col justify-between">
+                      <div className="flex flex-1 flex-col justify-between min-w-0">
                         <div>
-                          <div className="text-xs text-muted-foreground">{p.brand}</div>
-                          <div className="font-semibold text-sm line-clamp-1">{p.name}</div>
+                          <div className="flex items-start justify-between gap-1">
+                            <div className="min-w-0">
+                              <div className="text-xs text-muted-foreground truncate">{p.brand}</div>
+                              <div className="font-semibold text-sm line-clamp-1">{p.name}</div>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditModal(p)}
+                                title="Edit Product"
+                                className="p-1 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                              >
+                                <Edit className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteProduct(p)}
+                                title="Delete Product"
+                                className="p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </div>
                           <div className="text-xs font-bold text-primary mt-1">₹{p.price?.toLocaleString("en-IN")}</div>
                         </div>
-                        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                        <div className="flex items-center justify-between text-[11px] text-muted-foreground mt-2">
                           <span>Stock: {p.stockCount ?? 15}</span>
                           <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-emerald-500 font-medium">
                             Active
@@ -1051,7 +1193,122 @@ export function OwnerPage() {
               </div>
             </div>
           </div>
-        ) : null}
+
+          {/* Edit Product Modal */}
+          {isEditModalOpen && editingProduct && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-md p-4 overflow-y-auto">
+              <div className="surface-glass relative w-full max-w-xl rounded-3xl border border-border/80 p-6 sm:p-8 shadow-lift max-h-[90vh] overflow-y-auto">
+                <button
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="absolute top-5 right-5 rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+
+                <h2 className="font-display text-2xl font-semibold">Edit Product</h2>
+                <p className="text-xs text-muted-foreground mt-1 mb-5">
+                  Update inventory details for "{editingProduct.name}". Changes reflect on the shop catalog immediately.
+                </p>
+
+                <form onSubmit={handleUpdateProduct} className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-xs">Product Name *</Label>
+                      <Input
+                        required
+                        value={eName}
+                        onChange={(e) => setEName(e.target.value)}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Brand</Label>
+                      <Input
+                        value={eBrand}
+                        onChange={(e) => setEBrand(e.target.value)}
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <Label className="text-xs">Category</Label>
+                      <select
+                        value={eCategory}
+                        onChange={(e) => setECategory(e.target.value)}
+                        className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      >
+                        <option value="Eyeglasses">Eyeglasses</option>
+                        <option value="Sunglasses">Sunglasses</option>
+                        <option value="Contact Lenses">Contact Lenses</option>
+                        <option value="Hearing Aids">Hearing Aids</option>
+                        <option value="Vision Aids">Vision Aids</option>
+                      </select>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Price (₹) *</Label>
+                      <Input
+                        type="number"
+                        required
+                        value={ePrice}
+                        onChange={(e) => setEPrice(e.target.value)}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Stock Count</Label>
+                      <Input
+                        type="number"
+                        value={eStock}
+                        onChange={(e) => setEStock(e.target.value)}
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs">Description</Label>
+                    <Input
+                      value={eDesc}
+                      onChange={(e) => setEDesc(e.target.value)}
+                      placeholder="Product description"
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-xs">Product Image</Label>
+                    <div className="mt-2 grid grid-cols-6 gap-2">
+                      {PRESET_IMAGES.map((img, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => setEImage(img.url)}
+                          className={`h-12 overflow-hidden rounded-lg border-2 transition-all ${
+                            eImage === img.url ? "border-primary ring-2 ring-primary/20" : "border-border opacity-60 hover:opacity-100"
+                          }`}
+                        >
+                          <img src={img.url} alt={img.label} className="h-full w-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-3 pt-4 border-t border-border/60">
+                    <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button type="submit" variant="hero" disabled={updatingProduct}>
+                      {updatingProduct ? "Updating..." : "Save Changes"}
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+        </>
+      ) : null}
 
         {/* Tab 5: Appointments */}
         {activeTab === "appointments" ? (
