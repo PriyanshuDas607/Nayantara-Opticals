@@ -937,22 +937,21 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
                 </div>
 
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Your appointment has been securely recorded in our optical clinic schedule. Our optometrist at Uttam Nagar will have your slot reserved.
+                  Your appointment has been securely confirmed and recorded in our clinic schedule. Our senior optometrist at Uttam Nagar will have your consultation slot reserved for you.
                 </p>
 
                 <div className="flex flex-wrap gap-3 pt-2">
                   <Button asChild variant="hero" size="default">
-                    <a
-                      href={waLink(
-                        `Hi Nayantara Opticals, I have booked slot ${selectedSlot} on ${values.date} for ${values.name} (Ref: ${bookedData?.id?.slice(0, 8).toUpperCase() || "NEW"}). Please confirm.`
-                      )}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      <MessageCircle className="mr-1.5 h-4 w-4" /> Message on WhatsApp
-                    </a>
+                    <Link to="/shop">
+                      <Glasses className="mr-1.5 h-4 w-4" /> Explore Eyewear Collection
+                    </Link>
                   </Button>
-                  <Button variant="outline" size="default" onClick={() => setSubmitted(false)}>
+                  <Button asChild variant="outline" size="default">
+                    <Link to="/contact">
+                      <MapPin className="mr-1.5 h-4 w-4" /> Store Directions (Pillar 703)
+                    </Link>
+                  </Button>
+                  <Button variant="ghost" size="default" onClick={() => setSubmitted(false)}>
                     Book Another Slot
                   </Button>
                 </div>

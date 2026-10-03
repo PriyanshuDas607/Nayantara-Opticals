@@ -211,7 +211,7 @@ Aap hamare certified optometrists ke sath online appointment sirf 1 minute mein 
    • Monday to Saturday: 10:00 AM – 8:30 PM | Sunday: 11:00 AM – 6:00 PM.
 4. **Apni Details Bharein**:
    • Apna naam aur phone number dalein aur Confirm karein.
-   • Aapko turant WhatsApp aur SMS par booking confirmation mil jayega!
+   • Aapka slot turant online confirm ho jayega aur reference number ke sath clinic database me schedule ho jayega!
 
 📍 **Clinic Address**: WZ-27, Shop No.1, Om Vihar Phase-1, Metro Pillar 703 ke samne, Uttam Nagar, New Delhi.`,
     actions: [
