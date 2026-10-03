@@ -32,6 +32,13 @@ import {
   ChevronRight,
   Edit,
   Trash2,
+  Phone,
+  Mail,
+  MessageCircle,
+  User,
+  MapPin,
+  CalendarDays,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -54,6 +61,15 @@ interface AppointmentItem {
   appointmentDate: string;
   timeSlot: string;
   notes?: string;
+  cancellationReason?: string;
+  createdAt?: string;
+  store?: {
+    id: string;
+    name: string;
+    city?: string;
+    address?: string;
+    phone?: string;
+  };
   user: {
     customerProfile?: { fullName: string };
     phone?: string;
@@ -172,6 +188,74 @@ const PRESET_IMAGES = [
   { label: "Contact Lenses", url: "https://images.unsplash.com/photo-1587502537147-2ba64a62e3d3?w=800&auto=format&fit=crop&q=80" },
 ];
 
+function parseApptDetails(appt: AppointmentItem) {
+  let name = appt.user?.customerProfile?.fullName || "";
+  let phone = appt.user?.phone || "";
+  let email = appt.user?.email || "";
+  let age = "";
+  let noteText = "";
+
+  if (appt.notes) {
+    const parts = appt.notes.split(" | ");
+    const remainingNotes: string[] = [];
+    for (const part of parts) {
+      if (part.startsWith("Patient: ")) {
+        if (!name || name === "Customer") name = part.replace("Patient: ", "").trim();
+      } else if (part.startsWith("Contact: ")) {
+        if (!phone) phone = part.replace("Contact: ", "").trim();
+      } else if (part.startsWith("Email: ")) {
+        if (!email) email = part.replace("Email: ", "").trim();
+      } else if (part.startsWith("Age: ")) {
+        age = part.replace("Age: ", "").trim();
+      } else if (part.startsWith("Patient Age: ")) {
+        age = part.replace("Patient Age: ", "").trim();
+      } else if (part.startsWith("Patient Name: ")) {
+        if (!name || name === "Customer") name = part.replace("Patient Name: ", "").trim();
+      } else if (part.startsWith("Notes: ")) {
+        remainingNotes.push(part.replace("Notes: ", "").trim());
+      } else {
+        remainingNotes.push(part.trim());
+      }
+    }
+    noteText = remainingNotes.join(" | ");
+  }
+
+  if (!name || name === "Customer") name = appt.user?.customerProfile?.fullName || "Patient";
+  return { name, phone, email, age, noteText };
+}
+
+function formatApptDate(dateStr: string) {
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString("en-IN", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return dateStr;
+  }
+}
+
+function formatApptType(type: string) {
+  switch (type) {
+    case "EYE_TEST":
+      return "Comprehensive Eye Test";
+    case "LENS_CONSULTATION":
+      return "Myopia Care & Lenses";
+    case "FRAME_CONSULTATION":
+      return "Frame Styling & Fit";
+    case "CONTACT_LENS_CONSULTATION":
+      return "Contact Lens Trial";
+    case "PRESCRIPTION_CONSULTATION":
+      return "Prescription Verification";
+    default:
+      return type.replace(/_/g, " ");
+  }
+}
+
 export function OwnerPage() {
   const { user, isOwner, isAdmin, isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState<OwnerTab>("overview");
@@ -184,6 +268,8 @@ export function OwnerPage() {
   const [finance, setFinance] = useState<OwnerFinanceData | null>(null);
   const [engagement, setEngagement] = useState<AnalyticsOverview | null>(null);
   const [txSearch, setTxSearch] = useState("");
+  const [apptSearch, setApptSearch] = useState("");
+  const [apptStatusFilter, setApptStatusFilter] = useState<"ALL" | "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED">("ALL");
 
   // New Product Form
   const [pName, setPName] = useState("");
@@ -539,6 +625,11 @@ export function OwnerPage() {
               }`}
             >
               <Calendar className="h-4 w-4" /> Appointments ({appointments.length})
+              {appointments.filter((a) => a.status === "PENDING").length > 0 && (
+                <span className="rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-500">
+                  {appointments.filter((a) => a.status === "PENDING").length} pending
+                </span>
+              )}
             </button>
             <button
               onClick={() => setActiveTab("orders")}
@@ -568,7 +659,10 @@ export function OwnerPage() {
                 <p className="mt-1 text-xs text-muted-foreground">Active in this branch</p>
               </div>
 
-              <div className="surface-glass rounded-2xl p-6 shadow-lift">
+              <div
+                onClick={() => setActiveTab("appointments")}
+                className="surface-glass rounded-2xl p-6 shadow-lift cursor-pointer hover:border-primary/40 transition-all"
+              >
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-medium text-muted-foreground uppercase">Appointments</span>
                   <div className="grid h-10 w-10 place-items-center rounded-xl bg-champagne/15 text-champagne">
@@ -576,7 +670,10 @@ export function OwnerPage() {
                   </div>
                 </div>
                 <div className="mt-3 font-display text-3xl font-bold">{appointments.length}</div>
-                <p className="mt-1 text-xs text-muted-foreground">Clinical eye checks</p>
+                <p className="mt-1 text-xs text-muted-foreground flex items-center justify-between">
+                  <span>{appointments.filter((a) => a.status === "PENDING").length} pending action</span>
+                  <span className="text-primary font-medium flex items-center">View <ChevronRight className="h-3 w-3 ml-0.5" /></span>
+                </p>
               </div>
 
               <div className="surface-glass rounded-2xl p-6 shadow-lift">
@@ -1312,49 +1409,268 @@ export function OwnerPage() {
 
         {/* Tab 5: Appointments */}
         {activeTab === "appointments" ? (
-          <div className="mt-8">
-            <div className="surface-glass rounded-2xl p-6 shadow-lift">
-              <h3 className="font-display text-lg font-semibold">Customer Appointments</h3>
-              <div className="mt-4 divide-y divide-border/60">
-                {appointments.map((a) => (
-                  <div key={a.id} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <div className="text-base font-semibold">{a.user?.customerProfile?.fullName || "Customer"}</div>
-                      <div className="text-xs text-muted-foreground flex flex-wrap gap-3 mt-1">
-                        <span>📞 {a.user?.phone || "+91 9876543210"}</span>
-                        <span>📅 {a.appointmentDate}</span>
-                        <span>⏰ {a.timeSlot}</span>
-                        <span>🩺 {a.type}</span>
-                      </div>
-                      {a.notes ? <p className="mt-1 text-xs italic text-muted-foreground">Note: "{a.notes}"</p> : null}
-                    </div>
+          <div className="mt-8 space-y-6">
+            {/* Overview Metrics Cards */}
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <div className="surface-glass rounded-2xl p-4 shadow-lift border border-border/80">
+                <span className="text-xs font-medium text-muted-foreground uppercase">Total Bookings</span>
+                <div className="mt-2 font-display text-2xl font-bold text-foreground">{appointments.length}</div>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">All patient consultations</p>
+              </div>
 
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant={a.status === "CONFIRMED" ? "default" : "outline"}
-                        onClick={() => handleUpdateAppointment(a.id, "CONFIRMED")}
+              <div className="surface-glass rounded-2xl p-4 shadow-lift border border-amber-500/30 bg-amber-500/5">
+                <span className="text-xs font-semibold text-amber-500 uppercase flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5" /> Pending Action
+                </span>
+                <div className="mt-2 font-display text-2xl font-bold text-amber-500">
+                  {appointments.filter((a) => a.status === "PENDING").length}
+                </div>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">Awaiting store confirmation</p>
+              </div>
+
+              <div className="surface-glass rounded-2xl p-4 shadow-lift border border-emerald-500/30 bg-emerald-500/5">
+                <span className="text-xs font-semibold text-emerald-500 uppercase flex items-center gap-1.5">
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Confirmed
+                </span>
+                <div className="mt-2 font-display text-2xl font-bold text-emerald-500">
+                  {appointments.filter((a) => a.status === "CONFIRMED").length}
+                </div>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">Scheduled & verified</p>
+              </div>
+
+              <div className="surface-glass rounded-2xl p-4 shadow-lift border border-blue-500/30 bg-blue-500/5">
+                <span className="text-xs font-semibold text-blue-500 uppercase flex items-center gap-1.5">
+                  <Check className="h-3.5 w-3.5" /> Completed
+                </span>
+                <div className="mt-2 font-display text-2xl font-bold text-blue-500">
+                  {appointments.filter((a) => a.status === "COMPLETED").length}
+                </div>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">Tests conducted in clinic</p>
+              </div>
+            </div>
+
+            {/* Filter and Search Bar */}
+            <div className="surface-glass rounded-2xl p-5 shadow-lift">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                {/* Status Tabs */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {(["ALL", "PENDING", "CONFIRMED", "COMPLETED", "CANCELLED"] as const).map((st) => {
+                    const count = st === "ALL" ? appointments.length : appointments.filter((a) => a.status === st).length;
+                    return (
+                      <button
+                        key={st}
+                        onClick={() => setApptStatusFilter(st)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                          apptStatusFilter === st
+                            ? "bg-primary text-primary-foreground shadow-sm"
+                            : "bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground"
+                        }`}
                       >
-                        <Check className="mr-1 h-3.5 w-3.5" /> Confirm
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant={a.status === "COMPLETED" ? "secondary" : "outline"}
-                        onClick={() => handleUpdateAppointment(a.id, "COMPLETED")}
+                        {st === "ALL" ? "All Appointments" : st.charAt(0) + st.slice(1).toLowerCase()} ({count})
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Search */}
+                <div className="relative w-full sm:w-72">
+                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    value={apptSearch}
+                    onChange={(e) => setApptSearch(e.target.value)}
+                    placeholder="Search name, phone, notes..."
+                    className="pl-9 text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Appointments List */}
+              <div className="mt-6 space-y-4">
+                {appointments
+                  .filter((a) => {
+                    if (apptStatusFilter !== "ALL" && a.status !== apptStatusFilter) return false;
+                    if (!apptSearch) return true;
+                    const { name, phone, email, noteText } = parseApptDetails(a);
+                    const q = apptSearch.toLowerCase();
+                    return (
+                      name.toLowerCase().includes(q) ||
+                      phone.toLowerCase().includes(q) ||
+                      email.toLowerCase().includes(q) ||
+                      noteText.toLowerCase().includes(q) ||
+                      a.timeSlot.toLowerCase().includes(q) ||
+                      a.type.toLowerCase().includes(q)
+                    );
+                  })
+                  .map((a) => {
+                    const { name, phone, email, age, noteText } = parseApptDetails(a);
+                    const cleanPhone = phone.replace(/\D/g, "");
+                    const waMessage = encodeURIComponent(
+                      `Hello ${name}, this is Nayantara Opticals regarding your ${formatApptType(a.type)} appointment on ${formatApptDate(a.appointmentDate)} at ${a.timeSlot}.`
+                    );
+
+                    return (
+                      <div
+                        key={a.id}
+                        className="rounded-xl border border-border/80 bg-card/60 p-4 sm:p-5 transition-all hover:border-primary/40 hover:shadow-soft"
                       >
-                        <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Complete
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-destructive hover:bg-destructive/10"
-                        onClick={() => handleUpdateAppointment(a.id, "CANCELLED")}
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                          {/* Left: Patient and Appointment Info */}
+                          <div className="space-y-2.5">
+                            {/* Patient Name + Badges */}
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-display text-base font-bold text-foreground">
+                                {name}
+                              </span>
+
+                              {age && (
+                                <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">
+                                  Age: {age} yrs
+                                </span>
+                              )}
+
+                              <span className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
+                                {formatApptType(a.type)}
+                              </span>
+
+                              {/* Status Badge */}
+                              {a.status === "PENDING" && (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/15 px-2.5 py-0.5 text-xs font-bold text-amber-500">
+                                  <Clock className="h-3 w-3" /> PENDING
+                                </span>
+                              )}
+                              {a.status === "CONFIRMED" && (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-0.5 text-xs font-bold text-emerald-500">
+                                  <CheckCircle2 className="h-3 w-3" /> CONFIRMED
+                                </span>
+                              )}
+                              {a.status === "COMPLETED" && (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-blue-500/30 bg-blue-500/15 px-2.5 py-0.5 text-xs font-bold text-blue-500">
+                                  <Check className="h-3 w-3" /> COMPLETED
+                                </span>
+                              )}
+                              {a.status === "CANCELLED" && (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-destructive/30 bg-destructive/15 px-2.5 py-0.5 text-xs font-bold text-destructive">
+                                  <X className="h-3 w-3" /> CANCELLED
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Schedule & Location */}
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+                              <span className="flex items-center gap-1.5 font-medium text-foreground">
+                                <CalendarDays className="h-3.5 w-3.5 text-primary" />
+                                {formatApptDate(a.appointmentDate)}
+                              </span>
+                              <span className="flex items-center gap-1.5 font-medium text-foreground">
+                                <Clock className="h-3.5 w-3.5 text-primary" />
+                                {a.timeSlot}
+                              </span>
+                              <span className="flex items-center gap-1.5">
+                                <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                                {a.store?.name || "Nayantara Opticals (Uttam Nagar Flagship)"}
+                              </span>
+                            </div>
+
+                            {/* Contact Details & Quick Actions */}
+                            <div className="flex flex-wrap items-center gap-3 pt-1 text-xs">
+                              {phone ? (
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-mono text-foreground font-medium">📞 {phone}</span>
+                                  <a
+                                    href={`tel:${phone}`}
+                                    className="rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary hover:bg-primary/20 transition-colors"
+                                  >
+                                    Call
+                                  </a>
+                                  <a
+                                    href={`https://wa.me/91${cleanPhone.slice(-10)}?text=${waMessage}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-1 rounded-md bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-500 hover:bg-emerald-500/25 transition-colors"
+                                  >
+                                    <MessageCircle className="h-3 w-3" /> WhatsApp
+                                  </a>
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground italic">No phone number recorded</span>
+                              )}
+
+                              {email && (
+                                <a
+                                  href={`mailto:${email}`}
+                                  className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground font-mono"
+                                >
+                                  <Mail className="h-3 w-3" /> {email}
+                                </a>
+                              )}
+                            </div>
+
+                            {/* Symptoms or Clinical Notes */}
+                            {noteText && (
+                              <div className="mt-2 rounded-lg border border-border/60 bg-muted/30 p-2.5 text-xs text-foreground/90">
+                                <span className="font-semibold text-primary">Patient Notes / Concerns:</span>{" "}
+                                <span className="italic">{noteText}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Right: Actions */}
+                          <div className="flex flex-wrap items-center gap-2 pt-2 lg:pt-0">
+                            {a.status !== "CONFIRMED" && (
+                              <Button
+                                size="sm"
+                                variant="default"
+                                onClick={() => handleUpdateAppointment(a.id, "CONFIRMED")}
+                              >
+                                <Check className="mr-1 h-3.5 w-3.5" /> Confirm
+                              </Button>
+                            )}
+
+                            {a.status !== "COMPLETED" && (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => handleUpdateAppointment(a.id, "COMPLETED")}
+                              >
+                                <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Complete
+                              </Button>
+                            )}
+
+                            {a.status !== "CANCELLED" && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-destructive hover:bg-destructive/10"
+                                onClick={() => handleUpdateAppointment(a.id, "CANCELLED")}
+                              >
+                                <X className="mr-1 h-3.5 w-3.5" /> Cancel
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                {appointments.filter((a) => {
+                  if (apptStatusFilter !== "ALL" && a.status !== apptStatusFilter) return false;
+                  if (!apptSearch) return true;
+                  const { name, phone, email, noteText } = parseApptDetails(a);
+                  const q = apptSearch.toLowerCase();
+                  return (
+                    name.toLowerCase().includes(q) ||
+                    phone.toLowerCase().includes(q) ||
+                    email.toLowerCase().includes(q) ||
+                    noteText.toLowerCase().includes(q) ||
+                    a.timeSlot.toLowerCase().includes(q) ||
+                    a.type.toLowerCase().includes(q)
+                  );
+                }).length === 0 && (
+                  <div className="rounded-xl border border-dashed border-border py-12 text-center text-sm text-muted-foreground">
+                    <Calendar className="mx-auto h-8 w-8 text-muted-foreground/60 mb-2" />
+                    No appointments found matching the selected filter.
                   </div>
-                ))}
+                )}
               </div>
             </div>
           </div>

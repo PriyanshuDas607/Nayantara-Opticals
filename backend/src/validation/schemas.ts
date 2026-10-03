@@ -33,7 +33,7 @@ export const bookAppointmentSchema = z.object({
   storeId: z.string().uuid().optional(),
   name: z.string().optional(),
   phone: z.string().optional(),
-  email: z.string().email().optional(),
+  email: z.union([z.string().email(), z.literal(""), z.null()]).optional(),
   patientAge: z.union([z.number(), z.string()]).optional(),
   type: z
     .enum([

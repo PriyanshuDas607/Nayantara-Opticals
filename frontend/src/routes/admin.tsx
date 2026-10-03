@@ -27,6 +27,14 @@ import {
   ExternalLink,
   ChevronRight,
   Flame,
+  Calendar,
+  Phone,
+  Mail,
+  MessageCircle,
+  Check,
+  X,
+  MapPin,
+  CalendarDays,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -43,10 +51,34 @@ export const Route = createFileRoute("/admin")({
 type SuperAdminTab =
   | "governance"
   | "financial-intelligence"
+  | "appointments"
   | "owners"
   | "error-monitoring"
   | "page-engagement"
   | "audit-logs";
+
+interface AppointmentItem {
+  id: string;
+  type: string;
+  status: string;
+  appointmentDate: string;
+  timeSlot: string;
+  notes?: string;
+  cancellationReason?: string;
+  createdAt?: string;
+  store?: {
+    id: string;
+    name: string;
+    city?: string;
+    address?: string;
+    phone?: string;
+  };
+  user: {
+    customerProfile?: { fullName: string };
+    phone?: string;
+    email?: string;
+  };
+}
 
 interface AuditLogEntry {
   id: string;
@@ -174,6 +206,74 @@ interface AnalyticsOverview {
   };
 }
 
+function parseApptDetails(appt: AppointmentItem) {
+  let name = appt.user?.customerProfile?.fullName || "";
+  let phone = appt.user?.phone || "";
+  let email = appt.user?.email || "";
+  let age = "";
+  let noteText = "";
+
+  if (appt.notes) {
+    const parts = appt.notes.split(" | ");
+    const remainingNotes: string[] = [];
+    for (const part of parts) {
+      if (part.startsWith("Patient: ")) {
+        if (!name || name === "Customer") name = part.replace("Patient: ", "").trim();
+      } else if (part.startsWith("Contact: ")) {
+        if (!phone) phone = part.replace("Contact: ", "").trim();
+      } else if (part.startsWith("Email: ")) {
+        if (!email) email = part.replace("Email: ", "").trim();
+      } else if (part.startsWith("Age: ")) {
+        age = part.replace("Age: ", "").trim();
+      } else if (part.startsWith("Patient Age: ")) {
+        age = part.replace("Patient Age: ", "").trim();
+      } else if (part.startsWith("Patient Name: ")) {
+        if (!name || name === "Customer") name = part.replace("Patient Name: ", "").trim();
+      } else if (part.startsWith("Notes: ")) {
+        remainingNotes.push(part.replace("Notes: ", "").trim());
+      } else {
+        remainingNotes.push(part.trim());
+      }
+    }
+    noteText = remainingNotes.join(" | ");
+  }
+
+  if (!name || name === "Customer") name = appt.user?.customerProfile?.fullName || "Patient";
+  return { name, phone, email, age, noteText };
+}
+
+function formatApptDate(dateStr: string) {
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString("en-IN", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return dateStr;
+  }
+}
+
+function formatApptType(type: string) {
+  switch (type) {
+    case "EYE_TEST":
+      return "Comprehensive Eye Test";
+    case "LENS_CONSULTATION":
+      return "Myopia Care & Lenses";
+    case "FRAME_CONSULTATION":
+      return "Frame Styling & Fit";
+    case "CONTACT_LENS_CONSULTATION":
+      return "Contact Lens Trial";
+    case "PRESCRIPTION_CONSULTATION":
+      return "Prescription Verification";
+    default:
+      return type.replace(/_/g, " ");
+  }
+}
+
 export function AdminPage() {
   const { user, isAdmin, isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState<SuperAdminTab>("governance");
@@ -185,6 +285,7 @@ export function AdminPage() {
   const [finance, setFinance] = useState<AdminFinanceData | null>(null);
   const [errorData, setErrorData] = useState<ErrorMonitoringSummary | null>(null);
   const [engagement, setEngagement] = useState<AnalyticsOverview | null>(null);
+  const [appointments, setAppointments] = useState<AppointmentItem[]>([]);
 
   // Filters & Search
   const [auditSearch, setAuditSearch] = useState("");
@@ -192,6 +293,8 @@ export function AdminPage() {
   const [errorSearch, setErrorSearch] = useState("");
   const [errorFilter, setErrorFilter] = useState<"ALL" | "CRITICAL" | "UNRESOLVED" | "CLIENT">("ALL");
   const [selectedIncident, setSelectedIncident] = useState<SystemErrorIncident | null>(null);
+  const [apptSearch, setApptSearch] = useState("");
+  const [apptStatusFilter, setApptStatusFilter] = useState<"ALL" | "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED">("ALL");
 
   // New Owner Form
   const [ownerName, setOwnerName] = useState("");
@@ -203,12 +306,13 @@ export function AdminPage() {
   const fetchAdminData = async () => {
     setLoading(true);
     try {
-      const [ownerRes, auditRes, financeRes, errorRes, engagementRes] = await Promise.all([
+      const [ownerRes, auditRes, financeRes, errorRes, engagementRes, apptRes] = await Promise.all([
         apiRequest<OwnerItem[]>("/admin/owners"),
         apiRequest<AuditLogEntry[]>("/admin/audit-logs?limit=50"),
         apiRequest<AdminFinanceData>("/admin/finance"),
         apiRequest<ErrorMonitoringSummary>("/admin/error-monitoring"),
         apiRequest<AnalyticsOverview>("/admin/analytics/global"),
+        apiRequest<AppointmentItem[]>("/admin/appointments"),
       ]);
 
       if (ownerRes.success && Array.isArray(ownerRes.data)) {
@@ -226,10 +330,28 @@ export function AdminPage() {
       if (engagementRes.success && engagementRes.data) {
         setEngagement(engagementRes.data);
       }
+      if (apptRes.success && Array.isArray(apptRes.data)) {
+        setAppointments(apptRes.data);
+      }
     } catch {
       // handled
     }
     setLoading(false);
+  };
+
+  const handleUpdateAppointment = async (id: string, status: string) => {
+    const res = await apiRequest(`/admin/appointments/${id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    });
+    if (res.success) {
+      toast.success(`Appointment status updated to ${status}`);
+      setAppointments((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, status } : a))
+      );
+    } else {
+      toast.error("Failed to update appointment status.");
+    }
   };
 
   useEffect(() => {
@@ -420,6 +542,21 @@ export function AdminPage() {
               <TrendingUp className="h-4 w-4" /> Financial Intelligence
             </button>
             <button
+              onClick={() => setActiveTab("appointments")}
+              className={`flex items-center gap-2 border-b-2 py-3 px-1 text-sm font-medium whitespace-nowrap transition-colors ${
+                activeTab === "appointments"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
+              }`}
+            >
+              <Calendar className="h-4 w-4" /> Appointments ({appointments.length})
+              {appointments.filter((a) => a.status === "PENDING").length > 0 && (
+                <span className="rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-500">
+                  {appointments.filter((a) => a.status === "PENDING").length} pending
+                </span>
+              )}
+            </button>
+            <button
               onClick={() => setActiveTab("page-engagement")}
               className={`flex items-center gap-2 border-b-2 py-3 px-1 text-sm font-medium whitespace-nowrap transition-colors ${
                 activeTab === "page-engagement"
@@ -465,7 +602,7 @@ export function AdminPage() {
         {/* Tab 1: Global Governance Overview */}
         {activeTab === "governance" ? (
           <div className="mt-8 space-y-8">
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5">
               <div className="surface-glass rounded-2xl p-6 shadow-lift">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-medium text-muted-foreground uppercase">Platform GMV</span>
@@ -488,6 +625,23 @@ export function AdminPage() {
                 </div>
                 <div className="mt-3 font-display text-3xl font-bold">{finance?.summary?.totalPlatformOrders || 0}</div>
                 <p className="mt-1 text-xs text-muted-foreground">Orders placed by customers</p>
+              </div>
+
+              <div
+                onClick={() => setActiveTab("appointments")}
+                className="surface-glass rounded-2xl p-6 shadow-lift cursor-pointer hover:border-primary/40 transition-all"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-muted-foreground uppercase">Appointments</span>
+                  <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary">
+                    <Calendar className="h-5 w-5" />
+                  </div>
+                </div>
+                <div className="mt-3 font-display text-3xl font-bold">{appointments.length}</div>
+                <p className="mt-1 text-xs text-muted-foreground flex items-center justify-between">
+                  <span>{appointments.filter((a) => a.status === "PENDING").length} pending action</span>
+                  <span className="text-primary font-medium flex items-center">View <ChevronRight className="h-3 w-3 ml-0.5" /></span>
+                </p>
               </div>
 
               <div className="surface-glass rounded-2xl p-6 shadow-lift">
@@ -1219,6 +1373,277 @@ export function AdminPage() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {/* Tab: Platform Appointments Management */}
+        {activeTab === "appointments" ? (
+          <div className="mt-8 space-y-6">
+            {/* Overview Metrics Cards */}
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <div className="surface-glass rounded-2xl p-4 shadow-lift border border-border/80">
+                <span className="text-xs font-medium text-muted-foreground uppercase">Total Platform Bookings</span>
+                <div className="mt-2 font-display text-2xl font-bold text-foreground">{appointments.length}</div>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">All clinic consultations</p>
+              </div>
+
+              <div className="surface-glass rounded-2xl p-4 shadow-lift border border-amber-500/30 bg-amber-500/5">
+                <span className="text-xs font-semibold text-amber-500 uppercase flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5" /> Pending Actions
+                </span>
+                <div className="mt-2 font-display text-2xl font-bold text-amber-500">
+                  {appointments.filter((a) => a.status === "PENDING").length}
+                </div>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">Requires store confirmation</p>
+              </div>
+
+              <div className="surface-glass rounded-2xl p-4 shadow-lift border border-emerald-500/30 bg-emerald-500/5">
+                <span className="text-xs font-semibold text-emerald-500 uppercase flex items-center gap-1.5">
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Confirmed
+                </span>
+                <div className="mt-2 font-display text-2xl font-bold text-emerald-500">
+                  {appointments.filter((a) => a.status === "CONFIRMED").length}
+                </div>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">Active appointments</p>
+              </div>
+
+              <div className="surface-glass rounded-2xl p-4 shadow-lift border border-blue-500/30 bg-blue-500/5">
+                <span className="text-xs font-semibold text-blue-500 uppercase flex items-center gap-1.5">
+                  <Check className="h-3.5 w-3.5" /> Completed
+                </span>
+                <div className="mt-2 font-display text-2xl font-bold text-blue-500">
+                  {appointments.filter((a) => a.status === "COMPLETED").length}
+                </div>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">Successfully fulfilled</p>
+              </div>
+            </div>
+
+            {/* Filter and Search Bar */}
+            <div className="surface-glass rounded-2xl p-5 shadow-lift">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                {/* Status Tabs */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {(["ALL", "PENDING", "CONFIRMED", "COMPLETED", "CANCELLED"] as const).map((st) => {
+                    const count = st === "ALL" ? appointments.length : appointments.filter((a) => a.status === st).length;
+                    return (
+                      <button
+                        key={st}
+                        onClick={() => setApptStatusFilter(st)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                          apptStatusFilter === st
+                            ? "bg-primary text-primary-foreground shadow-sm"
+                            : "bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {st === "ALL" ? "All Appointments" : st.charAt(0) + st.slice(1).toLowerCase()} ({count})
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Search */}
+                <div className="relative w-full sm:w-72">
+                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    value={apptSearch}
+                    onChange={(e) => setApptSearch(e.target.value)}
+                    placeholder="Search patient, phone, notes..."
+                    className="pl-9 text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Appointments List */}
+              <div className="mt-6 space-y-4">
+                {appointments
+                  .filter((a) => {
+                    if (apptStatusFilter !== "ALL" && a.status !== apptStatusFilter) return false;
+                    if (!apptSearch) return true;
+                    const { name, phone, email, noteText } = parseApptDetails(a);
+                    const q = apptSearch.toLowerCase();
+                    return (
+                      name.toLowerCase().includes(q) ||
+                      phone.toLowerCase().includes(q) ||
+                      email.toLowerCase().includes(q) ||
+                      noteText.toLowerCase().includes(q) ||
+                      a.timeSlot.toLowerCase().includes(q) ||
+                      a.type.toLowerCase().includes(q) ||
+                      (a.store?.name && a.store.name.toLowerCase().includes(q))
+                    );
+                  })
+                  .map((a) => {
+                    const { name, phone, email, age, noteText } = parseApptDetails(a);
+                    const cleanPhone = phone.replace(/\D/g, "");
+                    const waMessage = encodeURIComponent(
+                      `Hello ${name}, this is Nayantara Opticals regarding your ${formatApptType(a.type)} appointment on ${formatApptDate(a.appointmentDate)} at ${a.timeSlot}.`
+                    );
+
+                    return (
+                      <div
+                        key={a.id}
+                        className="rounded-xl border border-border/80 bg-card/60 p-4 sm:p-5 transition-all hover:border-primary/40 hover:shadow-soft"
+                      >
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                          {/* Left: Patient and Appointment Info */}
+                          <div className="space-y-2.5">
+                            {/* Patient Name + Badges */}
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-display text-base font-bold text-foreground">
+                                {name}
+                              </span>
+
+                              {age && (
+                                <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">
+                                  Age: {age} yrs
+                                </span>
+                              )}
+
+                              <span className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
+                                {formatApptType(a.type)}
+                              </span>
+
+                              {/* Status Badge */}
+                              {a.status === "PENDING" && (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/15 px-2.5 py-0.5 text-xs font-bold text-amber-500">
+                                  <Clock className="h-3 w-3" /> PENDING
+                                </span>
+                              )}
+                              {a.status === "CONFIRMED" && (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-0.5 text-xs font-bold text-emerald-500">
+                                  <CheckCircle2 className="h-3 w-3" /> CONFIRMED
+                                </span>
+                              )}
+                              {a.status === "COMPLETED" && (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-blue-500/30 bg-blue-500/15 px-2.5 py-0.5 text-xs font-bold text-blue-500">
+                                  <Check className="h-3 w-3" /> COMPLETED
+                                </span>
+                              )}
+                              {a.status === "CANCELLED" && (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-destructive/30 bg-destructive/15 px-2.5 py-0.5 text-xs font-bold text-destructive">
+                                  <X className="h-3 w-3" /> CANCELLED
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Schedule & Location */}
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+                              <span className="flex items-center gap-1.5 font-medium text-foreground">
+                                <CalendarDays className="h-3.5 w-3.5 text-primary" />
+                                {formatApptDate(a.appointmentDate)}
+                              </span>
+                              <span className="flex items-center gap-1.5 font-medium text-foreground">
+                                <Clock className="h-3.5 w-3.5 text-primary" />
+                                {a.timeSlot}
+                              </span>
+                              <span className="flex items-center gap-1.5">
+                                <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                                {a.store?.name || "Nayantara Opticals (Uttam Nagar Flagship)"}
+                              </span>
+                            </div>
+
+                            {/* Contact Details & Quick Actions */}
+                            <div className="flex flex-wrap items-center gap-3 pt-1 text-xs">
+                              {phone ? (
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-mono text-foreground font-medium">📞 {phone}</span>
+                                  <a
+                                    href={`tel:${phone}`}
+                                    className="rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary hover:bg-primary/20 transition-colors"
+                                  >
+                                    Call
+                                  </a>
+                                  <a
+                                    href={`https://wa.me/91${cleanPhone.slice(-10)}?text=${waMessage}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-1 rounded-md bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-500 hover:bg-emerald-500/25 transition-colors"
+                                  >
+                                    <MessageCircle className="h-3 w-3" /> WhatsApp
+                                  </a>
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground italic">No phone number recorded</span>
+                              )}
+
+                              {email && (
+                                <a
+                                  href={`mailto:${email}`}
+                                  className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground font-mono"
+                                >
+                                  <Mail className="h-3 w-3" /> {email}
+                                </a>
+                              )}
+                            </div>
+
+                            {/* Symptoms or Clinical Notes */}
+                            {noteText && (
+                              <div className="mt-2 rounded-lg border border-border/60 bg-muted/30 p-2.5 text-xs text-foreground/90">
+                                <span className="font-semibold text-primary">Patient Notes / Concerns:</span>{" "}
+                                <span className="italic">{noteText}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Right: Actions */}
+                          <div className="flex flex-wrap items-center gap-2 pt-2 lg:pt-0">
+                            {a.status !== "CONFIRMED" && (
+                              <Button
+                                size="sm"
+                                variant="default"
+                                onClick={() => handleUpdateAppointment(a.id, "CONFIRMED")}
+                              >
+                                <Check className="mr-1 h-3.5 w-3.5" /> Confirm
+                              </Button>
+                            )}
+
+                            {a.status !== "COMPLETED" && (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => handleUpdateAppointment(a.id, "COMPLETED")}
+                              >
+                                <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Complete
+                              </Button>
+                            )}
+
+                            {a.status !== "CANCELLED" && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-destructive hover:bg-destructive/10"
+                                onClick={() => handleUpdateAppointment(a.id, "CANCELLED")}
+                              >
+                                <X className="mr-1 h-3.5 w-3.5" /> Cancel
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                {appointments.filter((a) => {
+                  if (apptStatusFilter !== "ALL" && a.status !== apptStatusFilter) return false;
+                  if (!apptSearch) return true;
+                  const { name, phone, email, noteText } = parseApptDetails(a);
+                  const q = apptSearch.toLowerCase();
+                  return (
+                    name.toLowerCase().includes(q) ||
+                    phone.toLowerCase().includes(q) ||
+                    email.toLowerCase().includes(q) ||
+                    noteText.toLowerCase().includes(q) ||
+                    a.timeSlot.toLowerCase().includes(q) ||
+                    a.type.toLowerCase().includes(q) ||
+                    (a.store?.name && a.store.name.toLowerCase().includes(q))
+                  );
+                }).length === 0 && (
+                  <div className="rounded-xl border border-dashed border-border py-12 text-center text-sm text-muted-foreground">
+                    <Calendar className="mx-auto h-8 w-8 text-muted-foreground/60 mb-2" />
+                    No appointments found matching the selected filter.
+                  </div>
+                )}
               </div>
             </div>
           </div>

@@ -194,13 +194,15 @@ export class AppointmentService {
   /**
    * Owner gets appointments scoped to their store
    */
-  static async getOwnerAppointments(storeId: string, status?: AppointmentStatus) {
-    const where: Prisma.AppointmentWhereInput = { storeId };
+  static async getOwnerAppointments(storeId?: string, status?: AppointmentStatus) {
+    const where: Prisma.AppointmentWhereInput = {};
+    if (storeId) where.storeId = storeId;
     if (status) where.status = status;
 
     return prisma.appointment.findMany({
       where,
       include: {
+        store: true,
         user: { include: { customerProfile: true } },
         history: { orderBy: { createdAt: "desc" } },
       },

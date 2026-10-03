@@ -36,6 +36,7 @@ import { SERVICES } from "@/data/content";
 import { LENS_PACKAGES } from "@/data/catalog";
 import { SITE, inr, waLink } from "@/lib/site";
 import { apiRequest } from "@/lib/api";
+import { useAuth } from "@/store/auth";
 
 export function PageIntro({
   eyebrow,
@@ -672,17 +673,31 @@ export function LensesPage() {
 /* =========================================================================
    5. FORM PAGE — Book Eye Check, Upload Prescription, Contact Us
    ========================================================================= */
-type BookFields = "name" | "phone" | "age" | "date" | "note";
+type BookFields = "name" | "phone" | "email" | "age" | "date" | "note";
 
 export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }) {
+  const { user } = useAuth();
   const [submitted, setSubmitted] = useState(false);
   const [values, setValues] = useState<Record<BookFields, string>>({
     name: "",
     phone: "",
+    email: "",
     age: "",
     date: new Date(Date.now() + 86400000).toISOString().split("T")[0] ?? "",
     note: "",
   });
+
+  // Prefill authenticated user contact info
+  useEffect(() => {
+    if (user) {
+      setValues((prev) => ({
+        ...prev,
+        name: prev.name || user.fullName || "",
+        phone: prev.phone || user.phone || "",
+        email: prev.email || user.email || "",
+      }));
+    }
+  }, [user]);
   const [errors, setErrors] = useState<Partial<Record<BookFields, string>>>({});
   const [consultationType, setConsultationType] = useState<
     "EYE_TEST" | "LENS_CONSULTATION" | "FRAME_CONSULTATION" | "CONTACT_LENS_CONSULTATION"
@@ -814,6 +829,7 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
         const payload = {
           name: values.name.trim(),
           phone: values.phone.trim(),
+          email: values.email?.trim() || undefined,
           patientAge: values.age ? Number(values.age) : undefined,
           appointmentDate: values.date,
           timeSlot: selectedSlot || "11:30 AM",
@@ -1058,6 +1074,18 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
                         {fieldError("age")}
                       </label>
 
+                      <label className="grid gap-1.5 text-sm font-medium">
+                        <span>Email Address (Optional)</span>
+                        <Input
+                          value={values.email}
+                          onChange={(e) => set("email", e.target.value)}
+                          type="email"
+                          placeholder="For appointment calendar reminder"
+                        />
+                      </label>
+                    </div>
+
+                    <div>
                       <label className="grid gap-1.5 text-sm font-medium">
                         <span>Preferred Appointment Date <span className="text-xs text-primary">*</span></span>
                         <Input

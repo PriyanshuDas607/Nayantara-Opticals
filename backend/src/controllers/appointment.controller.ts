@@ -22,13 +22,13 @@ export class AppointmentController {
   static async book(req: Request, res: Response, next: NextFunction) {
     try {
       let userId = req.user?.userId;
+      const patientName = req.body.name?.trim();
+      const contactPhone = req.body.phone?.trim();
+      const email = req.body.email?.trim() || null;
+      const patientAge = req.body.patientAge;
 
       if (!userId) {
-        const phone = req.body.phone?.trim();
-        const name = req.body.name?.trim() || "Customer";
-        const email = req.body.email?.trim() || null;
-
-        if (!phone) {
+        if (!contactPhone) {
           res.status(400).json({
             success: false,
             message: "Please provide a valid contact mobile number to book your appointment.",
@@ -39,7 +39,7 @@ export class AppointmentController {
         // Find or create customer user
         let user = await prisma.user.findFirst({
           where: {
-            OR: [{ phone }, ...(email ? [{ email }] : [])],
+            OR: [{ phone: contactPhone }, ...(email ? [{ email }] : [])],
           },
           include: { customerProfile: true },
         });
@@ -47,12 +47,12 @@ export class AppointmentController {
         if (!user) {
           user = await prisma.user.create({
             data: {
-              phone,
+              phone: contactPhone,
               email: email || undefined,
               role: Role.CUSTOMER,
               customerProfile: {
                 create: {
-                  fullName: name,
+                  fullName: patientName || "Customer",
                   whatsappOptIn: true,
                 },
               },
@@ -63,17 +63,50 @@ export class AppointmentController {
           await prisma.customerProfile.create({
             data: {
               userId: user.id,
-              fullName: name,
+              fullName: patientName || "Customer",
             },
           });
         }
         userId = user.id;
+      } else {
+        // Logged-in user: fill phone or name on user profile if missing
+        try {
+          const existingUser = await prisma.user.findUnique({
+            where: { id: userId },
+            include: { customerProfile: true },
+          });
+          if (existingUser) {
+            if (contactPhone && !existingUser.phone) {
+              await prisma.user.update({
+                where: { id: userId },
+                data: { phone: contactPhone },
+              }).catch(() => {});
+            }
+            if (patientName && (!existingUser.customerProfile || !existingUser.customerProfile.fullName)) {
+              if (existingUser.customerProfile) {
+                await prisma.customerProfile.update({
+                  where: { userId },
+                  data: { fullName: patientName },
+                }).catch(() => {});
+              } else {
+                await prisma.customerProfile.create({
+                  data: { userId, fullName: patientName },
+                }).catch(() => {});
+              }
+            }
+          }
+        } catch {
+          // ignore profile sync failure
+        }
       }
 
+      // Consolidate rich details into notes so every dashboard has immediate full context
       const notesArr: string[] = [];
-      if (req.body.notes?.trim()) notesArr.push(req.body.notes.trim());
-      if (req.body.patientAge) notesArr.push(`Patient Age: ${req.body.patientAge}`);
-      if (req.body.name && !req.user?.userId) notesArr.push(`Patient Name: ${req.body.name}`);
+      if (patientName) notesArr.push(`Patient: ${patientName}`);
+      if (contactPhone) notesArr.push(`Contact: ${contactPhone}`);
+      if (email) notesArr.push(`Email: ${email}`);
+      if (patientAge) notesArr.push(`Age: ${patientAge}`);
+      if (req.body.notes?.trim()) notesArr.push(`Notes: ${req.body.notes.trim()}`);
 
       const appointment = await AppointmentService.bookAppointment({
         userId,
@@ -138,14 +171,18 @@ export class AppointmentController {
 
   static async getOwnerAppointments(req: Request, res: Response, next: NextFunction) {
     try {
-      const storeId = req.user?.storeId;
-      if (!storeId) {
-        res.status(400).json({ success: false, message: "No store assigned to this owner account." });
-        return;
+      let storeId = req.user?.storeId;
+      if (!storeId && req.user?.userId) {
+        const ownerProfile = await prisma.ownerProfile.findUnique({
+          where: { userId: req.user.userId },
+        });
+        if (ownerProfile?.storeId) {
+          storeId = ownerProfile.storeId;
+        }
       }
 
       const status = req.query.status as AppointmentStatus | undefined;
-      const appointments = await AppointmentService.getOwnerAppointments(storeId, status);
+      const appointments = await AppointmentService.getOwnerAppointments(storeId || undefined, status);
       res.json({ success: true, data: appointments });
     } catch (error) {
       next(error);
