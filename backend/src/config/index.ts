@@ -29,10 +29,21 @@ export const config = {
   redisUrl: process.env.REDIS_URL || "redis://localhost:6379",
 
   // Google Gemini AI & OAuth
-  geminiApiKey: process.env.GEMINI_API_KEY || "",
-  googleClientId: process.env.GOOGLE_CLIENT_ID || "",
-  googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
-  googleRedirectUri: process.env.GOOGLE_REDIRECT_URI || "http://localhost:5000/api/auth/google/callback",
+  geminiApiKey: (process.env.GEMINI_API_KEY || "").trim(),
+  googleClientId: (process.env.GOOGLE_CLIENT_ID || "").trim(),
+  googleClientSecret: (process.env.GOOGLE_CLIENT_SECRET || "").trim(),
+  googleRedirectUri: (() => {
+    const raw = (process.env.GOOGLE_REDIRECT_URI || "").trim();
+    if (raw) {
+      return raw.endsWith("/api/auth/google/callback")
+        ? raw
+        : `${raw.replace(/\/$/, "")}/api/auth/google/callback`;
+    }
+    if (process.env.RENDER_EXTERNAL_URL) {
+      return `${process.env.RENDER_EXTERNAL_URL.trim().replace(/\/$/, "")}/api/auth/google/callback`;
+    }
+    return "http://localhost:5000/api/auth/google/callback";
+  })(),
 
   // Authentication
   jwt: {

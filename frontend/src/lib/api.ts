@@ -1,8 +1,9 @@
 import { toast } from "sonner";
 
-const API_BASE_URL =
+const rawApiUrl =
   (import.meta.env as Record<string, string | undefined>)["VITE_API_URL"] ||
   "http://localhost:5000/api/v1";
+const API_BASE_URL = rawApiUrl.trim().replace(/\/$/, "");
 
 interface RequestOptions extends RequestInit {
   token?: string | null;

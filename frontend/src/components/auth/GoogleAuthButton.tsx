@@ -60,7 +60,9 @@ export function GoogleAuthButton({
   const { login } = useAuth();
 
   const googleClientId =
-    (import.meta.env as Record<string, string | undefined>)["VITE_GOOGLE_CLIENT_ID"] || "";
+    (
+      (import.meta.env as Record<string, string | undefined>)["VITE_GOOGLE_CLIENT_ID"] || ""
+    ).trim();
 
   // Initialize official Google Identity Services if client ID is ready in browser
   useEffect(() => {
@@ -106,13 +108,14 @@ export function GoogleAuthButton({
   const handleGoogleSignIn = () => {
     setLoading(true);
     // Real Google OAuth 2.0 flow configured with dynamic backend URL
-    const backendUrl =
+    const rawBackendUrl =
       (import.meta.env as Record<string, string | undefined>)["VITE_BACKEND_URL"] ||
       (import.meta.env as Record<string, string | undefined>)["VITE_API_URL"]?.replace(
         /\/api\/v1\/?$/,
         "",
       ) ||
       "http://localhost:5000";
+    const backendUrl = rawBackendUrl.trim().replace(/\/$/, "");
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     const isProductionSite =
       typeof window !== "undefined" &&
