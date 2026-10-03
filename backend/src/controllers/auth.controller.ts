@@ -642,7 +642,21 @@ export class AuthController {
   static async redirectToGoogle(req: Request, res: Response) {
     const redirectUri = config.googleRedirectUri;
     const clientId = config.googleClientId;
-    const state = req.query.redirectTo ? String(req.query.redirectTo) : "/";
+
+    let origin = config.clientUrl || "http://localhost:3000";
+    if (req.query.origin && typeof req.query.origin === "string") {
+      origin = req.query.origin;
+    } else if (req.headers.referer) {
+      try {
+        origin = new URL(req.headers.referer).origin;
+      } catch {
+        // use default
+      }
+    }
+
+    const redirectTo = req.query.redirectTo ? String(req.query.redirectTo) : "/";
+    const state = JSON.stringify({ origin, redirectTo });
+
     const params = new URLSearchParams({
       client_id: clientId,
       redirect_uri: redirectUri,
@@ -659,7 +673,17 @@ export class AuthController {
     try {
       const code = req.query.code as string;
       const error = req.query.error as string;
-      const clientOrigin = config.clientUrl || "http://localhost:5173";
+      let clientOrigin = config.clientUrl || "http://localhost:3000";
+      if (req.query.state && typeof req.query.state === "string") {
+        try {
+          const parsed = JSON.parse(req.query.state);
+          if (parsed?.origin && typeof parsed.origin === "string") {
+            clientOrigin = parsed.origin;
+          }
+        } catch {
+          // state was not json
+        }
+      }
 
       if (error || !code) {
         Logger.warn(`Google OAuth callback error or cancel: ${error || "missing code"}`);
@@ -737,9 +761,19 @@ export class AuthController {
       res.redirect(redirectUrl.toString());
     } catch (err: any) {
       Logger.error(`Google callback exception: ${err?.message}`);
-      const clientOrigin = config.clientUrl || "http://localhost:5173";
+      let fallbackOrigin = config.clientUrl || "http://localhost:3000";
+      if (req.query.state && typeof req.query.state === "string") {
+        try {
+          const parsed = JSON.parse(req.query.state);
+          if (parsed?.origin && typeof parsed.origin === "string") {
+            fallbackOrigin = parsed.origin;
+          }
+        } catch {
+          // ignore
+        }
+      }
       res.redirect(
-        `${clientOrigin}/login?error=${encodeURIComponent(err?.message || "Google sign-in failed")}`
+        `${fallbackOrigin}/login?error=${encodeURIComponent(err?.message || "Google sign-in failed")}`
       );
     }
   }

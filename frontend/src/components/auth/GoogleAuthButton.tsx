@@ -5,6 +5,25 @@ import { useAuth, type UserProfile } from "@/store/auth";
 import { apiRequest } from "@/lib/api";
 import { toast } from "sonner";
 
+declare global {
+  interface Window {
+    google?: {
+      accounts?: {
+        id?: {
+          initialize: (config: {
+            client_id: string;
+            callback: (response: { credential: string }) => void | Promise<void>;
+            auto_select?: boolean;
+            cancel_on_tap_outside?: boolean;
+          }) => void;
+          prompt?: (momentListener?: (notification: unknown) => void) => void;
+          renderButton?: (parent: HTMLElement, options: Record<string, unknown>) => void;
+        };
+      };
+    };
+  }
+}
+
 export function GoogleIcon({ className = "h-5 w-5" }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -89,9 +108,27 @@ export function GoogleAuthButton({
     // Real Google OAuth 2.0 flow configured with dynamic backend URL
     const backendUrl =
       (import.meta.env as Record<string, string | undefined>)["VITE_BACKEND_URL"] ||
-      (import.meta.env as Record<string, string | undefined>)["VITE_API_URL"]?.replace(/\/api\/v1\/?$/, "") ||
+      (import.meta.env as Record<string, string | undefined>)["VITE_API_URL"]?.replace(
+        /\/api\/v1\/?$/,
+        "",
+      ) ||
       "http://localhost:5000";
-    window.location.href = `${backendUrl}/api/auth/google`;
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const isProductionSite =
+      typeof window !== "undefined" &&
+      window.location.hostname !== "localhost" &&
+      window.location.hostname !== "127.0.0.1";
+
+    if (isProductionSite && backendUrl.includes("localhost")) {
+      setLoading(false);
+      toast.error(
+        "Production backend URL is not configured. Please set VITE_BACKEND_URL in Vercel environment variables.",
+      );
+      return;
+    }
+
+    const originQuery = origin ? `?origin=${encodeURIComponent(origin)}` : "";
+    window.location.href = `${backendUrl}/api/auth/google${originQuery}`;
   };
 
   return (
