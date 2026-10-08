@@ -563,6 +563,14 @@ export function OwnerPage() {
           </div>
 
           <div className="flex items-center gap-3">
+            <Button
+              variant={activeTab === "notifications" ? "hero" : "outline"}
+              size="sm"
+              onClick={() => setActiveTab("notifications")}
+              className="border-primary/50 text-primary font-bold shadow-xs bg-primary/10 hover:bg-primary/20"
+            >
+              <Bell className="mr-1.5 h-3.5 w-3.5" /> Broadcast Notification
+            </Button>
             <Button variant="outline" size="sm" onClick={fetchStoreData} disabled={loading}>
               <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
               Refresh Data
@@ -577,7 +585,7 @@ export function OwnerPage() {
 
         {/* Tenant Navigation Tabs */}
         <div className="mt-8 border-b border-border/80">
-          <nav className="flex space-x-4 overflow-x-auto">
+          <nav className="flex space-x-4 overflow-x-auto pb-1">
             <button
               onClick={() => setActiveTab("overview")}
               className={`flex items-center gap-2 border-b-2 py-3 px-1 text-sm font-medium whitespace-nowrap transition-colors ${
@@ -587,6 +595,20 @@ export function OwnerPage() {
               }`}
             >
               <Store className="h-4 w-4" /> Store Overview
+            </button>
+            <button
+              onClick={() => setActiveTab("notifications")}
+              className={`flex items-center gap-2 border-b-2 py-3 px-1 text-sm font-semibold whitespace-nowrap transition-colors ${
+                activeTab === "notifications"
+                  ? "border-primary text-primary font-bold"
+                  : "border-transparent text-primary hover:border-border"
+              }`}
+            >
+              <Bell className="h-4 w-4 text-primary animate-pulse" />
+              <span>Customer Broadcast & Notifications</span>
+              <span className="rounded-full bg-primary/20 text-primary text-[10px] font-bold px-2 py-0.5">
+                Studio
+              </span>
             </button>
             <button
               onClick={() => setActiveTab("finance")}
@@ -643,22 +665,39 @@ export function OwnerPage() {
             >
               <ShoppingBag className="h-4 w-4" /> Orders ({orders.length})
             </button>
-            <button
-              onClick={() => setActiveTab("notifications")}
-              className={`flex items-center gap-2 border-b-2 py-3 px-1 text-sm font-medium whitespace-nowrap transition-colors ${
-                activeTab === "notifications"
-                  ? "border-primary text-primary font-bold"
-                  : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
-              }`}
-            >
-              <Bell className="h-4 w-4" /> Customer Notifications & Broadcast
-            </button>
           </nav>
         </div>
 
         {/* Tab 1: Store Overview */}
         {activeTab === "overview" ? (
           <div className="mt-8 space-y-8">
+            {/* Quick Action Broadcast Banner */}
+            <div className="surface-glass rounded-2xl p-5 border border-primary/30 bg-primary/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+              <div className="flex items-center gap-3.5">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-sm flex-shrink-0">
+                  <Bell className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                    <span>Customer Notification & Broadcast Studio</span>
+                    <span className="text-[10px] font-bold bg-primary/20 text-primary px-2 py-0.5 rounded-full uppercase">
+                      Ready
+                    </span>
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5 max-w-xl">
+                    Compose & broadcast new eyewear collection drops, festive discount promotions, eye checkup reminders, and store updates across In-App, WhatsApp, SMS & Email.
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="hero"
+                size="sm"
+                onClick={() => setActiveTab("notifications")}
+                className="font-bold whitespace-nowrap self-start sm:self-auto shadow-sm"
+              >
+                <Bell className="mr-1.5 h-3.5 w-3.5" /> Open Broadcast Studio →
+              </Button>
+            </div>
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
               <div className="surface-glass rounded-2xl p-6 shadow-lift">
                 <div className="flex items-center justify-between">
