@@ -16,15 +16,19 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as BookRouteImport } from './routes/book'
 import { Route as CartRouteImport } from './routes/cart'
 import { Route as ContactRouteImport } from './routes/contact'
+import { Route as CookiesRouteImport } from './routes/cookies'
 import { Route as LensesRouteImport } from './routes/lenses'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MyopiaManagementRouteImport } from './routes/myopia-management'
 import { Route as OwnerRouteImport } from './routes/owner'
 import { Route as PrescriptionRouteImport } from './routes/prescription'
+import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as RefundRouteImport } from './routes/refund'
 import { Route as ReviewsRouteImport } from './routes/reviews'
 import { Route as ServicesRouteImport } from './routes/services'
 import { Route as ShopRouteImport } from './routes/shop'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as TermsRouteImport } from './routes/terms'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -61,6 +65,11 @@ const ContactRoute = ContactRouteImport.update({
   path: '/contact',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CookiesRoute = CookiesRouteImport.update({
+  id: '/cookies',
+  path: '/cookies',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LensesRoute = LensesRouteImport.update({
   id: '/lenses',
   path: '/lenses',
@@ -86,6 +95,16 @@ const PrescriptionRoute = PrescriptionRouteImport.update({
   path: '/prescription',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RefundRoute = RefundRouteImport.update({
+  id: '/refund',
+  path: '/refund',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReviewsRoute = ReviewsRouteImport.update({
   id: '/reviews',
   path: '/reviews',
@@ -106,6 +125,11 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -115,15 +139,19 @@ export interface FileRoutesByFullPath {
   '/book': typeof BookRoute
   '/cart': typeof CartRoute
   '/contact': typeof ContactRoute
+  '/cookies': typeof CookiesRoute
   '/lenses': typeof LensesRoute
   '/login': typeof LoginRoute
   '/myopia-management': typeof MyopiaManagementRoute
   '/owner': typeof OwnerRoute
   '/prescription': typeof PrescriptionRoute
+  '/privacy': typeof PrivacyRoute
+  '/refund': typeof RefundRoute
   '/reviews': typeof ReviewsRoute
   '/services': typeof ServicesRoute
   '/shop': typeof ShopRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/terms': typeof TermsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -133,15 +161,19 @@ export interface FileRoutesByTo {
   '/book': typeof BookRoute
   '/cart': typeof CartRoute
   '/contact': typeof ContactRoute
+  '/cookies': typeof CookiesRoute
   '/lenses': typeof LensesRoute
   '/login': typeof LoginRoute
   '/myopia-management': typeof MyopiaManagementRoute
   '/owner': typeof OwnerRoute
   '/prescription': typeof PrescriptionRoute
+  '/privacy': typeof PrivacyRoute
+  '/refund': typeof RefundRoute
   '/reviews': typeof ReviewsRoute
   '/services': typeof ServicesRoute
   '/shop': typeof ShopRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/terms': typeof TermsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -152,15 +184,19 @@ export interface FileRoutesById {
   '/book': typeof BookRoute
   '/cart': typeof CartRoute
   '/contact': typeof ContactRoute
+  '/cookies': typeof CookiesRoute
   '/lenses': typeof LensesRoute
   '/login': typeof LoginRoute
   '/myopia-management': typeof MyopiaManagementRoute
   '/owner': typeof OwnerRoute
   '/prescription': typeof PrescriptionRoute
+  '/privacy': typeof PrivacyRoute
+  '/refund': typeof RefundRoute
   '/reviews': typeof ReviewsRoute
   '/services': typeof ServicesRoute
   '/shop': typeof ShopRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/terms': typeof TermsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -172,15 +208,19 @@ export interface FileRouteTypes {
     | '/book'
     | '/cart'
     | '/contact'
+    | '/cookies'
     | '/lenses'
     | '/login'
     | '/myopia-management'
     | '/owner'
     | '/prescription'
+    | '/privacy'
+    | '/refund'
     | '/reviews'
     | '/services'
     | '/shop'
     | '/sitemap.xml'
+    | '/terms'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -190,15 +230,19 @@ export interface FileRouteTypes {
     | '/book'
     | '/cart'
     | '/contact'
+    | '/cookies'
     | '/lenses'
     | '/login'
     | '/myopia-management'
     | '/owner'
     | '/prescription'
+    | '/privacy'
+    | '/refund'
     | '/reviews'
     | '/services'
     | '/shop'
     | '/sitemap.xml'
+    | '/terms'
   id:
     | '__root__'
     | '/'
@@ -208,15 +252,19 @@ export interface FileRouteTypes {
     | '/book'
     | '/cart'
     | '/contact'
+    | '/cookies'
     | '/lenses'
     | '/login'
     | '/myopia-management'
     | '/owner'
     | '/prescription'
+    | '/privacy'
+    | '/refund'
     | '/reviews'
     | '/services'
     | '/shop'
     | '/sitemap.xml'
+    | '/terms'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -227,15 +275,19 @@ export interface RootRouteChildren {
   BookRoute: typeof BookRoute
   CartRoute: typeof CartRoute
   ContactRoute: typeof ContactRoute
+  CookiesRoute: typeof CookiesRoute
   LensesRoute: typeof LensesRoute
   LoginRoute: typeof LoginRoute
   MyopiaManagementRoute: typeof MyopiaManagementRoute
   OwnerRoute: typeof OwnerRoute
   PrescriptionRoute: typeof PrescriptionRoute
+  PrivacyRoute: typeof PrivacyRoute
+  RefundRoute: typeof RefundRoute
   ReviewsRoute: typeof ReviewsRoute
   ServicesRoute: typeof ServicesRoute
   ShopRoute: typeof ShopRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  TermsRoute: typeof TermsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -289,6 +341,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContactRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/cookies': {
+      id: '/cookies'
+      path: '/cookies'
+      fullPath: '/cookies'
+      preLoaderRoute: typeof CookiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/lenses': {
       id: '/lenses'
       path: '/lenses'
@@ -324,6 +383,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PrescriptionRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/refund': {
+      id: '/refund'
+      path: '/refund'
+      fullPath: '/refund'
+      preLoaderRoute: typeof RefundRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/reviews': {
       id: '/reviews'
       path: '/reviews'
@@ -352,6 +425,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -363,15 +443,19 @@ const rootRouteChildren: RootRouteChildren = {
   BookRoute: BookRoute,
   CartRoute: CartRoute,
   ContactRoute: ContactRoute,
+  CookiesRoute: CookiesRoute,
   LensesRoute: LensesRoute,
   LoginRoute: LoginRoute,
   MyopiaManagementRoute: MyopiaManagementRoute,
   OwnerRoute: OwnerRoute,
   PrescriptionRoute: PrescriptionRoute,
+  PrivacyRoute: PrivacyRoute,
+  RefundRoute: RefundRoute,
   ReviewsRoute: ReviewsRoute,
   ServicesRoute: ServicesRoute,
   ShopRoute: ShopRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  TermsRoute: TermsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

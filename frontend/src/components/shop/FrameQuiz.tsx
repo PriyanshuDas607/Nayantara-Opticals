@@ -202,7 +202,7 @@ export function FrameQuiz({
               >
                 <img
                   src={product.image}
-                  alt=""
+                  alt={`${product.brand} ${product.name} frame`}
                   loading="lazy"
                   className="h-16 w-16 shrink-0 rounded-lg object-cover"
                 />

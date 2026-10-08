@@ -839,7 +839,7 @@ export function NotificationCampaignManager({ senderRole }: { senderRole: "OWNER
 
                   {imageUrl && (
                     <div className="h-32 w-full rounded-xl overflow-hidden border border-border/80 bg-muted/20">
-                      <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+                      <img src={imageUrl} alt={title || "Campaign media preview"} className="h-full w-full object-cover" />
                     </div>
                   )}
 
@@ -883,7 +883,7 @@ export function NotificationCampaignManager({ senderRole }: { senderRole: "OWNER
 
                   {imageUrl && (
                     <div className="h-24 w-full rounded-lg overflow-hidden border border-white/20 mt-1">
-                      <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+                      <img src={imageUrl} alt={title || "Mobile notification media"} className="h-full w-full object-cover" />
                     </div>
                   )}
 

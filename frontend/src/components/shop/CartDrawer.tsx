@@ -186,7 +186,7 @@ export function CartDrawer() {
                     >
                       <img
                         src={product.image}
-                        alt=""
+                        alt={`${product.brand} ${product.name}`}
                         loading="lazy"
                         width={800}
                         height={800}

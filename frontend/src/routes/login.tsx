@@ -49,6 +49,7 @@ export function LoginPage() {
   const [regPhone, setRegPhone] = useState("");
   const [regPassword, setRegPassword] = useState("");
   const [whatsappOptIn, setWhatsappOptIn] = useState(true);
+  const [termsAgreed, setTermsAgreed] = useState(false);
 
   // Phone OTP states
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -229,6 +230,10 @@ export function LoginPage() {
   // 3. Customer Registration
   const handleCustomerRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!termsAgreed) {
+      toast.error("Please agree to the Terms & Conditions and Privacy Policy to register.");
+      return;
+    }
     setLoading(true);
 
     const res = await apiRequest<{
@@ -675,6 +680,28 @@ export function LoginPage() {
                     />
                     <label htmlFor="whatsappOptIn" className="text-xs text-muted-foreground">
                       Receive prescription records and checkup reminders on WhatsApp.
+                    </label>
+                  </div>
+
+                  <div className="flex items-start gap-2 pt-1">
+                    <input
+                      type="checkbox"
+                      id="termsAgreed"
+                      required
+                      checked={termsAgreed}
+                      onChange={(e) => setTermsAgreed(e.target.checked)}
+                      className="mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                    />
+                    <label htmlFor="termsAgreed" className="text-xs text-muted-foreground leading-snug">
+                      I agree to Nayantara Opticals'{" "}
+                      <Link to="/terms" target="_blank" className="font-medium text-primary hover:underline">
+                        Terms &amp; Conditions
+                      </Link>{" "}
+                      and{" "}
+                      <Link to="/privacy" target="_blank" className="font-medium text-primary hover:underline">
+                        Privacy Policy
+                      </Link>
+                      .
                     </label>
                   </div>
 

@@ -723,6 +723,7 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
   const [file, setFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [consentGiven, setConsentGiven] = useState(false);
 
   // Sync query params (e.g. ?type=myopia)
   useEffect(() => {
@@ -820,6 +821,10 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
     event.preventDefault();
     if (!validateBooking()) {
       toast.error("Please fill in all required fields.");
+      return;
+    }
+    if (!consentGiven) {
+      toast.error("Please acknowledge the consent checkbox to submit your request.");
       return;
     }
 
@@ -1175,6 +1180,28 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
                     placeholder="e.g. Frequent screen eye strain, previous progressive wearer, frame repair request..."
                   />
                 </label>
+
+                <div className="flex items-start gap-2.5 rounded-xl border border-border/80 bg-muted/20 p-3 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    id="formConsent"
+                    required
+                    checked={consentGiven}
+                    onChange={(e) => setConsentGiven(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                  />
+                  <label htmlFor="formConsent" className="leading-relaxed cursor-pointer select-none">
+                    I consent to Nayantara Opticals storing my contact details and optical parameters to confirm my appointment, maintain clinical records, and send updates via WhatsApp/SMS in accordance with the{" "}
+                    <Link to="/privacy" target="_blank" className="font-semibold text-primary underline hover:text-primary/80">
+                      Privacy Policy
+                    </Link>{" "}
+                    and{" "}
+                    <Link to="/terms" target="_blank" className="font-semibold text-primary underline hover:text-primary/80">
+                      Terms
+                    </Link>
+                    .
+                  </label>
+                </div>
 
                 <Button type="submit" variant="hero" size="lg" className="w-full shadow-gold" disabled={isBookingLoading}>
                   {isBookingLoading ? (

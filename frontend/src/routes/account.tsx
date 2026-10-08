@@ -1456,7 +1456,7 @@ export function AccountPage() {
 
                           {meta.imageUrl && (
                             <div className="h-44 sm:h-52 w-full rounded-xl overflow-hidden border border-border/80 bg-muted/20">
-                              <img src={meta.imageUrl} alt="" className="h-full w-full object-cover" />
+                              <img src={meta.imageUrl} alt={item.title || "Notification banner"} className="h-full w-full object-cover" />
                             </div>
                           )}
 

@@ -9,6 +9,7 @@ import { useAuth } from "@/store/auth";
 import { apiRequest } from "@/lib/api";
 import { EyecareChatbot } from "@/components/chatbot/EyecareChatbot";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { CookieConsent } from "@/components/layout/CookieConsent";
 
 const NAV = [
   ["Shop", "/shop"],
@@ -292,42 +293,68 @@ export function SiteShell({ children }: { children: ReactNode }) {
       <main id="main-content">{children}</main>
 
       <footer className="border-t border-border bg-ink text-background">
-        <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 md:grid-cols-[1.2fr_1fr_1fr] lg:px-8">
+        <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr] lg:gap-10 lg:px-8">
           <div>
             <p className="font-display text-2xl font-semibold">Nayantara Opticals</p>
-            <p className="mt-3 max-w-sm text-sm leading-relaxed text-background/65">
+            <p className="mt-3 max-w-sm text-sm leading-relaxed text-background/80">
               Independent optical care, considered eyewear and patient fitting in Uttam Nagar since
-              1990.
+              1990. Certified optometrists & precision lens laboratory.
             </p>
+            <div className="mt-4 flex items-center gap-2 text-xs text-champagne font-medium">
+              <ShieldCheck className="h-4 w-4" /> 100% Patient Privacy & Quality Guarantee
+            </div>
           </div>
           <div>
-            <p className="text-xs font-semibold tracking-[0.16em] uppercase">Visit</p>
-            <p className="mt-3 text-sm leading-relaxed text-background/65">{SITE.address}</p>
+            <p className="text-xs font-semibold tracking-[0.16em] uppercase text-champagne">Visit</p>
+            <p className="mt-3 text-sm leading-relaxed text-background/80">{SITE.address}</p>
             <a
               href={SITE.directionsUrl}
               target="_blank"
               rel="noreferrer"
-              className="mt-3 inline-flex items-center gap-2 text-sm text-champagne"
+              className="mt-3 inline-flex items-center gap-2 text-sm text-champagne hover:underline"
             >
               <MapPin className="h-4 w-4" /> Get directions
             </a>
           </div>
           <div>
-            <p className="text-xs font-semibold tracking-[0.16em] uppercase">Explore</p>
-            <div className="mt-3 grid gap-2 text-sm text-background/65">
-              <Link to="/contact">Contact & hours</Link>
-              <Link to="/services">Eye care & services</Link>
-              {isAuthenticated ? <Link to="/cart">Your bag</Link> : null}
-              <Link to="/reviews">Reviews & feedback</Link>
+            <p className="text-xs font-semibold tracking-[0.16em] uppercase text-champagne">Explore</p>
+            <div className="mt-3 grid gap-2 text-sm text-background/80">
+              <Link to="/contact" className="hover:text-champagne transition-colors">Contact & hours</Link>
+              <Link to="/services" className="hover:text-champagne transition-colors">Eye care & services</Link>
+              <Link to="/lenses" className="hover:text-champagne transition-colors">Lens technology</Link>
+              <Link to="/myopia-management" className="hover:text-champagne transition-colors">Myopia management</Link>
+              {isAuthenticated ? <Link to="/cart" className="hover:text-champagne transition-colors">Your bag</Link> : null}
+              <Link to="/reviews" className="hover:text-champagne transition-colors">Reviews & feedback</Link>
+            </div>
+          </div>
+          <div>
+            <p className="text-xs font-semibold tracking-[0.16em] uppercase text-champagne">Trust & Legal</p>
+            <div className="mt-3 grid gap-2 text-sm text-background/80">
+              <Link to="/privacy" className="hover:text-champagne transition-colors">Privacy Policy</Link>
+              <Link to="/terms" className="hover:text-champagne transition-colors">Terms & Conditions</Link>
+              <Link to="/refund" className="hover:text-champagne transition-colors">Refund & Replacement</Link>
+              <Link to="/cookies" className="hover:text-champagne transition-colors">Cookie Policy</Link>
             </div>
           </div>
         </div>
-        <div className="border-t border-background/10 px-4 py-4 text-center text-xs text-background/45">
-          © 2026 Nayantara Opticals · New Delhi
+        <div className="border-t border-background/15 px-4 py-5 text-center text-xs text-background/80">
+          <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 sm:flex-row">
+            <p>© 2026 Nayantara Opticals · New Delhi. All rights reserved.</p>
+            <div className="flex flex-wrap items-center justify-center gap-4 text-[11px] text-background/70">
+              <Link to="/privacy" className="hover:text-champagne transition-colors">Privacy</Link>
+              <span>·</span>
+              <Link to="/terms" className="hover:text-champagne transition-colors">Terms</Link>
+              <span>·</span>
+              <Link to="/refund" className="hover:text-champagne transition-colors">Refunds</Link>
+              <span>·</span>
+              <Link to="/cookies" className="hover:text-champagne transition-colors">Cookies</Link>
+            </div>
+          </div>
         </div>
       </footer>
       <EyecareChatbot />
       <CartDrawer />
+      <CookieConsent />
     </div>
   );
 }
