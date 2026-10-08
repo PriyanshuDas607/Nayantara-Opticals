@@ -35,6 +35,7 @@ import {
   X,
   MapPin,
   CalendarDays,
+  Bell,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/store/auth";
 import { apiRequest } from "@/lib/api";
+import { NotificationCampaignManager } from "@/components/notifications/NotificationCampaignManager";
 
 export const Route = createFileRoute("/admin")({
   staticData: { sitemap: false },
@@ -55,7 +57,8 @@ type SuperAdminTab =
   | "owners"
   | "error-monitoring"
   | "page-engagement"
-  | "audit-logs";
+  | "audit-logs"
+  | "notifications";
 
 interface AppointmentItem {
   id: string;
@@ -595,6 +598,16 @@ export function AdminPage() {
               }`}
             >
               <Lock className="h-4 w-4" /> Audit Trail (Read-Only)
+            </button>
+            <button
+              onClick={() => setActiveTab("notifications")}
+              className={`flex items-center gap-2 border-b-2 py-3 px-1 text-sm font-medium whitespace-nowrap transition-colors ${
+                activeTab === "notifications"
+                  ? "border-primary text-primary font-bold"
+                  : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
+              }`}
+            >
+              <Bell className="h-4 w-4" /> Broadcast & Notifications
             </button>
           </nav>
         </div>
@@ -1646,6 +1659,13 @@ export function AdminPage() {
                 )}
               </div>
             </div>
+          </div>
+        ) : null}
+
+        {/* Tab: Customer Notifications & Broadcast Studio */}
+        {activeTab === "notifications" ? (
+          <div className="mt-8">
+            <NotificationCampaignManager senderRole="SUPER_ADMIN" />
           </div>
         ) : null}
       </div>

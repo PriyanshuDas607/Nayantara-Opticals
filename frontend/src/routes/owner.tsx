@@ -39,6 +39,7 @@ import {
   MapPin,
   CalendarDays,
   ExternalLink,
+  Bell,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -46,13 +47,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/store/auth";
 import { apiRequest } from "@/lib/api";
+import { NotificationCampaignManager } from "@/components/notifications/NotificationCampaignManager";
 
 export const Route = createFileRoute("/owner")({
   staticData: { sitemap: false },
   component: OwnerPage,
 });
 
-type OwnerTab = "overview" | "finance" | "engagement" | "products" | "appointments" | "orders";
+type OwnerTab = "overview" | "finance" | "engagement" | "products" | "appointments" | "orders" | "notifications";
 
 interface AppointmentItem {
   id: string;
@@ -640,6 +642,16 @@ export function OwnerPage() {
               }`}
             >
               <ShoppingBag className="h-4 w-4" /> Orders ({orders.length})
+            </button>
+            <button
+              onClick={() => setActiveTab("notifications")}
+              className={`flex items-center gap-2 border-b-2 py-3 px-1 text-sm font-medium whitespace-nowrap transition-colors ${
+                activeTab === "notifications"
+                  ? "border-primary text-primary font-bold"
+                  : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
+              }`}
+            >
+              <Bell className="h-4 w-4" /> Customer Notifications & Broadcast
             </button>
           </nav>
         </div>
@@ -1711,6 +1723,13 @@ export function OwnerPage() {
                 ))}
               </div>
             </div>
+          </div>
+        ) : null}
+
+        {/* Tab: Customer Notifications & Broadcast Studio */}
+        {activeTab === "notifications" ? (
+          <div className="mt-8">
+            <NotificationCampaignManager senderRole="OWNER" />
           </div>
         ) : null}
       </div>

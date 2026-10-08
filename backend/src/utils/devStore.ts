@@ -82,6 +82,54 @@ export interface DevOrder {
   items: Array<{ productName: string; quantity: number; unitPricePaise: number }>;
 }
 
+export interface DevNotificationMetadata {
+  category?: "NEW_COLLECTION" | "PROMOTION" | "EYE_HEALTH" | "STORE_UPDATE" | "ANNOUNCEMENT";
+  priority?: "NORMAL" | "HIGH" | "URGENT";
+  linkUrl?: string;
+  ctaText?: string;
+  imageUrl?: string;
+  read?: boolean;
+  readAt?: string;
+  templateId?: string;
+  campaignTitle?: string;
+  sentBy?: {
+    userId: string;
+    role: string;
+    name?: string;
+  };
+}
+
+export interface DevNotification {
+  id: string;
+  userId: string;
+  channel: string;
+  title: string;
+  body: string;
+  metadata?: DevNotificationMetadata | Record<string, any>;
+  status: string;
+  createdAt: string;
+}
+
+export interface DevBroadcastLog {
+  id: string;
+  title: string;
+  body: string;
+  category: string;
+  priority: string;
+  target: string;
+  recipientCount: number;
+  channels: string[];
+  linkUrl?: string;
+  ctaText?: string;
+  imageUrl?: string;
+  sentBy: {
+    userId: string;
+    role: string;
+    name?: string;
+  };
+  createdAt: string;
+}
+
 export const INITIAL_PRODUCTS: DevProduct[] = [
   {
     id: "prod-01",
@@ -312,6 +360,75 @@ class DevDataStore {
   public appointments: any[] = [];
 
   public orders: DevOrder[] = [];
+
+  public notifications: DevNotification[] = [
+    {
+      id: "notif-seed-01",
+      userId: "user-customer-01",
+      channel: "IN_APP",
+      title: "👓 Welcome to Nayantara Opticals!",
+      body: "Discover our premium handcrafted acetate & titanium eyewear collections. Enjoy bespoke vision care at Metro Pillar 703, Uttam Nagar.",
+      metadata: {
+        category: "NEW_COLLECTION",
+        priority: "HIGH",
+        linkUrl: "/shop",
+        ctaText: "Explore Collection",
+        imageUrl: "https://images.unsplash.com/photo-1591076482161-42ce6da69f67?w=800&auto=format&fit=crop&q=80",
+        read: false,
+        sentBy: {
+          userId: "user-super-admin-01",
+          role: "SUPER_ADMIN",
+          name: "Nayantara Team",
+        },
+      },
+      status: "DELIVERED",
+      createdAt: new Date(Date.now() - 3600000 * 2).toISOString(),
+    },
+    {
+      id: "notif-seed-02",
+      userId: "user-customer-01",
+      channel: "IN_APP",
+      title: "👁️ Annual Vision Health Reminder",
+      body: "Keep your eyes sharp! Book your complimentary computerized refraction and eye checkup with our senior optometrist today.",
+      metadata: {
+        category: "EYE_HEALTH",
+        priority: "NORMAL",
+        linkUrl: "/book-appointment",
+        ctaText: "Book Eye Test",
+        imageUrl: "https://images.unsplash.com/photo-1574258495973-f010dfbb5371?w=800&auto=format&fit=crop&q=80",
+        read: false,
+        sentBy: {
+          userId: "user-store-owner-01",
+          role: "OWNER",
+          name: "Rajesh Sharma",
+        },
+      },
+      status: "DELIVERED",
+      createdAt: new Date(Date.now() - 3600000 * 24).toISOString(),
+    },
+  ];
+
+  public broadcastLogs: DevBroadcastLog[] = [
+    {
+      id: "broadcast-seed-01",
+      title: "👓 Welcome to Nayantara Opticals!",
+      body: "Discover our premium handcrafted acetate & titanium eyewear collections.",
+      category: "NEW_COLLECTION",
+      priority: "HIGH",
+      target: "ALL_CUSTOMERS",
+      recipientCount: 1,
+      channels: ["IN_APP"],
+      linkUrl: "/shop",
+      ctaText: "Explore Collection",
+      imageUrl: "https://images.unsplash.com/photo-1591076482161-42ce6da69f67?w=800&auto=format&fit=crop&q=80",
+      sentBy: {
+        userId: "user-super-admin-01",
+        role: "SUPER_ADMIN",
+        name: "Nayantara Team",
+      },
+      createdAt: new Date(Date.now() - 3600000 * 2).toISOString(),
+    },
+  ];
 
   // User methods
   addUser(user: Omit<DevUser, "id" | "createdAt"> & { id?: string }) {
@@ -548,6 +665,57 @@ class DevDataStore {
       (order as any).paymentStatus = "PAID";
     }
     return order;
+  }
+
+  // Notification methods
+  getUserNotifications(userId: string): DevNotification[] {
+    return this.notifications
+      .filter((n) => n.userId === userId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  addNotification(notif: DevNotification): DevNotification {
+    this.notifications.unshift(notif);
+    return notif;
+  }
+
+  markNotificationRead(id: string, userId: string): boolean {
+    const notif = this.notifications.find((n) => n.id === id && n.userId === userId);
+    if (!notif) return false;
+    if (!notif.metadata) notif.metadata = {};
+    notif.metadata.read = true;
+    notif.metadata.readAt = new Date().toISOString();
+    return true;
+  }
+
+  markAllNotificationsRead(userId: string): number {
+    let count = 0;
+    this.notifications.forEach((n) => {
+      if (n.userId === userId) {
+        if (!n.metadata) n.metadata = {};
+        if (!n.metadata.read) {
+          n.metadata.read = true;
+          n.metadata.readAt = new Date().toISOString();
+          count++;
+        }
+      }
+    });
+    return count;
+  }
+
+  deleteNotification(id: string, userId: string): boolean {
+    const len = this.notifications.length;
+    this.notifications = this.notifications.filter((n) => !(n.id === id && n.userId === userId));
+    return this.notifications.length < len;
+  }
+
+  addBroadcastLog(log: DevBroadcastLog): DevBroadcastLog {
+    this.broadcastLogs.unshift(log);
+    return log;
+  }
+
+  getBroadcastLogs(): DevBroadcastLog[] {
+    return this.broadcastLogs;
   }
 }
 

@@ -8,6 +8,7 @@ import { useShop } from "@/store/shop";
 import { useAuth } from "@/store/auth";
 import { apiRequest } from "@/lib/api";
 import { EyecareChatbot } from "@/components/chatbot/EyecareChatbot";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 const NAV = [
   ["Shop", "/shop"],
@@ -158,6 +159,9 @@ export function SiteShell({ children }: { children: ReactNode }) {
                 </Link>
               </Button>
             ) : null}
+
+            {/* Notifications Bell (for authenticated users) */}
+            <NotificationBell />
 
             {/* Account / Login Button */}
             <Button

@@ -692,7 +692,7 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
     if (user) {
       setValues((prev) => ({
         ...prev,
-        name: prev.name || user.fullName || "",
+        name: prev.name || user.customerProfile?.fullName || user.ownerProfile?.fullName || "",
         phone: prev.phone || user.phone || "",
         email: prev.email || user.email || "",
       }));

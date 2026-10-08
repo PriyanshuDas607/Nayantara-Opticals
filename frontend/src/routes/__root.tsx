@@ -12,6 +12,7 @@ import { type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { ShopProvider } from "../store/shop";
 import { AuthProvider } from "../store/auth";
+import { NotificationProvider } from "../store/notifications";
 import { SiteShell } from "../components/layout/SiteShell";
 import { Toaster } from "../components/ui/sonner";
 
@@ -132,12 +133,14 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <ShopProvider>
-          <SiteShell>
-            <Outlet />
-          </SiteShell>
-          <Toaster position="top-center" />
-        </ShopProvider>
+        <NotificationProvider>
+          <ShopProvider>
+            <SiteShell>
+              <Outlet />
+            </SiteShell>
+            <Toaster position="top-center" />
+          </ShopProvider>
+        </NotificationProvider>
       </AuthProvider>
     </QueryClientProvider>
   );
