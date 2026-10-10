@@ -40,6 +40,7 @@ import {
   CalendarDays,
   ExternalLink,
   Bell,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -54,7 +55,7 @@ export const Route = createFileRoute("/owner")({
   component: OwnerPage,
 });
 
-type OwnerTab = "overview" | "finance" | "engagement" | "products" | "appointments" | "orders" | "notifications";
+type OwnerTab = "overview" | "finance" | "prescriptions" | "products" | "appointments" | "orders" | "notifications";
 
 interface AppointmentItem {
   id: string;
@@ -268,7 +269,10 @@ export function OwnerPage() {
   const [orders, setOrders] = useState<OrderItem[]>([]);
   const [products, setProducts] = useState<ProductItem[]>([]);
   const [finance, setFinance] = useState<OwnerFinanceData | null>(null);
-  const [engagement, setEngagement] = useState<AnalyticsOverview | null>(null);
+  const [prescriptions, setPrescriptions] = useState<any[]>([]);
+  const [prescriptionSearch, setPrescriptionSearch] = useState("");
+  const [prescriptionFilter, setPrescriptionFilter] = useState<"ALL" | "FILE" | "MANUAL">("ALL");
+  const [selectedPrescription, setSelectedPrescription] = useState<any | null>(null);
   const [txSearch, setTxSearch] = useState("");
   const [apptSearch, setApptSearch] = useState("");
   const [apptStatusFilter, setApptStatusFilter] = useState<"ALL" | "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED">("ALL");
@@ -310,12 +314,12 @@ export function OwnerPage() {
   const fetchStoreData = async () => {
     setLoading(true);
     try {
-      const [apptRes, orderRes, prodRes, financeRes, engagementRes] = await Promise.all([
+      const [apptRes, orderRes, prodRes, financeRes, rxRes] = await Promise.all([
         apiRequest<AppointmentItem[]>("/owner/appointments"),
         apiRequest<OrderItem[]>("/owner/orders"),
         apiRequest<any[]>("/products"),
         apiRequest<OwnerFinanceData>("/owner/finance"),
-        apiRequest<AnalyticsOverview>("/owner/analytics/engagement"),
+        apiRequest<any>("/owner/prescriptions"),
       ]);
 
       if (apptRes.success && Array.isArray(apptRes.data)) {
@@ -347,8 +351,11 @@ export function OwnerPage() {
       if (financeRes.success && financeRes.data) {
         setFinance(financeRes.data);
       }
-      if (engagementRes.success && engagementRes.data) {
-        setEngagement(engagementRes.data);
+      if (rxRes.success) {
+        const items = Array.isArray(rxRes.data)
+          ? rxRes.data
+          : (rxRes.data as any)?.items || [];
+        setPrescriptions(items);
       }
     } catch {
       // handled
@@ -540,9 +547,28 @@ export function OwnerPage() {
     ...(finance?.revenueTrends?.map((t) => t.revenue) || [10000])
   );
 
-  const maxDwellSec = Math.max(
-    ...(engagement?.topPages?.map((p) => p.totalActiveSeconds) || [100])
-  );
+  const filteredPrescriptions = prescriptions.filter((rx) => {
+    if (prescriptionFilter === "FILE" && rx.type !== "FILE") return false;
+    if (prescriptionFilter === "MANUAL" && rx.type !== "MANUAL") return false;
+    if (!prescriptionSearch.trim()) return true;
+
+    const q = prescriptionSearch.toLowerCase();
+    const patientName = rx.user?.customerProfile?.fullName?.toLowerCase() || "";
+    const phone = rx.user?.phone?.toLowerCase() || "";
+    const email = rx.user?.email?.toLowerCase() || "";
+    const fileName = rx.fileUpload?.originalFileName?.toLowerCase() || "";
+    const id = rx.id.toLowerCase();
+    const notes = rx.notes?.toLowerCase() || "";
+
+    return (
+      patientName.includes(q) ||
+      phone.includes(q) ||
+      email.includes(q) ||
+      fileName.includes(q) ||
+      id.includes(q) ||
+      notes.includes(q)
+    );
+  });
 
   return (
     <div className="min-h-[calc(100vh-80px)] bg-aurora py-8 px-4 sm:px-6 lg:px-8">
@@ -621,14 +647,14 @@ export function OwnerPage() {
               <TrendingUp className="h-4 w-4" /> Financial Dashboard
             </button>
             <button
-              onClick={() => setActiveTab("engagement")}
+              onClick={() => setActiveTab("prescriptions")}
               className={`flex items-center gap-2 border-b-2 py-3 px-1 text-sm font-medium whitespace-nowrap transition-colors ${
-                activeTab === "engagement"
+                activeTab === "prescriptions"
                   ? "border-primary text-primary"
                   : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
               }`}
             >
-              <Clock className="h-4 w-4" /> Visitor Traffic & Dwell Time
+              <FileText className="h-4 w-4" /> Prescriptions ({prescriptions.length})
             </button>
             <button
               onClick={() => setActiveTab("products")}
@@ -772,17 +798,19 @@ export function OwnerPage() {
               <div className="surface-glass rounded-2xl p-6 shadow-lift border border-border/80 flex flex-col justify-between">
                 <div>
                   <span className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
-                    <Flame className="h-4 w-4 text-amber-500" />
-                    Customer Traffic Insights
+                    <FileText className="h-4 w-4 text-primary" />
+                    Customer Prescriptions Vault
                   </span>
-                  <h3 className="mt-1 text-lg font-bold">Most Time Spent on: {engagement?.topPages[0]?.pageTitle || "Eyewear Catalog"}</h3>
+                  <h3 className="mt-1 text-lg font-bold">
+                    {prescriptions.length === 0 ? "No Prescriptions Attached Yet" : `${prescriptions.length} Prescription(s) in Vault`}
+                  </h3>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Visitors spend ~{engagement?.topPages[0]?.totalActiveMinutes || 0} minutes actively exploring frame styles before booking tests or ordering.
+                    Review patient Rx files uploaded via Supabase and manual power entries submitted by clinic visitors.
                   </p>
                 </div>
                 <div className="mt-4">
-                  <Button onClick={() => setActiveTab("engagement")} variant="outline" size="sm">
-                    View Visitor Dwell Breakdown <ChevronRight className="ml-1 h-4 w-4" />
+                  <Button onClick={() => setActiveTab("prescriptions")} variant="outline" size="sm">
+                    View Customer Rx ({prescriptions.length}) <ChevronRight className="ml-1 h-4 w-4" />
                   </Button>
                 </div>
               </div>
@@ -1029,118 +1057,285 @@ export function OwnerPage() {
           </div>
         ) : null}
 
-        {/* Tab 3: Visitor Dwell Time & Traffic */}
-        {activeTab === "engagement" ? (
+        {/* Tab 3: Prescriptions Vault */}
+        {activeTab === "prescriptions" ? (
           <div className="mt-8 space-y-8">
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
               <div className="surface-glass rounded-2xl p-6 shadow-lift">
-                <span className="text-xs font-medium text-muted-foreground uppercase">Store Visitor Dwell Time</span>
+                <span className="text-xs font-medium text-muted-foreground uppercase">Total Prescriptions</span>
+                <div className="mt-3 font-display text-3xl font-bold text-foreground">
+                  {prescriptions.length}
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">Received from clinic customers</p>
+              </div>
+
+              <div className="surface-glass rounded-2xl p-6 shadow-lift">
+                <span className="text-xs font-medium text-muted-foreground uppercase">Uploaded Rx Files</span>
                 <div className="mt-3 font-display text-3xl font-bold text-primary">
-                  {engagement?.totalActiveMinutes || 0} mins
+                  {prescriptions.filter((p) => p.type === "FILE").length}
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">Active visible interest on store pages</p>
+                <p className="mt-1 text-xs text-muted-foreground">Doctor slips stored in Supabase</p>
               </div>
 
               <div className="surface-glass rounded-2xl p-6 shadow-lift">
-                <span className="text-xs font-medium text-muted-foreground uppercase">Total Page Views</span>
-                <div className="mt-3 font-display text-3xl font-bold">
-                  {engagement?.totalPageViews || 0}
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">Customer visits recorded</p>
-              </div>
-
-              <div className="surface-glass rounded-2xl p-6 shadow-lift">
-                <span className="text-xs font-medium text-muted-foreground uppercase">Live Browsing Customers</span>
+                <span className="text-xs font-medium text-muted-foreground uppercase">Manual Powers</span>
                 <div className="mt-3 font-display text-3xl font-bold text-emerald-500">
-                  {engagement?.liveOnline || 1} Online
+                  {prescriptions.filter((p) => p.type === "MANUAL").length}
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">Active visible tab telemetry</p>
+                <p className="mt-1 text-xs text-muted-foreground">OD / OS optical parameters</p>
               </div>
 
               <div className="surface-glass rounded-2xl p-6 shadow-lift">
-                <span className="text-xs font-medium text-muted-foreground uppercase">Highest Attention Page</span>
-                <div className="mt-3 font-display text-xl font-bold truncate text-primary">
-                  {engagement?.topPages[0]?.pagePath || "/shop"}
+                <span className="text-xs font-medium text-muted-foreground uppercase">Vault Storage</span>
+                <div className="mt-3 font-display text-2xl font-bold text-emerald-500 flex items-center gap-1.5">
+                  <ShieldCheck className="h-6 w-6" /> Supabase
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {engagement?.topPages[0]?.totalActiveMinutes || 0} mins continuous browsing
-                </p>
+                <p className="mt-1 text-xs text-muted-foreground">Encrypted · Max 10MB limit</p>
               </div>
             </div>
 
-            {/* Page Dwell Breakdown */}
+            {/* Prescriptions Table */}
             <div className="surface-glass rounded-2xl p-6 shadow-lift">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-6">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between border-b border-border/80 pb-4">
                 <div>
                   <h3 className="font-display text-lg font-semibold flex items-center gap-2">
-                    <Clock className="h-5 w-5 text-primary" />
-                    Customer Attention & Dwell Time by Section
+                    <FileText className="h-5 w-5 text-primary" />
+                    Customer Optical Prescriptions
                   </h3>
-                  <p className="text-xs text-muted-foreground">
-                    Discover which products and services customers spend the most time viewing before making appointments or orders
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Review and verify prescription slips uploaded by patients prior to lens processing.
                   </p>
                 </div>
-                <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-500 bg-emerald-500/10 px-3 py-1 rounded-full">
-                  <Activity className="h-3.5 w-3.5" /> Live Telemetry
-                </span>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute top-2.5 left-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      placeholder="Search patient, mobile, file..."
+                      value={prescriptionSearch}
+                      onChange={(e) => setPrescriptionSearch(e.target.value)}
+                      className="h-8 pl-8 text-xs w-48 sm:w-56"
+                    />
+                  </div>
+
+                  <select
+                    value={prescriptionFilter}
+                    onChange={(e) => setPrescriptionFilter(e.target.value as any)}
+                    className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                  >
+                    <option value="ALL">All Prescriptions ({prescriptions.length})</option>
+                    <option value="FILE">Doctor Uploads ({prescriptions.filter((p) => p.type === "FILE").length})</option>
+                    <option value="MANUAL">Manual Powers ({prescriptions.filter((p) => p.type === "MANUAL").length})</option>
+                  </select>
+
+                  <Button size="sm" variant="outline" onClick={fetchStoreData} className="h-8 text-xs">
+                    <RefreshCw className="h-3 w-3 mr-1 text-muted-foreground" /> Refresh
+                  </Button>
+                </div>
               </div>
 
-              <div className="space-y-4">
-                {(engagement?.topPages || []).map((page) => {
-                  const barWidth = Math.max(8, Math.round((page.totalActiveSeconds / maxDwellSec) * 100));
-                  const avgMin = Math.floor(page.averageDwellSeconds / 60);
-                  const avgSec = page.averageDwellSeconds % 60;
+              <div className="mt-4 overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="border-b border-border/70 text-muted-foreground uppercase">
+                    <tr>
+                      <th className="py-2.5 px-3">Rx ID / Date</th>
+                      <th className="py-2.5 px-3">Patient Name</th>
+                      <th className="py-2.5 px-3">Contact</th>
+                      <th className="py-2.5 px-3">Type</th>
+                      <th className="py-2.5 px-3">Prescription Details / File</th>
+                      <th className="py-2.5 px-3">Notes</th>
+                      <th className="py-2.5 px-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/50">
+                    {filteredPrescriptions.map((rx) => {
+                      const patientName = rx.user?.customerProfile?.fullName || "Clinic Customer";
+                      const phone = rx.user?.phone || "—";
 
-                  return (
-                    <div
-                      key={page.pagePath}
-                      className="rounded-xl border border-border/70 bg-card p-4 shadow-soft transition-all hover:border-primary/40"
-                    >
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="flex items-center gap-3">
-                          <span className="grid h-7 w-7 place-items-center rounded-lg bg-primary/10 text-xs font-bold text-primary font-mono">
-                            #{page.rank}
-                          </span>
-                          <div>
-                            <div className="font-semibold text-sm text-foreground flex items-center gap-2">
-                              {page.pageTitle}
-                              <span className="font-mono text-xs font-normal text-muted-foreground">
-                                {page.pagePath}
-                              </span>
+                      return (
+                        <tr key={rx.id} className="hover:bg-muted/30 transition-colors">
+                          <td className="py-3 px-3">
+                            <span className="font-mono font-bold text-foreground block">
+                              #{rx.id.slice(0, 8).toUpperCase()}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground font-mono">
+                              {new Date(rx.createdAt).toLocaleDateString("en-IN", {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                              })}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3">
+                            <span className="font-semibold text-foreground block">{patientName}</span>
+                            {rx.order?.orderNumber && (
+                              <span className="text-[10px] text-primary block font-mono">Order: {rx.order.orderNumber}</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-3">
+                            <div className="font-mono text-xs text-foreground flex items-center gap-1">
+                              <Phone className="h-3 w-3 text-primary" /> {phone}
                             </div>
-                            <div className="text-xs text-muted-foreground mt-0.5">
-                              {page.totalViews} views · {page.uniqueVisitors} unique customers
+                            {phone !== "—" && (
+                              <a
+                                href={`https://wa.me/91${phone.replace(/\D/g, "")}?text=Hello%20${encodeURIComponent(patientName)},%20we%20have%20reviewed%20your%20prescription%20at%20Nayantara%20Opticals.`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[10px] text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 mt-0.5"
+                              >
+                                <MessageCircle className="h-2.5 w-2.5" /> WhatsApp Customer
+                              </a>
+                            )}
+                          </td>
+                          <td className="py-3 px-3">
+                            <span
+                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+                                rx.type === "FILE"
+                                  ? "bg-primary/10 text-primary"
+                                  : "bg-muted text-muted-foreground"
+                              }`}
+                            >
+                              {rx.type === "FILE" ? "Doctor Upload (Supabase)" : "Manual Entry"}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 max-w-xs">
+                            {rx.fileUpload ? (
+                              <div className="space-y-1">
+                                <span className="font-medium text-foreground truncate block font-mono text-xs">
+                                  📄 {rx.fileUpload.originalFileName}
+                                </span>
+                                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                                  <span className="rounded bg-muted px-1.5 py-0.2 uppercase font-mono">
+                                    {rx.fileUpload.mimeType.split("/")[1] || "FILE"}
+                                  </span>
+                                  <span>{(rx.fileUpload.sizeBytes / (1024 * 1024)).toFixed(2)} MB</span>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="grid grid-cols-2 gap-1 text-[11px] bg-muted/40 p-2 rounded">
+                                <div><span className="text-muted-foreground">OD:</span> {rx.sphereOD || "0.00"}</div>
+                                <div><span className="text-muted-foreground">OS:</span> {rx.sphereOS || "0.00"}</div>
+                                <div><span className="text-muted-foreground">Cyl:</span> {rx.cylinderOD || "0.00"}</div>
+                                <div><span className="text-muted-foreground">PD:</span> {rx.pd || "63mm"}</div>
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-3 px-3 max-w-[180px]">
+                            <p className="text-[11px] text-muted-foreground truncate">{rx.notes || "No notes"}</p>
+                          </td>
+                          <td className="py-3 px-3 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {rx.downloadUrl ? (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    asChild
+                                    className="h-7 text-[10px] bg-primary/10 text-primary border-primary/30 hover:bg-primary/20"
+                                  >
+                                    <a href={rx.downloadUrl} target="_blank" rel="noopener noreferrer">
+                                      <Eye className="h-3 w-3 mr-1" /> View File
+                                    </a>
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    asChild
+                                    className="h-7 text-[10px]"
+                                  >
+                                    <a href={rx.downloadUrl} download={rx.fileUpload?.originalFileName || "prescription"}>
+                                      <Download className="h-3 w-3 mr-1" /> Download
+                                    </a>
+                                  </Button>
+                                </>
+                              ) : rx.type === "FILE" ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={async () => {
+                                    const res = await apiRequest<{ downloadUrl: string }>(`/owner/prescriptions/${rx.id}/download-url`);
+                                    if (res.success && res.data?.downloadUrl) {
+                                      window.open(res.data.downloadUrl, "_blank");
+                                    } else {
+                                      toast.error("Could not retrieve prescription link.");
+                                    }
+                                  }}
+                                  className="h-7 text-[10px]"
+                                >
+                                  <Eye className="h-3 w-3 mr-1" /> View File
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => setSelectedPrescription(rx)}
+                                  className="h-7 text-[10px]"
+                                >
+                                  <Eye className="h-3 w-3 mr-1" /> View Powers
+                                </Button>
+                              )}
                             </div>
-                          </div>
-                        </div>
-
-                        <div className="text-right sm:min-w-[140px]">
-                          <div className="font-display text-base font-bold text-primary">
-                            {page.totalActiveMinutes} mins
-                          </div>
-                          <div className="text-[11px] text-muted-foreground">
-                            Avg time: <span className="font-semibold text-foreground">{avgMin}m {avgSec}s</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="mt-3">
-                        <div className="flex justify-between text-[11px] text-muted-foreground mb-1">
-                          <span>Store Attention Share</span>
-                          <span className="font-semibold text-primary">{page.sharePercent}%</span>
-                        </div>
-                        <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                          <div
-                            className="h-full rounded-full bg-primary transition-all duration-500"
-                            style={{ width: `${barWidth}%` }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {filteredPrescriptions.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="py-10 text-center text-muted-foreground">
+                          <FileText className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+                          No prescriptions found in store vault.
+                        </td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </table>
               </div>
             </div>
+
+            {/* Manual Rx Detail Modal */}
+            {selectedPrescription ? (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+                <div className="surface-glass rounded-2xl p-6 shadow-lift max-w-lg w-full flex flex-col border border-border space-y-4">
+                  <div className="flex items-center justify-between border-b border-border/80 pb-3">
+                    <div>
+                      <h4 className="font-display font-bold text-base text-foreground">
+                        Customer Eye Parameters
+                      </h4>
+                      <p className="text-xs text-muted-foreground font-mono">
+                        Ref: #{selectedPrescription.id.slice(0, 8).toUpperCase()}
+                      </p>
+                    </div>
+                    <Button size="sm" variant="ghost" onClick={() => setSelectedPrescription(null)}>
+                      Close
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div className="p-3 bg-card rounded-xl border border-border">
+                      <span className="font-bold text-primary block">Right Eye (OD)</span>
+                      <div className="mt-2 space-y-1">
+                        <div>SPH: <strong>{selectedPrescription.sphereOD || "0.00"}</strong></div>
+                        <div>CYL: <strong>{selectedPrescription.cylinderOD || "0.00"}</strong></div>
+                        <div>AXIS: <strong>{selectedPrescription.axisOD || "0"}°</strong></div>
+                      </div>
+                    </div>
+                    <div className="p-3 bg-card rounded-xl border border-border">
+                      <span className="font-bold text-primary block">Left Eye (OS)</span>
+                      <div className="mt-2 space-y-1">
+                        <div>SPH: <strong>{selectedPrescription.sphereOS || "0.00"}</strong></div>
+                        <div>CYL: <strong>{selectedPrescription.cylinderOS || "0.00"}</strong></div>
+                        <div>AXIS: <strong>{selectedPrescription.axisOS || "0"}°</strong></div>
+                      </div>
+                    </div>
+                  </div>
+                  {selectedPrescription.notes && (
+                    <div className="text-xs bg-muted/40 p-3 rounded-lg">
+                      <span className="text-muted-foreground font-semibold block mb-1">Notes:</span>
+                      {selectedPrescription.notes}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : null}
 

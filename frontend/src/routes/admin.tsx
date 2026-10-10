@@ -36,6 +36,8 @@ import {
   MapPin,
   CalendarDays,
   Bell,
+  FileText,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -53,9 +55,9 @@ export const Route = createFileRoute("/admin")({
 type SuperAdminTab =
   | "governance"
   | "financial-intelligence"
+  | "prescriptions"
   | "appointments"
   | "owners"
-  | "error-monitoring"
   | "page-engagement"
   | "audit-logs"
   | "notifications";
@@ -154,32 +156,46 @@ interface AdminFinanceData {
   }>;
 }
 
-interface SystemErrorIncident {
+interface PrescriptionItem {
   id: string;
-  type: string;
-  statusCode: number;
-  method?: string;
-  endpoint: string;
-  message: string;
-  stackTrace?: string;
-  source: "BACKEND_API" | "FRONTEND_CLIENT";
-  status: "OPEN" | "INVESTIGATING" | "RESOLVED";
-  count: number;
-  firstOccurredAt: string;
-  lastOccurredAt: string;
-  userAgent?: string;
-  ipAddress?: string;
-}
-
-interface ErrorMonitoringSummary {
-  totalErrors: number;
-  criticalErrors: number;
-  unresolvedErrors: number;
-  clientErrors: number;
-  systemHealth: "OPTIMAL" | "DEGRADED" | "NEEDS_ATTENTION";
-  errorRatePercent: number;
-  lastIncidentAt?: string;
-  incidents: SystemErrorIncident[];
+  userId: string;
+  type: "MANUAL" | "FILE";
+  sphereOD?: string;
+  cylinderOD?: string;
+  axisOD?: string;
+  sphereOS?: string;
+  cylinderOS?: string;
+  axisOS?: string;
+  addition?: string;
+  pd?: string;
+  notes?: string;
+  createdAt: string;
+  downloadUrl?: string;
+  user?: {
+    id: string;
+    email?: string;
+    phone?: string;
+    customerProfile?: { fullName: string };
+  };
+  fileUpload?: {
+    id: string;
+    objectKey: string;
+    originalFileName: string;
+    mimeType: string;
+    sizeBytes: number;
+    uploadedAt: string;
+  };
+  appointment?: {
+    id: string;
+    appointmentDate: string;
+    timeSlot: string;
+    type: string;
+  };
+  order?: {
+    id: string;
+    orderNumber: string;
+    status: string;
+  };
 }
 
 interface PageEngagementMetric {
@@ -286,16 +302,16 @@ export function AdminPage() {
   const [owners, setOwners] = useState<OwnerItem[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [finance, setFinance] = useState<AdminFinanceData | null>(null);
-  const [errorData, setErrorData] = useState<ErrorMonitoringSummary | null>(null);
+  const [prescriptions, setPrescriptions] = useState<PrescriptionItem[]>([]);
   const [engagement, setEngagement] = useState<AnalyticsOverview | null>(null);
   const [appointments, setAppointments] = useState<AppointmentItem[]>([]);
 
   // Filters & Search
   const [auditSearch, setAuditSearch] = useState("");
   const [auditActionFilter, setAuditActionFilter] = useState("ALL");
-  const [errorSearch, setErrorSearch] = useState("");
-  const [errorFilter, setErrorFilter] = useState<"ALL" | "CRITICAL" | "UNRESOLVED" | "CLIENT">("ALL");
-  const [selectedIncident, setSelectedIncident] = useState<SystemErrorIncident | null>(null);
+  const [prescriptionSearch, setPrescriptionSearch] = useState("");
+  const [prescriptionFilter, setPrescriptionFilter] = useState<"ALL" | "FILE" | "MANUAL">("ALL");
+  const [selectedPrescription, setSelectedPrescription] = useState<PrescriptionItem | null>(null);
   const [apptSearch, setApptSearch] = useState("");
   const [apptStatusFilter, setApptStatusFilter] = useState<"ALL" | "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED">("ALL");
 
@@ -309,11 +325,11 @@ export function AdminPage() {
   const fetchAdminData = async () => {
     setLoading(true);
     try {
-      const [ownerRes, auditRes, financeRes, errorRes, engagementRes, apptRes] = await Promise.all([
+      const [ownerRes, auditRes, financeRes, rxRes, engagementRes, apptRes] = await Promise.all([
         apiRequest<OwnerItem[]>("/admin/owners"),
         apiRequest<AuditLogEntry[]>("/admin/audit-logs?limit=50"),
         apiRequest<AdminFinanceData>("/admin/finance"),
-        apiRequest<ErrorMonitoringSummary>("/admin/error-monitoring"),
+        apiRequest<{ items: PrescriptionItem[] } | PrescriptionItem[]>("/admin/prescriptions"),
         apiRequest<AnalyticsOverview>("/admin/analytics/global"),
         apiRequest<AppointmentItem[]>("/admin/appointments"),
       ]);
@@ -327,8 +343,11 @@ export function AdminPage() {
       if (financeRes.success && financeRes.data) {
         setFinance(financeRes.data);
       }
-      if (errorRes.success && errorRes.data) {
-        setErrorData(errorRes.data);
+      if (rxRes.success) {
+        const items = Array.isArray(rxRes.data)
+          ? rxRes.data
+          : (rxRes.data as any)?.items || [];
+        setPrescriptions(items);
       }
       if (engagementRes.success && engagementRes.data) {
         setEngagement(engagementRes.data);
@@ -427,64 +446,26 @@ export function AdminPage() {
     }
   };
 
-  const handleUpdateErrorStatus = async (id: string, status: "OPEN" | "INVESTIGATING" | "RESOLVED") => {
-    const res = await apiRequest<{ data: SystemErrorIncident }>(`/admin/error-monitoring/${id}/status`, {
-      method: "PATCH",
-      body: JSON.stringify({ status }),
-    });
-    if (res.success) {
-      toast.success(`Incident status updated to ${status}`);
-      if (errorData) {
-        setErrorData({
-          ...errorData,
-          incidents: errorData.incidents.map((i) => (i.id === id ? { ...i, status } : i)),
-          unresolvedErrors: status === "RESOLVED" ? Math.max(0, errorData.unresolvedErrors - 1) : errorData.unresolvedErrors,
-        });
-      }
-    } else {
-      toast.error("Failed to update error status.");
-    }
-  };
+  const filteredPrescriptions = prescriptions.filter((rx) => {
+    if (prescriptionFilter === "FILE" && rx.type !== "FILE") return false;
+    if (prescriptionFilter === "MANUAL" && rx.type !== "MANUAL") return false;
+    if (!prescriptionSearch.trim()) return true;
 
-  const handleClearResolvedErrors = async () => {
-    const res = await apiRequest("/admin/error-monitoring/resolved", {
-      method: "DELETE",
-    });
-    if (res.success) {
-      toast.success("Cleared all resolved error incidents.");
-      fetchAdminData();
-    } else {
-      toast.error("Failed to clear resolved errors.");
-    }
-  };
+    const q = prescriptionSearch.toLowerCase();
+    const patientName = rx.user?.customerProfile?.fullName?.toLowerCase() || "";
+    const phone = rx.user?.phone?.toLowerCase() || "";
+    const email = rx.user?.email?.toLowerCase() || "";
+    const fileName = rx.fileUpload?.originalFileName?.toLowerCase() || "";
+    const id = rx.id.toLowerCase();
+    const notes = rx.notes?.toLowerCase() || "";
 
-  const filteredLogs = auditLogs.filter((log) => {
-    if (auditActionFilter !== "ALL" && !log.action.startsWith(auditActionFilter)) {
-      return false;
-    }
-    if (!auditSearch.trim()) return true;
-    const q = auditSearch.toLowerCase();
     return (
-      log.action.toLowerCase().includes(q) ||
-      log.resource.toLowerCase().includes(q) ||
-      (log.user?.email && log.user.email.toLowerCase().includes(q)) ||
-      (log.ipAddress && log.ipAddress.includes(q)) ||
-      (log.details && log.details.toLowerCase().includes(q))
-    );
-  });
-
-  const filteredErrors = (errorData?.incidents || []).filter((inc) => {
-    if (errorFilter === "CRITICAL" && inc.statusCode < 500) return false;
-    if (errorFilter === "UNRESOLVED" && inc.status === "RESOLVED") return false;
-    if (errorFilter === "CLIENT" && inc.source !== "FRONTEND_CLIENT") return false;
-
-    if (!errorSearch.trim()) return true;
-    const q = errorSearch.toLowerCase();
-    return (
-      inc.message.toLowerCase().includes(q) ||
-      inc.endpoint.toLowerCase().includes(q) ||
-      inc.type.toLowerCase().includes(q) ||
-      inc.statusCode.toString().includes(q)
+      patientName.includes(q) ||
+      phone.includes(q) ||
+      email.includes(q) ||
+      fileName.includes(q) ||
+      id.includes(q) ||
+      notes.includes(q)
     );
   });
 
@@ -592,14 +573,14 @@ export function AdminPage() {
               <Clock className="h-4 w-4" /> Visitor Dwell Time & Engagement
             </button>
             <button
-              onClick={() => setActiveTab("error-monitoring")}
+              onClick={() => setActiveTab("prescriptions")}
               className={`flex items-center gap-2 border-b-2 py-3 px-1 text-sm font-medium whitespace-nowrap transition-colors ${
-                activeTab === "error-monitoring"
+                activeTab === "prescriptions"
                   ? "border-primary text-primary"
                   : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
               }`}
             >
-              <Activity className="h-4 w-4" /> Error & Health Monitoring ({errorData?.unresolvedErrors || 0})
+              <FileText className="h-4 w-4" /> Prescriptions Vault ({prescriptions.length})
             </button>
             <button
               onClick={() => setActiveTab("owners")}
@@ -696,18 +677,20 @@ export function AdminPage() {
                 </p>
               </div>
 
-              <div className="surface-glass rounded-2xl p-6 shadow-lift">
+              <div
+                onClick={() => setActiveTab("prescriptions")}
+                className="surface-glass rounded-2xl p-6 shadow-lift cursor-pointer hover:border-primary/40 transition-all"
+              >
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-muted-foreground uppercase">System Health</span>
-                  <div className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-500/10 text-emerald-500">
-                    <Activity className="h-5 w-5" />
+                  <span className="text-xs font-medium text-muted-foreground uppercase">Prescriptions</span>
+                  <div className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary">
+                    <FileText className="h-5 w-5" />
                   </div>
                 </div>
-                <div className="mt-3 font-display text-2xl font-bold text-emerald-500">
-                  {errorData?.systemHealth || "OPTIMAL"}
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {errorData?.unresolvedErrors || 0} active issue(s)
+                <div className="mt-3 font-display text-3xl font-bold">{prescriptions.length}</div>
+                <p className="mt-1 text-xs text-muted-foreground flex items-center justify-between">
+                  <span>{prescriptions.filter((p) => p.type === "FILE").length} uploaded files</span>
+                  <span className="text-primary font-medium flex items-center">View <ChevronRight className="h-3 w-3 ml-0.5" /></span>
                 </p>
               </div>
 
@@ -758,31 +741,35 @@ export function AdminPage() {
                 </div>
               </div>
 
-              {/* Error Monitoring Health Card */}
+              {/* Prescriptions Vault Card */}
               <div className="surface-glass rounded-2xl p-6 shadow-lift border border-border/80">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
-                    <Activity className="h-4 w-4 text-primary" />
-                    Error & Health Diagnostics
+                    <FileText className="h-4 w-4 text-primary" />
+                    Prescriptions Vault
                   </span>
-                  <Button onClick={() => setActiveTab("error-monitoring")} variant="ghost" size="sm" className="text-xs">
-                    View Error Stream <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                  <Button onClick={() => setActiveTab("prescriptions")} variant="ghost" size="sm" className="text-xs">
+                    View All Rx ({prescriptions.length}) <ChevronRight className="h-3.5 w-3.5 ml-1" />
                   </Button>
                 </div>
                 <h3 className="text-base font-bold">
-                  {errorData?.unresolvedErrors === 0 ? "All Systems Operational" : `${errorData?.unresolvedErrors} Incident(s) Recorded`}
+                  {prescriptions.length === 0 ? "No Prescriptions Uploaded Yet" : `${prescriptions.length} Prescription(s) in Vault`}
                 </h3>
                 <p className="text-xs text-muted-foreground mt-1 mb-4">
-                  Real-time recording of backend API exceptions, client runtime errors, and network anomalies.
+                  Doctor uploaded clinical prescriptions stored in Supabase private vault with 10MB limits.
                 </p>
                 <div className="grid grid-cols-2 gap-3 text-center">
                   <div className="rounded-xl border border-border/70 bg-card p-3">
-                    <span className="text-[11px] text-muted-foreground block">Critical 5xx Errors</span>
-                    <span className="font-display text-xl font-bold text-destructive">{errorData?.criticalErrors || 0}</span>
+                    <span className="text-[11px] text-muted-foreground block">Uploaded Files</span>
+                    <span className="font-display text-xl font-bold text-foreground">
+                      {prescriptions.filter((p) => p.type === "FILE").length}
+                    </span>
                   </div>
                   <div className="rounded-xl border border-border/70 bg-card p-3">
-                    <span className="text-[11px] text-muted-foreground block">Client Runtime Errors</span>
-                    <span className="font-display text-xl font-bold text-amber-500">{errorData?.clientErrors || 0}</span>
+                    <span className="text-[11px] text-muted-foreground block">Manual Powers</span>
+                    <span className="font-display text-xl font-bold text-primary">
+                      {prescriptions.filter((p) => p.type === "MANUAL").length}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -1025,54 +1012,54 @@ export function AdminPage() {
           </div>
         ) : null}
 
-        {/* Tab 4: Error & System Health Monitoring */}
-        {activeTab === "error-monitoring" ? (
+        {/* Tab: Clinical Prescriptions Vault */}
+        {activeTab === "prescriptions" ? (
           <div className="mt-8 space-y-8">
             {/* Top Diagnostics KPI Cards */}
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
               <div className="surface-glass rounded-2xl p-6 shadow-lift">
-                <span className="text-xs font-medium text-muted-foreground uppercase">System Status</span>
-                <div className="mt-3 font-display text-2xl font-bold text-emerald-500">
-                  {errorData?.systemHealth || "OPTIMAL"}
+                <span className="text-xs font-medium text-muted-foreground uppercase">Total Prescriptions</span>
+                <div className="mt-3 font-display text-3xl font-bold text-foreground">
+                  {prescriptions.length}
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">Error rate: {errorData?.errorRatePercent || 0}%</p>
+                <p className="mt-1 text-xs text-muted-foreground">Logged across all platform users</p>
               </div>
 
               <div className="surface-glass rounded-2xl p-6 shadow-lift">
-                <span className="text-xs font-medium text-muted-foreground uppercase">Total Incidents</span>
-                <div className="mt-3 font-display text-3xl font-bold">
-                  {errorData?.totalErrors || 0}
+                <span className="text-xs font-medium text-muted-foreground uppercase">Doctor Uploaded Files</span>
+                <div className="mt-3 font-display text-3xl font-bold text-primary">
+                  {prescriptions.filter((p) => p.type === "FILE").length}
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">Aggregated error occurrences</p>
+                <p className="mt-1 text-xs text-muted-foreground">Stored securely in Supabase vault</p>
               </div>
 
               <div className="surface-glass rounded-2xl p-6 shadow-lift">
-                <span className="text-xs font-medium text-muted-foreground uppercase">Unresolved Errors</span>
-                <div className="mt-3 font-display text-3xl font-bold text-amber-500">
-                  {errorData?.unresolvedErrors || 0}
+                <span className="text-xs font-medium text-muted-foreground uppercase">Manual Power Entries</span>
+                <div className="mt-3 font-display text-3xl font-bold text-emerald-500">
+                  {prescriptions.filter((p) => p.type === "MANUAL").length}
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">Requiring investigation</p>
+                <p className="mt-1 text-xs text-muted-foreground">OD / OS optical parameters</p>
               </div>
 
               <div className="surface-glass rounded-2xl p-6 shadow-lift">
-                <span className="text-xs font-medium text-muted-foreground uppercase">Critical 5xx Errors</span>
-                <div className="mt-3 font-display text-3xl font-bold text-destructive">
-                  {errorData?.criticalErrors || 0}
+                <span className="text-xs font-medium text-muted-foreground uppercase">Storage Security</span>
+                <div className="mt-3 font-display text-2xl font-bold text-emerald-500 flex items-center gap-1.5">
+                  <ShieldCheck className="h-6 w-6" /> Supabase
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">Server-side crashes</p>
+                <p className="mt-1 text-xs text-muted-foreground">10MB limit · JPEG, PNG, PDF</p>
               </div>
             </div>
 
-            {/* Error Incidents Table */}
+            {/* Prescriptions Master Table */}
             <div className="surface-glass rounded-2xl p-6 shadow-lift">
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between border-b border-border/80 pb-4">
                 <div>
                   <h3 className="font-display text-lg font-semibold flex items-center gap-2">
-                    <Activity className="h-5 w-5 text-destructive" />
-                    Live System & Client Error Incidents Log
+                    <FileText className="h-5 w-5 text-primary" />
+                    Clinical Prescriptions Vault & Files
                   </h3>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Real-time error stream with deduplication, stack inspection, and resolution workflow.
+                    Doctor uploaded prescription records with encrypted storage in Supabase and direct preview access.
                   </p>
                 </div>
 
@@ -1080,26 +1067,25 @@ export function AdminPage() {
                   <div className="relative">
                     <Search className="pointer-events-none absolute top-2.5 left-2.5 h-3.5 w-3.5 text-muted-foreground" />
                     <Input
-                      placeholder="Search error, endpoint..."
-                      value={errorSearch}
-                      onChange={(e) => setErrorSearch(e.target.value)}
-                      className="h-8 pl-8 text-xs w-48"
+                      placeholder="Search patient, phone, file..."
+                      value={prescriptionSearch}
+                      onChange={(e) => setPrescriptionSearch(e.target.value)}
+                      className="h-8 pl-8 text-xs w-48 sm:w-56"
                     />
                   </div>
 
                   <select
-                    value={errorFilter}
-                    onChange={(e) => setErrorFilter(e.target.value as any)}
+                    value={prescriptionFilter}
+                    onChange={(e) => setPrescriptionFilter(e.target.value as any)}
                     className="h-8 rounded-md border border-input bg-background px-2 text-xs"
                   >
-                    <option value="ALL">All Errors</option>
-                    <option value="CRITICAL">Critical (5xx)</option>
-                    <option value="UNRESOLVED">Unresolved</option>
-                    <option value="CLIENT">Client Exceptions</option>
+                    <option value="ALL">All Types ({prescriptions.length})</option>
+                    <option value="FILE">Uploaded Files ({prescriptions.filter((p) => p.type === "FILE").length})</option>
+                    <option value="MANUAL">Manual Powers ({prescriptions.filter((p) => p.type === "MANUAL").length})</option>
                   </select>
 
-                  <Button size="sm" variant="outline" onClick={handleClearResolvedErrors} className="h-8 text-xs">
-                    <Trash2 className="h-3 w-3 mr-1 text-muted-foreground" /> Clear Resolved
+                  <Button size="sm" variant="outline" onClick={fetchAdminData} className="h-8 text-xs">
+                    <RefreshCw className="h-3 w-3 mr-1 text-muted-foreground" /> Refresh
                   </Button>
                 </div>
               </div>
@@ -1108,87 +1094,146 @@ export function AdminPage() {
                 <table className="w-full text-left text-xs">
                   <thead className="border-b border-border/70 text-muted-foreground uppercase">
                     <tr>
-                      <th className="py-2.5 px-3">Status</th>
-                      <th className="py-2.5 px-3">Type / Code</th>
-                      <th className="py-2.5 px-3">Endpoint / Source</th>
-                      <th className="py-2.5 px-3">Error Message</th>
-                      <th className="py-2.5 px-3">Count</th>
-                      <th className="py-2.5 px-3">Last Occurred</th>
+                      <th className="py-2.5 px-3">Rx ID / Date</th>
+                      <th className="py-2.5 px-3">Patient Name</th>
+                      <th className="py-2.5 px-3">Contact</th>
+                      <th className="py-2.5 px-3">Type</th>
+                      <th className="py-2.5 px-3">Prescription File / Details</th>
+                      <th className="py-2.5 px-3">Notes</th>
                       <th className="py-2.5 px-3 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/50">
-                    {filteredErrors.map((inc) => (
-                      <tr key={inc.id} className="hover:bg-muted/30 transition-colors">
-                        <td className="py-3 px-3">
-                          <span
-                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
-                              inc.status === "RESOLVED"
-                                ? "bg-emerald-500/10 text-emerald-500"
-                                : inc.status === "INVESTIGATING"
-                                ? "bg-amber-500/10 text-amber-500"
-                                : "bg-destructive/10 text-destructive"
-                            }`}
-                          >
-                            {inc.status}
-                          </span>
-                        </td>
-                        <td className="py-3 px-3">
-                          <span className="font-mono font-bold text-foreground block">
-                            HTTP {inc.statusCode}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground font-mono">{inc.type}</span>
-                        </td>
-                        <td className="py-3 px-3">
-                          <div className="font-mono text-xs font-medium text-foreground">{inc.endpoint}</div>
-                          <span className="text-[10px] text-muted-foreground">{inc.source}</span>
-                        </td>
-                        <td className="py-3 px-3 max-w-sm">
-                          <div className="font-medium text-foreground line-clamp-2">{inc.message}</div>
-                          {inc.stackTrace ? (
-                            <button
-                              onClick={() => setSelectedIncident(inc)}
-                              className="text-[10px] text-primary underline mt-0.5 block hover:text-primary/80"
-                            >
-                              View Stack Trace
-                            </button>
-                          ) : null}
-                        </td>
-                        <td className="py-3 px-3 font-mono font-bold text-foreground">
-                          {inc.count}x
-                        </td>
-                        <td className="py-3 px-3 font-mono text-[11px] text-muted-foreground whitespace-nowrap">
-                          {new Date(inc.lastOccurredAt).toLocaleString("en-IN")}
-                        </td>
-                        <td className="py-3 px-3 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            {inc.status !== "RESOLVED" ? (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleUpdateErrorStatus(inc.id, "RESOLVED")}
-                                className="h-7 text-[10px] bg-emerald-500/10 text-emerald-500 border-emerald-500/30 hover:bg-emerald-500/20"
-                              >
-                                <CheckCircle2 className="h-3 w-3 mr-1" /> Resolve
-                              </Button>
-                            ) : (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => handleUpdateErrorStatus(inc.id, "OPEN")}
-                                className="h-7 text-[10px] text-muted-foreground"
-                              >
-                                Reopen
-                              </Button>
+                    {filteredPrescriptions.map((rx) => {
+                      const patientName = rx.user?.customerProfile?.fullName || "Registered Customer";
+                      const phone = rx.user?.phone || "—";
+                      const email = rx.user?.email || "—";
+
+                      return (
+                        <tr key={rx.id} className="hover:bg-muted/30 transition-colors">
+                          <td className="py-3 px-3">
+                            <span className="font-mono font-bold text-foreground block">
+                              #{rx.id.slice(0, 8).toUpperCase()}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground font-mono">
+                              {new Date(rx.createdAt).toLocaleDateString("en-IN", {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                              })}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3">
+                            <span className="font-semibold text-foreground block">{patientName}</span>
+                            {rx.order?.orderNumber && (
+                              <span className="text-[10px] text-primary block font-mono">Order: {rx.order.orderNumber}</span>
                             )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                    {filteredErrors.length === 0 ? (
+                          </td>
+                          <td className="py-3 px-3">
+                            <div className="font-mono text-xs text-foreground flex items-center gap-1">
+                              <Phone className="h-3 w-3 text-primary" /> {phone}
+                            </div>
+                            {email !== "—" && (
+                              <span className="text-[10px] text-muted-foreground truncate block max-w-[140px]">{email}</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-3">
+                            <span
+                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+                                rx.type === "FILE"
+                                  ? "bg-primary/10 text-primary"
+                                  : "bg-muted text-muted-foreground"
+                              }`}
+                            >
+                              {rx.type === "FILE" ? "Doctor Upload (Supabase)" : "Manual Entry"}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 max-w-xs">
+                            {rx.fileUpload ? (
+                              <div className="space-y-1">
+                                <span className="font-medium text-foreground truncate block font-mono text-xs">
+                                  📄 {rx.fileUpload.originalFileName}
+                                </span>
+                                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                                  <span className="rounded bg-muted px-1.5 py-0.2 uppercase">
+                                    {rx.fileUpload.mimeType.split("/")[1] || "FILE"}
+                                  </span>
+                                  <span>{(rx.fileUpload.sizeBytes / (1024 * 1024)).toFixed(2)} MB</span>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="grid grid-cols-2 gap-1 text-[11px] bg-muted/40 p-2 rounded">
+                                <div><span className="text-muted-foreground">OD:</span> {rx.sphereOD || "0.00"}</div>
+                                <div><span className="text-muted-foreground">OS:</span> {rx.sphereOS || "0.00"}</div>
+                                <div><span className="text-muted-foreground">Cyl:</span> {rx.cylinderOD || "0.00"}</div>
+                                <div><span className="text-muted-foreground">PD:</span> {rx.pd || "63mm"}</div>
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-3 px-3 max-w-[180px]">
+                            <p className="text-[11px] text-muted-foreground truncate">{rx.notes || "No optometrist notes"}</p>
+                          </td>
+                          <td className="py-3 px-3 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {rx.downloadUrl ? (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    asChild
+                                    className="h-7 text-[10px] bg-primary/10 text-primary border-primary/30 hover:bg-primary/20"
+                                  >
+                                    <a href={rx.downloadUrl} target="_blank" rel="noopener noreferrer">
+                                      <Eye className="h-3 w-3 mr-1" /> View File
+                                    </a>
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    asChild
+                                    className="h-7 text-[10px]"
+                                  >
+                                    <a href={rx.downloadUrl} download={rx.fileUpload?.originalFileName || "prescription"}>
+                                      <Download className="h-3 w-3 mr-1" /> Download
+                                    </a>
+                                  </Button>
+                                </>
+                              ) : rx.type === "FILE" ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={async () => {
+                                    const res = await apiRequest<{ downloadUrl: string }>(`/prescriptions/${rx.id}/download-url`);
+                                    if (res.success && res.data?.downloadUrl) {
+                                      window.open(res.data.downloadUrl, "_blank");
+                                    } else {
+                                      toast.error("Could not retrieve prescription link.");
+                                    }
+                                  }}
+                                  className="h-7 text-[10px]"
+                                >
+                                  <Eye className="h-3 w-3 mr-1" /> Fetch Link
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => setSelectedPrescription(rx)}
+                                  className="h-7 text-[10px]"
+                                >
+                                  <Eye className="h-3 w-3 mr-1" /> View Powers
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {filteredPrescriptions.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="py-8 text-center text-muted-foreground">
-                          No error incidents matching your filter. System healthy!
+                        <td colSpan={7} className="py-10 text-center text-muted-foreground">
+                          <FileText className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+                          No prescriptions found matching your search.
                         </td>
                       </tr>
                     ) : null}
@@ -1197,45 +1242,47 @@ export function AdminPage() {
               </div>
             </div>
 
-            {/* Stack Trace Modal */}
-            {selectedIncident ? (
+            {/* Manual Rx Detail Modal */}
+            {selectedPrescription ? (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-                <div className="surface-glass rounded-2xl p-6 shadow-lift max-w-2xl w-full max-h-[85vh] flex flex-col border border-border">
+                <div className="surface-glass rounded-2xl p-6 shadow-lift max-w-lg w-full flex flex-col border border-border space-y-4">
                   <div className="flex items-center justify-between border-b border-border/80 pb-3">
                     <div>
-                      <h4 className="font-display font-bold text-base text-destructive">
-                        Error Diagnostic Details
+                      <h4 className="font-display font-bold text-base text-foreground">
+                        Prescription Optical Powers
                       </h4>
                       <p className="text-xs text-muted-foreground font-mono">
-                        {selectedIncident.method} {selectedIncident.endpoint} · HTTP {selectedIncident.statusCode}
+                        Ref: #{selectedPrescription.id.slice(0, 8).toUpperCase()}
                       </p>
                     </div>
-                    <Button size="sm" variant="ghost" onClick={() => setSelectedIncident(null)}>
+                    <Button size="sm" variant="ghost" onClick={() => setSelectedPrescription(null)}>
                       Close
                     </Button>
                   </div>
-                  <div className="mt-4 flex-1 overflow-y-auto space-y-3">
-                    <div>
-                      <span className="text-xs font-semibold text-muted-foreground uppercase">Message</span>
-                      <p className="mt-1 text-sm font-mono bg-muted p-2.5 rounded-lg text-foreground">
-                        {selectedIncident.message}
-                      </p>
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div className="p-3 bg-card rounded-xl border border-border">
+                      <span className="font-bold text-primary block">Right Eye (OD)</span>
+                      <div className="mt-2 space-y-1">
+                        <div>SPH: <strong>{selectedPrescription.sphereOD || "0.00"}</strong></div>
+                        <div>CYL: <strong>{selectedPrescription.cylinderOD || "0.00"}</strong></div>
+                        <div>AXIS: <strong>{selectedPrescription.axisOD || "0"}°</strong></div>
+                      </div>
                     </div>
-                    {selectedIncident.stackTrace ? (
-                      <div>
-                        <span className="text-xs font-semibold text-muted-foreground uppercase">Stack Trace</span>
-                        <pre className="mt-1 text-[11px] font-mono bg-muted/80 p-3 rounded-lg overflow-x-auto text-muted-foreground whitespace-pre-wrap">
-                          {selectedIncident.stackTrace}
-                        </pre>
+                    <div className="p-3 bg-card rounded-xl border border-border">
+                      <span className="font-bold text-primary block">Left Eye (OS)</span>
+                      <div className="mt-2 space-y-1">
+                        <div>SPH: <strong>{selectedPrescription.sphereOS || "0.00"}</strong></div>
+                        <div>CYL: <strong>{selectedPrescription.cylinderOS || "0.00"}</strong></div>
+                        <div>AXIS: <strong>{selectedPrescription.axisOS || "0"}°</strong></div>
                       </div>
-                    ) : null}
-                    {selectedIncident.userAgent ? (
-                      <div>
-                        <span className="text-xs font-semibold text-muted-foreground uppercase">User Agent</span>
-                        <p className="text-xs text-muted-foreground font-mono mt-0.5">{selectedIncident.userAgent}</p>
-                      </div>
-                    ) : null}
+                    </div>
                   </div>
+                  {selectedPrescription.notes && (
+                    <div className="text-xs bg-muted/40 p-3 rounded-lg">
+                      <span className="text-muted-foreground font-semibold block mb-1">Notes:</span>
+                      {selectedPrescription.notes}
+                    </div>
+                  )}
                 </div>
               </div>
             ) : null}

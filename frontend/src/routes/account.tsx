@@ -1255,9 +1255,25 @@ export function AccountPage() {
                         </span>
                       </div>
                       {p.fileUpload ? (
-                        <p className="font-mono text-xs text-primary truncate">
-                          📄 {p.fileUpload.originalFileName}
-                        </p>
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-1">
+                          <p className="font-mono text-xs text-primary truncate flex items-center gap-1.5">
+                            📄 {p.fileUpload.originalFileName}
+                          </p>
+                          {p.downloadUrl ? (
+                            <div className="flex gap-2">
+                              <Button asChild size="sm" variant="outline" className="h-7 text-xs">
+                                <a href={p.downloadUrl} target="_blank" rel="noopener noreferrer">
+                                  View File
+                                </a>
+                              </Button>
+                              <Button asChild size="sm" variant="ghost" className="h-7 text-xs">
+                                <a href={p.downloadUrl} download={p.fileUpload.originalFileName}>
+                                  Download
+                                </a>
+                              </Button>
+                            </div>
+                          ) : null}
+                        </div>
                       ) : (
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs bg-muted/30 p-2.5 rounded-lg">
                           <div><span className="text-muted-foreground">OD (Right):</span> <strong>{p.sphereOD || "0.00"}</strong></div>

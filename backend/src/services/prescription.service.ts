@@ -5,14 +5,81 @@ import { AuditService } from "./audit.service.js";
 
 export class PrescriptionService {
   /**
-   * Generates presigned upload URL for prescription file
+   * Generates upload URL for prescription file
    */
   static async getUploadUrl(fileName: string, mimeType: string) {
     return StorageService.getPresignedUploadUrl(fileName, mimeType, "prescriptions");
   }
 
   /**
-   * Completes a file upload and records metadata in database
+   * Directly uploads prescription buffer to Supabase Storage and records metadata
+   */
+  static async uploadPrescriptionFile(data: {
+    file: {
+      buffer: Buffer;
+      originalname: string;
+      mimetype: string;
+      size: number;
+    };
+    userId: string;
+    appointmentId?: string;
+    orderId?: string;
+    notes?: string;
+  }) {
+    // 1. Upload to Supabase Storage (enforcing <= 10MB and PDF/JPEG/PNG formats)
+    const storageResult = await StorageService.uploadPrescriptionBuffer(
+      data.file.buffer,
+      data.file.originalname,
+      data.file.mimetype,
+      "prescriptions"
+    );
+
+    // 2. Atomically store records in Supabase PostgreSQL
+    const prescription = await prisma.$transaction(async (tx) => {
+      const fileUpload = await tx.fileUpload.create({
+        data: {
+          objectKey: storageResult.objectKey,
+          originalFileName: data.file.originalname,
+          mimeType: data.file.mimetype,
+          sizeBytes: data.file.size,
+          uploadStatus: UploadStatus.AVAILABLE,
+        },
+      });
+
+      const rx = await tx.prescription.create({
+        data: {
+          userId: data.userId,
+          appointmentId: data.appointmentId,
+          orderId: data.orderId,
+          type: PrescriptionType.FILE,
+          fileUploadId: fileUpload.id,
+          notes: data.notes,
+        },
+        include: {
+          fileUpload: true,
+          user: {
+            select: {
+              id: true,
+              email: true,
+              phone: true,
+              customerProfile: true,
+            },
+          },
+        },
+      });
+
+      return rx;
+    });
+
+    return {
+      ...prescription,
+      downloadUrl: storageResult.downloadUrl,
+      storageType: storageResult.storageType,
+    };
+  }
+
+  /**
+   * Completes a pre-uploaded file and records metadata in database
    */
   static async completeFileUpload(data: {
     userId: string;
@@ -24,6 +91,8 @@ export class PrescriptionService {
     orderId?: string;
     notes?: string;
   }) {
+    StorageService.validatePrescriptionFile(data.mimeType, data.sizeBytes);
+
     const prescription = await prisma.$transaction(async (tx) => {
       const fileUpload = await tx.fileUpload.create({
         data: {
@@ -88,18 +157,45 @@ export class PrescriptionService {
         pd: data.pd,
         notes: data.notes,
       },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            phone: true,
+            customerProfile: true,
+          },
+        },
+      },
     });
   }
 
   /**
-   * Customer gets their own prescriptions
+   * Customer gets their own prescriptions with download URLs
    */
   static async getCustomerPrescriptions(userId: string) {
-    return prisma.prescription.findMany({
+    const list = await prisma.prescription.findMany({
       where: { userId, deletedAt: null },
       include: { fileUpload: true, appointment: true, order: true },
       orderBy: { createdAt: "desc" },
     });
+
+    return Promise.all(
+      list.map(async (rx) => {
+        let downloadUrl = null;
+        if (rx.fileUpload?.objectKey) {
+          try {
+            downloadUrl = await StorageService.getPresignedDownloadUrl(rx.fileUpload.objectKey);
+          } catch {
+            downloadUrl = null;
+          }
+        }
+        return {
+          ...rx,
+          downloadUrl,
+        };
+      })
+    );
   }
 
   /**
@@ -121,12 +217,12 @@ export class PrescriptionService {
       throw new Error("Prescription file not found or has been deleted.");
     }
 
-    // RBAC and IDOR Authorization Check
+    // RBAC and IDOR Authorization Check (CUSTOMER only allowed to access their own)
     if (requestingUserRole === "CUSTOMER" && rx.userId !== requestingUserId) {
       throw new Error("Unauthorized to access this prescription.");
     }
 
-    // Generate signed download URL
+    // Generate signed download URL from Supabase Storage
     const downloadUrl = await StorageService.getPresignedDownloadUrl(rx.fileUpload.objectKey);
 
     // Record mandatory audit log
@@ -149,9 +245,9 @@ export class PrescriptionService {
   }
 
   /**
-   * Admin / Owner prescription listing with audit
+   * Admin / Owner prescription listing with customer details and direct download URLs
    */
-  static async getAllPrescriptions(page = 1, limit = 20) {
+  static async getAllPrescriptions(page = 1, limit = 50) {
     const skip = (page - 1) * limit;
     const [total, items] = await Promise.all([
       prisma.prescription.count({ where: { deletedAt: null } }),
@@ -160,7 +256,14 @@ export class PrescriptionService {
         skip,
         take: limit,
         include: {
-          user: { select: { id: true, email: true, phone: true, customerProfile: true } },
+          user: {
+            select: {
+              id: true,
+              email: true,
+              phone: true,
+              customerProfile: true,
+            },
+          },
           fileUpload: true,
           appointment: true,
           order: true,
@@ -169,8 +272,25 @@ export class PrescriptionService {
       }),
     ]);
 
+    const enrichedItems = await Promise.all(
+      items.map(async (rx) => {
+        let downloadUrl = null;
+        if (rx.fileUpload?.objectKey) {
+          try {
+            downloadUrl = await StorageService.getPresignedDownloadUrl(rx.fileUpload.objectKey);
+          } catch {
+            downloadUrl = null;
+          }
+        }
+        return {
+          ...rx,
+          downloadUrl,
+        };
+      })
+    );
+
     return {
-      items,
+      items: enrichedItems,
       pagination: {
         page,
         limit,

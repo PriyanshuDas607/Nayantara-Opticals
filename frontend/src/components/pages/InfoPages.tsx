@@ -14,6 +14,8 @@ import {
   HelpCircle,
   Layers,
   Loader2,
+  Lock,
+  LogIn,
   MapPin,
   MessageCircle,
   Phone,
@@ -23,6 +25,8 @@ import {
   Stethoscope,
   SunMedium,
   Upload,
+  UserCheck,
+  UserPlus,
   Users,
   X,
   Zap,
@@ -676,7 +680,7 @@ export function LensesPage() {
 type BookFields = "name" | "phone" | "email" | "age" | "date" | "note";
 
 export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }) {
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const [submitted, setSubmitted] = useState(false);
   const [values, setValues] = useState<Record<BookFields, string>>({
     name: "",
@@ -760,14 +764,27 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
   const onFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const next = event.target.files?.[0];
     if (!next) return;
-    if (next.size > 10 * 1024 * 1024) {
-      toast.error("File is larger than 10 MB");
+
+    const allowedMimeTypes = ["image/jpeg", "image/png", "image/jpg", "application/pdf"];
+    const ext = next.name.split(".").pop()?.toLowerCase();
+    const isAllowedExt = ext && ["jpg", "jpeg", "png", "pdf"].includes(ext);
+
+    if (!allowedMimeTypes.includes(next.type.toLowerCase()) && !isAllowedExt) {
+      toast.error("Invalid file format. Only JPEG (.jpg, .jpeg), PNG (.png), and PDF (.pdf) files are allowed.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
+
+    if (next.size > 10 * 1024 * 1024) {
+      toast.error(`File size (${(next.size / (1024 * 1024)).toFixed(2)} MB) exceeds 10 MB limit. Please choose a smaller file.`);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
     if (filePreview) URL.revokeObjectURL(filePreview);
     setFile(next);
     setFilePreview(next.type.startsWith("image/") ? URL.createObjectURL(next) : null);
-    toast.success("Prescription document attached successfully!");
+    toast.success(`Prescription document attached (${(next.size / (1024 * 1024)).toFixed(2)} MB)`);
   };
 
   const copy =
@@ -819,6 +836,10 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if ((kind === "book" || kind === "prescription") && !isAuthenticated) {
+      toast.error("Please sign in or create an account to proceed.");
+      return;
+    }
     if (!validateBooking()) {
       toast.error("Please fill in all required fields.");
       return;
@@ -868,6 +889,48 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
       return;
     }
 
+    if (kind === "prescription") {
+      setIsBookingLoading(true);
+      try {
+        if (!file) {
+          toast.error("Please attach a prescription photo or PDF file (up to 10MB).");
+          setIsBookingLoading(false);
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("name", values.name.trim());
+        formData.append("phone", values.phone.trim());
+        if (values.email?.trim()) formData.append("email", values.email.trim());
+        if (values.note?.trim()) formData.append("notes", values.note.trim());
+
+        const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000/api/v1";
+        const token = localStorage.getItem("nayantara_access_token");
+
+        const response = await fetch(`${apiUrl}/prescriptions/upload`, {
+          method: "POST",
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          body: formData,
+        });
+
+        const res = await response.json();
+
+        if (response.ok && res.success && res.data) {
+          setBookedData(res.data);
+          setSubmitted(true);
+          toast.success("Prescription securely saved to clinic database & Supabase vault!");
+        } else {
+          toast.error(res.message || "Failed to upload prescription. Please try again.");
+        }
+      } catch {
+        toast.error("An error occurred while uploading. Please check your network and try again.");
+      } finally {
+        setIsBookingLoading(false);
+      }
+      return;
+    }
+
     setSubmitted(true);
     toast.success("Consultation request recorded! We will confirm via WhatsApp.");
   };
@@ -892,9 +955,11 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
                   </div>
                   <div>
                     <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-xs">
-                      Confirmed in Database
+                      {kind === "prescription" ? "Saved in Supabase Vault" : "Confirmed in Database"}
                     </Badge>
-                    <h2 className="font-display text-2xl font-bold mt-0.5">Appointment Confirmed!</h2>
+                    <h2 className="font-display text-2xl font-bold mt-0.5">
+                      {kind === "prescription" ? "Prescription Successfully Saved!" : "Appointment Confirmed!"}
+                    </h2>
                   </div>
                 </div>
 
@@ -914,31 +979,50 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
                       <span className="text-muted-foreground block">Mobile</span>
                       <strong className="text-foreground">{values.phone}</strong>
                     </div>
-                    <div>
-                      <span className="text-muted-foreground block">Scheduled Date</span>
-                      <strong className="text-foreground flex items-center gap-1">
-                        <Calendar className="h-3 w-3 text-primary" /> {values.date || "Today"}
+                    {kind === "prescription" ? (
+                      file && (
+                        <div className="col-span-2">
+                          <span className="text-muted-foreground block">Attached Prescription</span>
+                          <strong className="text-primary truncate block font-mono">
+                            📄 {file.name} ({(file.size / (1024 * 1024)).toFixed(2)} MB)
+                          </strong>
+                        </div>
+                      )
+                    ) : (
+                      <>
+                        <div>
+                          <span className="text-muted-foreground block">Scheduled Date</span>
+                          <strong className="text-foreground flex items-center gap-1">
+                            <Calendar className="h-3 w-3 text-primary" /> {values.date || "Today"}
+                          </strong>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground block">Time Slot</span>
+                          <strong className="text-foreground flex items-center gap-1">
+                            <Clock className="h-3 w-3 text-primary" /> {selectedSlot}
+                          </strong>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  {kind === "prescription" ? (
+                    <div className="pt-2 border-t border-border/50 text-xs text-muted-foreground">
+                      Your prescription has been securely synced with Nayantara Opticals. Store optometrists and admin can now verify your lens parameters.
+                    </div>
+                  ) : (
+                    <div className="pt-2 border-t border-border/50 text-xs">
+                      <span className="text-muted-foreground block">Consultation Type</span>
+                      <strong className="text-primary font-medium">
+                        {consultationType === "LENS_CONSULTATION"
+                          ? "Pediatric Myopia & Specialized Lens Consultation"
+                          : consultationType === "FRAME_CONSULTATION"
+                            ? "Bespoke Frame Styling & Fitting"
+                            : consultationType === "CONTACT_LENS_CONSULTATION"
+                              ? "Contact Lens Trial & Fitting"
+                              : "Comprehensive Computer-Assisted Eye Test"}
                       </strong>
                     </div>
-                    <div>
-                      <span className="text-muted-foreground block">Time Slot</span>
-                      <strong className="text-foreground flex items-center gap-1">
-                        <Clock className="h-3 w-3 text-primary" /> {selectedSlot}
-                      </strong>
-                    </div>
-                  </div>
-                  <div className="pt-2 border-t border-border/50 text-xs">
-                    <span className="text-muted-foreground block">Consultation Type</span>
-                    <strong className="text-primary font-medium">
-                      {consultationType === "LENS_CONSULTATION"
-                        ? "Pediatric Myopia & Specialized Lens Consultation"
-                        : consultationType === "FRAME_CONSULTATION"
-                          ? "Bespoke Frame Styling & Fitting"
-                          : consultationType === "CONTACT_LENS_CONSULTATION"
-                            ? "Contact Lens Trial & Fitting"
-                            : "Comprehensive Computer-Assisted Eye Test"}
-                    </strong>
-                  </div>
+                  )}
                 </div>
 
                 <p className="text-xs text-muted-foreground leading-relaxed">
@@ -961,8 +1045,71 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
                   </Button>
                 </div>
               </div>
+            ) : (kind === "book" || kind === "prescription") && !isAuthenticated ? (
+              <div className="space-y-6 rounded-2xl border border-border bg-card p-6 sm:p-8 shadow-soft">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                    <Lock className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 text-xs">
+                      Account Required
+                    </Badge>
+                    <h2 className="mt-1 font-display text-xl font-bold sm:text-2xl text-foreground">
+                      {kind === "book" ? "Sign in to book your consultation" : "Sign in to upload your prescription"}
+                    </h2>
+                  </div>
+                </div>
+
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  {kind === "book"
+                    ? "To reserve your personalized clinical eye checkup slot and link appointments to your digital patient record, please sign in or create an account."
+                    : "Your optical prescription files are encrypted and securely vaulted in Supabase Storage. Please sign in or create an account so our optometrists can verify your prescription and link it to your profile."}
+                </p>
+
+                <div className="rounded-xl border border-border/70 bg-muted/20 p-4 space-y-2.5">
+                  <p className="text-xs font-semibold text-foreground uppercase tracking-wider">Benefits of signing in</p>
+                  <ul className="space-y-2 text-xs text-muted-foreground">
+                    <li className="flex items-start gap-2">
+                      <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                      <span>{kind === "book" ? "Direct appointment tracking & live slot management from your personal dashboard." : "Permanent, encrypted cloud vault of your vision test documents & PDFs."}</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                      <span>Direct prescription verification and lens recommendations from certified optometrists.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                      <span>Receive WhatsApp & SMS consultation reminders and ready-for-pickup notifications.</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                  <Button asChild variant="hero" size="lg" className="rounded-xl shadow-gold w-full sm:w-auto">
+                    <Link to={`/login?redirect=${kind === "prescription" ? "/prescription" : "/book"}`}>
+                      <LogIn className="mr-2 h-4 w-4" /> Sign In to Proceed
+                    </Link>
+                  </Button>
+                  <Button asChild variant="outline" size="lg" className="rounded-xl w-full sm:w-auto">
+                    <Link to={`/login?tab=register&redirect=${kind === "prescription" ? "/prescription" : "/book"}`}>
+                      <UserPlus className="mr-2 h-4 w-4" /> Create New Account
+                    </Link>
+                  </Button>
+                </div>
+              </div>
             ) : (
               <form noValidate onSubmit={handleSubmit} className="space-y-5 rounded-2xl border border-border bg-card p-6 sm:p-8 shadow-soft">
+                {/* Authenticated User Status */}
+                {(kind === "book" || kind === "prescription") && (
+                  <div className="flex items-center justify-between rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs">
+                    <div className="flex items-center gap-2">
+                      <UserCheck className="h-4 w-4 text-primary shrink-0" />
+                      <span>Logged in as <strong className="text-foreground">{user?.customerProfile?.fullName || user?.ownerProfile?.fullName || user?.email || user?.phone || "Customer"}</strong></span>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">Verified Patient</Badge>
+                  </div>
+                )}
                 
                 {/* Consultation Type Selector */}
                 {kind === "book" && (

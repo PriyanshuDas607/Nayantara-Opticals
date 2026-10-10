@@ -7,7 +7,7 @@ import { bookAppointmentSchema } from "../validation/schemas.js";
 const router = Router();
 
 router.get("/slots", AppointmentController.getSlots);
-router.post("/", optionalAuthenticate, validate(bookAppointmentSchema), AppointmentController.book);
+router.post("/", authenticate, validate(bookAppointmentSchema), AppointmentController.book);
 router.get("/me", authenticate, AppointmentController.getMyAppointments);
 router.patch("/:id/cancel", authenticate, AppointmentController.cancelAppointment);
 

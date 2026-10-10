@@ -36,8 +36,23 @@ type AuthTab = "signin" | "phone-otp" | "register";
 export function LoginPage() {
   const navigate = useNavigate();
   const { login, isAuthenticated, user, isAdmin, isStrictOwner } = useAuth();
+  const getRedirectTarget = (defaultRoute: string) => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const redirect = params.get("redirect");
+      if (redirect && redirect.startsWith("/")) return redirect;
+    }
+    return defaultRoute;
+  };
 
-  const [activeTab, setActiveTab] = useState<AuthTab>("signin");
+  const [activeTab, setActiveTab] = useState<AuthTab>(() => {
+    if (typeof window !== "undefined") {
+      const tab = new URLSearchParams(window.location.search).get("tab");
+      if (tab === "register") return "register";
+      if (tab === "phone-otp") return "phone-otp";
+    }
+    return "signin";
+  });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -183,13 +198,13 @@ export function LoginPage() {
 
         if (role === "SUPER_ADMIN") {
           toast.success("Welcome back!");
-          navigate({ to: "/admin" });
+          navigate({ to: getRedirectTarget("/admin") });
         } else if (role === "OWNER") {
           toast.success("Welcome back!");
-          navigate({ to: "/owner" });
+          navigate({ to: getRedirectTarget("/owner") });
         } else {
           toast.success("Welcome back to Nayantara Opticals!");
-          navigate({ to: "/" });
+          navigate({ to: getRedirectTarget("/account") });
         }
       }
     } else {
@@ -254,7 +269,7 @@ export function LoginPage() {
     if (res.success && res.data) {
       login(res.data.tokens.accessToken, res.data.user, res.data.tokens.refreshToken);
       toast.success("Account created successfully! Welcome to Nayantara Opticals.");
-      navigate({ to: "/" });
+      navigate({ to: getRedirectTarget("/account") });
     } else {
       toast.error(res.message || "Registration failed. Please try again.");
     }
@@ -314,7 +329,7 @@ export function LoginPage() {
     if (res.success && res.data) {
       login(res.data.tokens.accessToken, res.data.user, res.data.tokens.refreshToken);
       toast.success("Signed in successfully. Welcome!");
-      navigate({ to: "/" });
+      navigate({ to: getRedirectTarget("/account") });
     } else {
       toast.error(res.message || "Invalid OTP. Please check and try again.");
     }

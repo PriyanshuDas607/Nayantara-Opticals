@@ -61,6 +61,14 @@ export const config = {
     name: "Super Admin",
   },
 
+  // Supabase Storage
+  supabase: {
+    url: process.env.SUPABASE_URL || "https://zxiatmlrdfzfettbyqmj.supabase.co",
+    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
+    anonKey: process.env.SUPABASE_ANON_KEY || "",
+    bucketName: process.env.SUPABASE_STORAGE_BUCKET || "prescriptions",
+  },
+
   // AWS S3 / Cloudflare R2
   s3: {
     bucketName: process.env.AWS_S3_BUCKET || "nayantara-prescriptions-private",

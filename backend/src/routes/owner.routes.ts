@@ -34,7 +34,8 @@ router.patch("/appointments/:id/status", AppointmentController.updateStatus);
 router.get("/orders", OrderController.getOwnerOrders);
 router.patch("/orders/:id/status", OrderController.updateStatus);
 
-// Prescriptions related to store orders/appointments
+// Prescriptions related to store orders/appointments/customers
+router.get("/prescriptions", PrescriptionController.getAllPrescriptions);
 router.get("/prescriptions/:id/download-url", PrescriptionController.getDownloadUrl);
 
 // Store Visitor Traffic & Page Dwell Time Analytics
