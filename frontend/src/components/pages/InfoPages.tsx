@@ -905,20 +905,19 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
         if (values.email?.trim()) formData.append("email", values.email.trim());
         if (values.note?.trim()) formData.append("notes", values.note.trim());
 
-        const apiUrl = import.meta.env["VITE_API_URL"] || "http://localhost:5000/api/v1";
-        const token = localStorage.getItem("nayantara_access_token");
-        const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
-
-        const response = await fetch(`${apiUrl}/prescriptions/upload`, {
+        const res = await apiRequest<{
+          id: string;
+          appointmentDate?: string;
+          timeSlot?: string;
+          type: string;
+          status?: string;
+        }>("/prescriptions/upload", {
           method: "POST",
-          headers,
           body: formData,
         });
 
-        const res = await response.json();
-
-        if (response.ok && res.success && res.data) {
-          setBookedData(res.data);
+        if (res.success && res.data) {
+          setBookedData(res.data as any);
           setSubmitted(true);
           toast.success("Prescription securely saved to clinic database & Supabase vault!");
         } else {

@@ -1,9 +1,17 @@
 import { toast } from "sonner";
 
+const isProd =
+  typeof window !== "undefined" &&
+  window.location.hostname !== "localhost" &&
+  window.location.hostname !== "127.0.0.1";
+
 const rawApiUrl =
   (import.meta.env as Record<string, string | undefined>)["VITE_API_URL"] ||
-  "http://localhost:5000/api/v1";
-const API_BASE_URL = rawApiUrl.trim().replace(/\/$/, "");
+  (isProd
+    ? "https://nayantara-backend.onrender.com/api/v1"
+    : "http://localhost:5000/api/v1");
+
+export const API_BASE_URL = rawApiUrl.trim().replace(/\/$/, "");
 
 interface RequestOptions extends RequestInit {
   token?: string | null;
