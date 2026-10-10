@@ -469,6 +469,30 @@ export function AdminPage() {
     );
   });
 
+  const filteredAuditLogs = auditLogs.filter((log) => {
+    if (auditActionFilter !== "ALL" && !log.action.includes(auditActionFilter)) return false;
+    if (!auditSearch.trim()) return true;
+
+    const q = auditSearch.toLowerCase();
+    const action = log.action.toLowerCase();
+    const email = log.user?.email?.toLowerCase() || "";
+    const phone = log.user?.phone?.toLowerCase() || "";
+    const userId = log.userId?.toLowerCase() || "";
+    const resource = log.resource?.toLowerCase() || "";
+    const ip = log.ipAddress?.toLowerCase() || "";
+    const details = log.details?.toLowerCase() || "";
+
+    return (
+      action.includes(q) ||
+      email.includes(q) ||
+      phone.includes(q) ||
+      userId.includes(q) ||
+      resource.includes(q) ||
+      ip.includes(q) ||
+      details.includes(q)
+    );
+  });
+
   const maxDwellSec = Math.max(
     ...(engagement?.topPages?.map((p) => p.totalActiveSeconds) || [100])
   );
@@ -1446,7 +1470,14 @@ export function AdminPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/50">
-                    {filteredLogs.map((log) => (
+                    {filteredAuditLogs.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-8 text-center text-muted-foreground text-xs">
+                          No audit log entries matching your search.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredAuditLogs.map((log) => (
                       <tr key={log.id} className="hover:bg-muted/30 transition-colors">
                         <td className="py-2.5 px-3 font-mono text-[11px] text-muted-foreground whitespace-nowrap">
                           {new Date(log.createdAt).toLocaleString("en-IN")}
@@ -1469,7 +1500,7 @@ export function AdminPage() {
                           {log.details || "-"}
                         </td>
                       </tr>
-                    ))}
+                    )))}
                   </tbody>
                 </table>
               </div>
