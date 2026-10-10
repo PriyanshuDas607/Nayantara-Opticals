@@ -905,12 +905,13 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
         if (values.email?.trim()) formData.append("email", values.email.trim());
         if (values.note?.trim()) formData.append("notes", values.note.trim());
 
-        const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000/api/v1";
+        const apiUrl = import.meta.env["VITE_API_URL"] || "http://localhost:5000/api/v1";
         const token = localStorage.getItem("nayantara_access_token");
+        const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
 
         const response = await fetch(`${apiUrl}/prescriptions/upload`, {
           method: "POST",
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          headers,
           body: formData,
         });
 
@@ -1087,14 +1088,14 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
 
                 <div className="flex flex-col sm:flex-row gap-3 pt-2">
                   <Button asChild variant="hero" size="lg" className="rounded-xl shadow-gold w-full sm:w-auto">
-                    <Link to={`/login?redirect=${kind === "prescription" ? "/prescription" : "/book"}`}>
+                    <a href={`/login?redirect=${kind === "prescription" ? "/prescription" : "/book"}`}>
                       <LogIn className="mr-2 h-4 w-4" /> Sign In to Proceed
-                    </Link>
+                    </a>
                   </Button>
                   <Button asChild variant="outline" size="lg" className="rounded-xl w-full sm:w-auto">
-                    <Link to={`/login?tab=register&redirect=${kind === "prescription" ? "/prescription" : "/book"}`}>
+                    <a href={`/login?tab=register&redirect=${kind === "prescription" ? "/prescription" : "/book"}`}>
                       <UserPlus className="mr-2 h-4 w-4" /> Create New Account
-                    </Link>
+                    </a>
                   </Button>
                 </div>
               </div>
