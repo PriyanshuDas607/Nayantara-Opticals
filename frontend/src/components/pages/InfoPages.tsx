@@ -23,6 +23,9 @@ import {
   ShieldCheck,
   Sparkles,
   Stethoscope,
+  Sun,
+  Sunrise,
+  Sunset,
   SunMedium,
   Upload,
   UserCheck,
@@ -135,20 +138,32 @@ export function ServicesPage() {
                   ))}
                 </ul>
 
-                <div className="mt-5 flex items-center justify-between">
-                  {service.id === "myopia-management" ? (
-                    <Button asChild variant="link" size="sm" className="px-0 text-xs font-semibold text-primary">
-                      <Link to="/myopia-management">Explore Myopia Clinic →</Link>
-                    </Button>
-                  ) : service.id === "prescriptions" ? (
-                    <Button asChild variant="link" size="sm" className="px-0 text-xs font-semibold text-primary">
-                      <Link to="/prescription">Upload Prescription →</Link>
-                    </Button>
-                  ) : (
-                    <Button asChild variant="link" size="sm" className="px-0 text-xs font-semibold text-primary">
-                      <Link to="/book">Reserve Slot →</Link>
-                    </Button>
-                  )}
+                <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {service.id === "myopia-management" ? (
+                      <>
+                        <Button asChild variant="gold" size="sm" className="h-8 text-xs font-semibold rounded-lg shadow-sm">
+                          <Link to="/book?service=myopia-management&type=myopia">Book Service (Attach Rx) →</Link>
+                        </Button>
+                        <Button asChild variant="link" size="sm" className="px-1 text-xs text-muted-foreground hover:text-primary">
+                          <Link to="/myopia-management">Clinic Info</Link>
+                        </Button>
+                      </>
+                    ) : service.id === "prescriptions" ? (
+                      <>
+                        <Button asChild variant="gold" size="sm" className="h-8 text-xs font-semibold rounded-lg shadow-sm">
+                          <Link to="/book?service=prescriptions">Book Verification (Attach Rx) →</Link>
+                        </Button>
+                        <Button asChild variant="link" size="sm" className="px-1 text-xs text-muted-foreground hover:text-primary">
+                          <Link to="/prescription">Upload Rx Slip</Link>
+                        </Button>
+                      </>
+                    ) : (
+                      <Button asChild variant="gold" size="sm" className="h-8 text-xs font-semibold rounded-lg shadow-sm">
+                        <Link to={`/book?service=${service.id}`}>Book Service (Attach Rx) →</Link>
+                      </Button>
+                    )}
+                  </div>
 
                   <a
                     href={waLink(`Hi Nayantara Opticals, I want to enquire about ${service.title}.`)}
@@ -441,9 +456,9 @@ export function MyopiaPage() {
         title="Clinically structured myopia control for children."
         action={
           <Button asChild variant="hero" size="default" className="rounded-full shadow-gold">
-            <Link to="/book">
-              <HeartPulse className="mr-1.5 h-4 w-4" /> Book Myopia Consultation
-            </Link>
+            <a href="/book?service=myopia-management&type=myopia">
+              <HeartPulse className="mr-1.5 h-4 w-4" /> Book Myopia Consultation (Attach Rx)
+            </a>
           </Button>
         }
       >
@@ -506,7 +521,7 @@ export function MyopiaPage() {
               <p className="mt-1 text-xs sm:text-sm text-muted-foreground">Book a specialized 30-minute pediatric refraction and myopia assessment at our Uttam Nagar clinic.</p>
             </div>
             <Button asChild variant="hero" size="default" className="shrink-0">
-              <Link to="/book">Schedule Myopia Check</Link>
+              <a href="/book?service=myopia-management&type=myopia">Schedule Myopia Check (Attach Rx)</a>
             </Button>
           </div>
         </div>
@@ -577,9 +592,9 @@ export function LensesPage() {
         title="Precision lenses tailored to your visual lifestyle."
         action={
           <Button asChild variant="hero" size="default" className="rounded-full shadow-gold">
-            <Link to="/prescription">
-              <Upload className="mr-1.5 h-4 w-4" /> Upload Prescription
-            </Link>
+            <a href="/book?service=prescriptions">
+              <Upload className="mr-1.5 h-4 w-4" /> Book Consultation with Rx
+            </a>
           </Button>
         }
       >
@@ -617,7 +632,7 @@ export function LensesPage() {
 
               <div className="mt-6 border-t border-border/70 pt-4 flex items-center justify-between">
                 <Button asChild variant="outline" size="sm" className="rounded-full text-xs">
-                  <Link to="/prescription">Choose this lens</Link>
+                  <a href="/book?service=prescriptions">Choose this lens (Attach Rx)</a>
                 </Button>
                 <a
                   href={waLink(`Hi Nayantara Opticals, I want details about ${lens.name}.`)}
@@ -677,6 +692,42 @@ export function LensesPage() {
 /* =========================================================================
    5. FORM PAGE — Book Eye Check, Upload Prescription, Contact Us
    ========================================================================= */
+type SlotPeriodId = "morning" | "afternoon" | "evening";
+
+const SLOT_PERIODS = [
+  {
+    id: "morning" as SlotPeriodId,
+    label: "Morning",
+    icon: Sunrise,
+    range: "10:30 AM – 01:00 PM",
+  },
+  {
+    id: "afternoon" as SlotPeriodId,
+    label: "Afternoon",
+    icon: Sun,
+    range: "01:30 PM – 05:00 PM",
+  },
+  {
+    id: "evening" as SlotPeriodId,
+    label: "Evening",
+    icon: Sunset,
+    range: "05:00 PM – 07:30 PM",
+  },
+];
+
+function getSlotPeriod(slot: string): SlotPeriodId {
+  const match = slot.match(/(\d+):(\d+)\s*(AM|PM)/i);
+  if (!match) return "morning";
+  let hour = parseInt(match[1], 10);
+  const period = match[3].toUpperCase();
+  if (period === "PM" && hour < 12) hour += 12;
+  if (period === "AM" && hour === 12) hour = 0;
+
+  if (hour < 13) return "morning";
+  if (hour < 17) return "afternoon";
+  return "evening";
+}
+
 type BookFields = "name" | "phone" | "email" | "age" | "date" | "note";
 
 export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }) {
@@ -704,8 +755,26 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
   }, [user]);
   const [errors, setErrors] = useState<Partial<Record<BookFields, string>>>({});
   const [consultationType, setConsultationType] = useState<
-    "EYE_TEST" | "LENS_CONSULTATION" | "FRAME_CONSULTATION" | "CONTACT_LENS_CONSULTATION"
+    | "EYE_TEST"
+    | "LENS_CONSULTATION"
+    | "FRAME_CONSULTATION"
+    | "CONTACT_LENS_CONSULTATION"
+    | "PRESCRIPTION_CONSULTATION"
+    | "OTHER"
   >("EYE_TEST");
+
+  const [selectedService, setSelectedService] = useState<{ id: string; title: string } | null>(null);
+  const [rxOption, setRxOption] = useState<"upload" | "manual" | "none">("upload");
+  const [manualPowers, setManualPowers] = useState({
+    sphereOD: "",
+    cylinderOD: "",
+    axisOD: "",
+    sphereOS: "",
+    cylinderOS: "",
+    axisOS: "",
+    addition: "",
+    pd: "",
+  });
 
   const DEFAULT_SLOTS = [
     "10:30 AM", "11:00 AM", "11:30 AM", "12:00 PM",
@@ -715,13 +784,29 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
   ];
   const [availableSlots, setAvailableSlots] = useState<string[]>(DEFAULT_SLOTS);
   const [selectedSlot, setSelectedSlot] = useState("11:30 AM");
+  const [activeSlotPeriod, setActiveSlotPeriod] = useState<SlotPeriodId>("morning");
   const [isBookingLoading, setIsBookingLoading] = useState(false);
   const [bookedData, setBookedData] = useState<{
     id: string;
-    appointmentDate: string;
-    timeSlot: string;
-    type: string;
-    status: string;
+    appointmentDate?: string;
+    timeSlot?: string;
+    type?: string;
+    status?: string;
+    prescriptionAttached?: {
+      type: "file" | "manual";
+      fileName?: string;
+      fileSize?: number;
+      powers?: {
+        sphereOD?: string;
+        cylinderOD?: string;
+        axisOD?: string;
+        sphereOS?: string;
+        cylinderOS?: string;
+        axisOS?: string;
+        addition?: string;
+        pd?: string;
+      };
+    } | null;
   } | null>(null);
 
   const [file, setFile] = useState<File | null>(null);
@@ -729,11 +814,39 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [consentGiven, setConsentGiven] = useState(false);
 
-  // Sync query params (e.g. ?type=myopia)
+  // Sync query params (e.g. ?service=contact-lenses or ?type=myopia)
   useEffect(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
-      if (params.get("type") === "myopia" || window.location.pathname.includes("myopia")) {
+      const serviceParam = params.get("service");
+      const typeParam = params.get("type");
+
+      if (serviceParam) {
+        const found = SERVICES.find((s) => s.id === serviceParam);
+        if (found) {
+          setSelectedService({ id: found.id, title: found.title });
+          if (found.id === "myopia-management") {
+            setConsultationType("LENS_CONSULTATION");
+            setValues((v) => ({ ...v, note: v.note || "Pediatric Myopia Assessment & Optical Management" }));
+          } else if (found.id === "contact-lenses") {
+            setConsultationType("CONTACT_LENS_CONSULTATION");
+            setValues((v) => ({ ...v, note: v.note || "Contact Lens Fitting, Trial & Hygiene Consultation" }));
+          } else if (found.id === "eye-care") {
+            setConsultationType("EYE_TEST");
+            setValues((v) => ({ ...v, note: v.note || "Eye Care & Precision Optical Refraction" }));
+          } else if (found.id === "prescriptions") {
+            setConsultationType("PRESCRIPTION_CONSULTATION");
+            setValues((v) => ({ ...v, note: v.note || "Prescription Verification & Custom Lens Consultation" }));
+          } else if (found.id === "hearing-aids") {
+            setConsultationType("OTHER");
+            setValues((v) => ({ ...v, note: v.note || "Hearing Aid Demo, Fitting & Sound Tuning" }));
+          } else if (found.id === "vision-aids") {
+            setConsultationType("OTHER");
+            setValues((v) => ({ ...v, note: v.note || "Low Vision Aids Assessment & Magnifier Support Consultation" }));
+          }
+        }
+      } else if (typeParam === "myopia" || window.location.pathname.includes("myopia")) {
+        setSelectedService({ id: "myopia-management", title: "Myopia Management" });
         setConsultationType("LENS_CONSULTATION");
         setValues((v) => ({ ...v, note: v.note || "Pediatric Myopia Assessment & Optical Management" }));
       }
@@ -748,11 +861,21 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
           setAvailableSlots(res.data.availableSlots);
           if (res.data.availableSlots[0] && !res.data.availableSlots.includes(selectedSlot)) {
             setSelectedSlot(res.data.availableSlots[0]);
+            setActiveSlotPeriod(getSlotPeriod(res.data.availableSlots[0]));
           }
         }
       });
     }
   }, [values.date, kind]);
+
+  const morningSlots = availableSlots.filter((s) => getSlotPeriod(s) === "morning");
+  const afternoonSlots = availableSlots.filter((s) => getSlotPeriod(s) === "afternoon");
+  const eveningSlots = availableSlots.filter((s) => getSlotPeriod(s) === "evening");
+
+  const handleSelectSlot = (slot: string) => {
+    setSelectedSlot(slot);
+    setActiveSlotPeriod(getSlotPeriod(slot));
+  };
 
   const clearFile = () => {
     if (filePreview) URL.revokeObjectURL(filePreview);
@@ -790,21 +913,25 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
   const copy =
     kind === "book"
       ? {
-          eyebrow: "Appointments & Consultations",
-          title: "Book an unhurried eye check.",
-          button: "Confirm Appointment Slot",
-        }
+        eyebrow: selectedService ? `Book Service · ${selectedService.title}` : "Appointments & Consultations",
+        title: selectedService ? `Book ${selectedService.title}.` : "Book an unhurried eye check.",
+        button:
+          (rxOption === "upload" && file) ||
+            (rxOption === "manual" && (manualPowers.sphereOD || manualPowers.sphereOS || manualPowers.cylinderOD))
+            ? "Confirm Appointment & Attach Prescription"
+            : "Confirm Appointment Slot",
+      }
       : kind === "prescription"
         ? {
-            eyebrow: "Optical Prescription Vault",
-            title: "Upload or submit your prescription.",
-            button: "Submit Prescription Details",
-          }
+          eyebrow: "Optical Prescription Vault",
+          title: "Upload or submit your prescription.",
+          button: "Submit Prescription Details",
+        }
         : {
-            eyebrow: "Visit Our Showroom",
-            title: "We’re here in Uttam Nagar, New Delhi.",
-            button: "Send In-Store Enquiry",
-          };
+          eyebrow: "Visit Our Showroom",
+          title: "We’re here in Uttam Nagar, New Delhi.",
+          button: "Send In-Store Enquiry",
+        };
 
   const set = (field: BookFields, value: string) => {
     setValues((prev) => ({ ...prev, [field]: value }));
@@ -836,10 +963,6 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if ((kind === "book" || kind === "prescription") && !isAuthenticated) {
-      toast.error("Please sign in or create an account to proceed.");
-      return;
-    }
     if (!validateBooking()) {
       toast.error("Please fill in all required fields.");
       return;
@@ -875,9 +998,83 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
         });
 
         if (res.success && res.data) {
-          setBookedData(res.data);
+          const apptId = res.data.id;
+          let attachedRx: {
+            type: "file" | "manual";
+            fileName?: string;
+            fileSize?: number;
+            powers?: Record<string, string>;
+          } | null = null;
+
+          // If prescription file attached and upload mode selected
+          if (file && rxOption === "upload") {
+            try {
+              const formData = new FormData();
+              formData.append("file", file);
+              formData.append("appointmentId", apptId);
+              formData.append("name", values.name.trim());
+              formData.append("phone", values.phone.trim());
+              if (values.email?.trim()) formData.append("email", values.email.trim());
+              if (values.note?.trim()) formData.append("notes", values.note.trim());
+
+              const rxRes = await apiRequest<{ id: string }>("/prescriptions/upload", {
+                method: "POST",
+                body: formData,
+              });
+              if (rxRes.success) {
+                attachedRx = {
+                  type: "file",
+                  fileName: file.name,
+                  fileSize: file.size,
+                };
+              }
+            } catch (err) {
+              console.error("Prescription upload error:", err);
+            }
+          } else if (
+            rxOption === "manual" &&
+            (manualPowers.sphereOD || manualPowers.sphereOS || manualPowers.cylinderOD || manualPowers.cylinderOS)
+          ) {
+            try {
+              const manualRes = await apiRequest<{ id: string }>("/prescriptions/manual", {
+                method: "POST",
+                body: JSON.stringify({
+                  appointmentId: apptId,
+                  name: values.name.trim(),
+                  phone: values.phone.trim(),
+                  email: values.email?.trim() || undefined,
+                  sphereOD: manualPowers.sphereOD || undefined,
+                  cylinderOD: manualPowers.cylinderOD || undefined,
+                  axisOD: manualPowers.axisOD || undefined,
+                  sphereOS: manualPowers.sphereOS || undefined,
+                  cylinderOS: manualPowers.cylinderOS || undefined,
+                  axisOS: manualPowers.axisOS || undefined,
+                  addition: manualPowers.addition || undefined,
+                  pd: manualPowers.pd || undefined,
+                  notes: values.note.trim() || undefined,
+                }),
+              });
+              if (manualRes.success) {
+                attachedRx = {
+                  type: "manual",
+                  powers: manualPowers,
+                };
+              }
+            } catch (err) {
+              console.error("Manual prescription recording error:", err);
+            }
+          }
+
+          setBookedData({
+            ...res.data,
+            prescriptionAttached: attachedRx,
+          });
           setSubmitted(true);
-          toast.success("Appointment slot reserved and recorded in clinic database!");
+          if (attachedRx) {
+            toast.success("Appointment slot reserved and prescription securely attached to your clinical record!");
+          } else {
+            toast.success("Appointment slot reserved and recorded in clinic database!");
+          }
         } else {
           toast.error(res.message || "Failed to book appointment. Please try another slot.");
         }
@@ -1002,6 +1199,36 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
                             <Clock className="h-3 w-3 text-primary" /> {selectedSlot}
                           </strong>
                         </div>
+                        {bookedData?.prescriptionAttached ? (
+                          <div className="col-span-2 rounded-xl border border-primary/30 bg-primary/10 p-3 mt-1">
+                            <span className="text-primary block text-[11px] font-bold uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                              <FileText className="h-3.5 w-3.5" /> Attached Clinical Prescription:
+                            </span>
+                            {bookedData.prescriptionAttached.type === "file" ? (
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-foreground truncate font-mono text-xs font-semibold">
+                                  📄 {bookedData.prescriptionAttached.fileName}{" "}
+                                  {bookedData.prescriptionAttached.fileSize
+                                    ? `(${(bookedData.prescriptionAttached.fileSize / (1024 * 1024)).toFixed(2)} MB)`
+                                    : ""}
+                                </span>
+                                <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-500 border-emerald-500/30">
+                                  Vault Synced
+                                </Badge>
+                              </div>
+                            ) : (
+                              <div className="text-xs font-mono text-foreground space-y-0.5">
+                                <div>OD (Right): {bookedData.prescriptionAttached.powers?.sphereOD || "0.00"} SPH / {bookedData.prescriptionAttached.powers?.cylinderOD || "0.00"} CYL</div>
+                                <div>OS (Left): {bookedData.prescriptionAttached.powers?.sphereOS || "0.00"} SPH / {bookedData.prescriptionAttached.powers?.cylinderOS || "0.00"} CYL</div>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="col-span-2 rounded-xl border border-border/70 bg-muted/20 p-2.5 text-[11px] text-muted-foreground flex items-center gap-2 mt-1">
+                            <Stethoscope className="h-3.5 w-3.5 text-primary shrink-0" />
+                            <span>Fresh 20-point computerized refraction test will be performed during consultation.</span>
+                          </div>
+                        )}
                       </>
                     )}
                   </div>
@@ -1019,7 +1246,11 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
                             ? "Bespoke Frame Styling & Fitting"
                             : consultationType === "CONTACT_LENS_CONSULTATION"
                               ? "Contact Lens Trial & Fitting"
-                              : "Comprehensive Computer-Assisted Eye Test"}
+                              : consultationType === "PRESCRIPTION_CONSULTATION"
+                                ? "Prescription Verification & Power Review"
+                                : consultationType === "OTHER"
+                                  ? "Hearing & Low Vision Aids Consultation"
+                                  : "Comprehensive Computer-Assisted Eye Test"}
                       </strong>
                     </div>
                   )}
@@ -1045,85 +1276,62 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
                   </Button>
                 </div>
               </div>
-            ) : (kind === "book" || kind === "prescription") && !isAuthenticated ? (
-              <div className="space-y-6 rounded-2xl border border-border bg-card p-6 sm:p-8 shadow-soft">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                    <Lock className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 text-xs">
-                      Account Required
-                    </Badge>
-                    <h2 className="mt-1 font-display text-xl font-bold sm:text-2xl text-foreground">
-                      {kind === "book" ? "Sign in to book your consultation" : "Sign in to upload your prescription"}
-                    </h2>
-                  </div>
-                </div>
-
-                <p className="text-sm leading-relaxed text-muted-foreground">
-                  {kind === "book"
-                    ? "To reserve your personalized clinical eye checkup slot and link appointments to your digital patient record, please sign in or create an account."
-                    : "Your optical prescription files are encrypted and securely vaulted in Supabase Storage. Please sign in or create an account so our optometrists can verify your prescription and link it to your profile."}
-                </p>
-
-                <div className="rounded-xl border border-border/70 bg-muted/20 p-4 space-y-2.5">
-                  <p className="text-xs font-semibold text-foreground uppercase tracking-wider">Benefits of signing in</p>
-                  <ul className="space-y-2 text-xs text-muted-foreground">
-                    <li className="flex items-start gap-2">
-                      <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-                      <span>{kind === "book" ? "Direct appointment tracking & live slot management from your personal dashboard." : "Permanent, encrypted cloud vault of your vision test documents & PDFs."}</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-                      <span>Direct prescription verification and lens recommendations from certified optometrists.</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-                      <span>Receive WhatsApp & SMS consultation reminders and ready-for-pickup notifications.</span>
-                    </li>
-                  </ul>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                  <Button asChild variant="hero" size="lg" className="rounded-xl shadow-gold w-full sm:w-auto">
-                    <a href={`/login?redirect=${kind === "prescription" ? "/prescription" : "/book"}`}>
-                      <LogIn className="mr-2 h-4 w-4" /> Sign In to Proceed
-                    </a>
-                  </Button>
-                  <Button asChild variant="outline" size="lg" className="rounded-xl w-full sm:w-auto">
-                    <a href={`/login?tab=register&redirect=${kind === "prescription" ? "/prescription" : "/book"}`}>
-                      <UserPlus className="mr-2 h-4 w-4" /> Create New Account
-                    </a>
-                  </Button>
-                </div>
-              </div>
             ) : (
               <form noValidate onSubmit={handleSubmit} className="space-y-5 rounded-2xl border border-border bg-card p-6 sm:p-8 shadow-soft">
-                {/* Authenticated User Status */}
+                {/* Authenticated / Guest User Status */}
                 {(kind === "book" || kind === "prescription") && (
-                  <div className="flex items-center justify-between rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs">
-                    <div className="flex items-center gap-2">
-                      <UserCheck className="h-4 w-4 text-primary shrink-0" />
-                      <span>Logged in as <strong className="text-foreground">{user?.customerProfile?.fullName || user?.ownerProfile?.fullName || user?.email || user?.phone || "Customer"}</strong></span>
+                  isAuthenticated ? (
+                    <div className="flex items-center justify-between rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs">
+                      <div className="flex items-center gap-2">
+                        <UserCheck className="h-4 w-4 text-primary shrink-0" />
+                        <span>Logged in as <strong className="text-foreground">{user?.customerProfile?.fullName || user?.ownerProfile?.fullName || user?.email || user?.phone || "Customer"}</strong></span>
+                      </div>
+                      <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">Verified Patient</Badge>
                     </div>
-                    <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">Verified Patient</Badge>
+                  ) : (
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border border-border/80 bg-muted/20 p-3 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-primary shrink-0" />
+                        <span>Direct Booking · Instant confirmation via WhatsApp & SMS</span>
+                      </div>
+                      <div className="text-[11px]">
+                        Already have an account?{" "}
+                        <a
+                          href={`/login?redirect=${encodeURIComponent(typeof window !== "undefined" ? window.location.pathname + window.location.search : (kind === "prescription" ? "/prescription" : "/book"))}`}
+                          className="font-semibold text-primary underline hover:text-foreground"
+                        >
+                          Sign in to sync history →
+                        </a>
+                      </div>
+                    </div>
+                  )
+                )}
+
+                {/* Selected Service Banner */}
+                {kind === "book" && selectedService && (
+                  <div className="flex items-center justify-between rounded-xl border border-primary/30 bg-primary/10 p-3 text-xs text-foreground animate-in fade-in-50">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-primary shrink-0" />
+                      <span>Booking Service: <strong className="text-primary font-bold">{selectedService.title}</strong></span>
+                    </div>
+                    <Link to="/services" className="text-[11px] font-semibold text-primary underline hover:text-foreground">
+                      Change Service
+                    </Link>
                   </div>
                 )}
-                
+
                 {/* Consultation Type Selector */}
                 {kind === "book" && (
                   <div className="space-y-2">
-                    <span className="text-xs font-semibold text-foreground">Select Consultation Type <span className="text-xs text-primary">*</span></span>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <span className="text-xs font-semibold text-foreground">Select Consultation / Service Type <span className="text-xs text-primary">*</span></span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
                       <button
                         type="button"
                         onClick={() => setConsultationType("EYE_TEST")}
-                        className={`text-left p-3 rounded-xl border text-xs transition-all ${
-                          consultationType === "EYE_TEST"
+                        className={`text-left p-3 rounded-xl border text-xs transition-all ${consultationType === "EYE_TEST"
                             ? "border-primary bg-primary/10 ring-1 ring-primary font-medium"
                             : "border-border hover:border-primary/40 bg-muted/20"
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center gap-1.5 font-semibold text-foreground">
                           <Stethoscope className="h-3.5 w-3.5 text-primary" /> Comprehensive Eye Test
@@ -1134,11 +1342,10 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
                       <button
                         type="button"
                         onClick={() => setConsultationType("LENS_CONSULTATION")}
-                        className={`text-left p-3 rounded-xl border text-xs transition-all ${
-                          consultationType === "LENS_CONSULTATION"
+                        className={`text-left p-3 rounded-xl border text-xs transition-all ${consultationType === "LENS_CONSULTATION"
                             ? "border-primary bg-primary/10 ring-1 ring-primary font-medium"
                             : "border-border hover:border-primary/40 bg-muted/20"
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center justify-between font-semibold text-foreground">
                           <span className="flex items-center gap-1.5">
@@ -1154,11 +1361,10 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
                       <button
                         type="button"
                         onClick={() => setConsultationType("FRAME_CONSULTATION")}
-                        className={`text-left p-3 rounded-xl border text-xs transition-all ${
-                          consultationType === "FRAME_CONSULTATION"
+                        className={`text-left p-3 rounded-xl border text-xs transition-all ${consultationType === "FRAME_CONSULTATION"
                             ? "border-primary bg-primary/10 ring-1 ring-primary font-medium"
                             : "border-border hover:border-primary/40 bg-muted/20"
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center gap-1.5 font-semibold text-foreground">
                           <Glasses className="h-3.5 w-3.5 text-primary" /> Frame Styling & Fit
@@ -1169,16 +1375,43 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
                       <button
                         type="button"
                         onClick={() => setConsultationType("CONTACT_LENS_CONSULTATION")}
-                        className={`text-left p-3 rounded-xl border text-xs transition-all ${
-                          consultationType === "CONTACT_LENS_CONSULTATION"
+                        className={`text-left p-3 rounded-xl border text-xs transition-all ${consultationType === "CONTACT_LENS_CONSULTATION"
                             ? "border-primary bg-primary/10 ring-1 ring-primary font-medium"
                             : "border-border hover:border-primary/40 bg-muted/20"
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center gap-1.5 font-semibold text-foreground">
                           <Eye className="h-3.5 w-3.5 text-primary" /> Contact Lens Trial
                         </div>
                         <p className="text-[11px] text-muted-foreground mt-1">Trial lenses, corneal fitting & hygiene advice</p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setConsultationType("PRESCRIPTION_CONSULTATION")}
+                        className={`text-left p-3 rounded-xl border text-xs transition-all ${consultationType === "PRESCRIPTION_CONSULTATION"
+                            ? "border-primary bg-primary/10 ring-1 ring-primary font-medium"
+                            : "border-border hover:border-primary/40 bg-muted/20"
+                          }`}
+                      >
+                        <div className="flex items-center gap-1.5 font-semibold text-foreground">
+                          <FileText className="h-3.5 w-3.5 text-primary" /> Prescription Verification
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-1">Bring doctor slip for verification & lens fit</p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setConsultationType("OTHER")}
+                        className={`text-left p-3 rounded-xl border text-xs transition-all ${consultationType === "OTHER"
+                            ? "border-primary bg-primary/10 ring-1 ring-primary font-medium"
+                            : "border-border hover:border-primary/40 bg-muted/20"
+                          }`}
+                      >
+                        <div className="flex items-center gap-1.5 font-semibold text-foreground">
+                          <Users className="h-3.5 w-3.5 text-primary" /> Hearing & Vision Aids
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-1">Hearing aid trials & low vision magnifiers</p>
                       </button>
                     </div>
                   </div>
@@ -1249,30 +1482,344 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
                       </label>
                     </div>
 
-                    {/* Interactive Slot Picker */}
-                    <div className="space-y-2 pt-1">
-                      <div className="flex items-center justify-between">
+                    {/* Categorized Time Slot Picker */}
+                    <div className="space-y-3 pt-1">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                         <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                          <Clock className="h-3.5 w-3.5 text-primary" /> Choose Time Slot <span className="text-xs text-primary">*</span>
+                          <Clock className="h-3.5 w-3.5 text-primary" /> Choose Preferred Time Slot <span className="text-xs text-primary">*</span>
                         </span>
-                        <span className="text-[11px] text-muted-foreground">30-minute dedicated consultation</span>
+                        <span className="text-[11px] text-muted-foreground">
+                          Dedicated 30-minute optometrist consultation
+                        </span>
                       </div>
-                      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                        {availableSlots.map((slot) => (
-                          <button
-                            key={slot}
-                            type="button"
-                            onClick={() => setSelectedSlot(slot)}
-                            className={`py-2 px-1 text-center rounded-lg text-xs transition-all border ${
-                              selectedSlot === slot
-                                ? "bg-primary text-primary-foreground border-primary font-bold shadow-sm"
-                                : "bg-muted/30 border-border hover:border-primary/40 text-muted-foreground hover:text-foreground"
+
+                      {/* Period Tabs: Morning / Afternoon / Evening */}
+                      <div className="grid grid-cols-3 gap-2 p-1 rounded-xl bg-muted/40 border border-border">
+                        {SLOT_PERIODS.map((period) => {
+                          const count =
+                            period.id === "morning"
+                              ? morningSlots.length
+                              : period.id === "afternoon"
+                                ? afternoonSlots.length
+                                : eveningSlots.length;
+                          const isActive = activeSlotPeriod === period.id;
+                          const PeriodIcon = period.icon;
+
+                          return (
+                            <button
+                              key={period.id}
+                              type="button"
+                              onClick={() => setActiveSlotPeriod(period.id)}
+                              className={`flex flex-col items-center justify-center py-2 px-1 rounded-lg text-xs transition-all ${
+                                isActive
+                                  ? "bg-card text-foreground font-semibold shadow-sm border border-border/80"
+                                  : "text-muted-foreground hover:text-foreground hover:bg-card/50"
+                              }`}
+                            >
+                              <div className="flex items-center gap-1.5 font-medium">
+                                <PeriodIcon className={`h-3.5 w-3.5 ${isActive ? "text-primary" : "text-muted-foreground"}`} />
+                                <span>{period.label}</span>
+                              </div>
+                              <span className="text-[10px] text-muted-foreground mt-0.5">
+                                {count > 0 ? `${count} available` : "No slots"}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Slots Grid for active period */}
+                      <div className="rounded-xl border border-border/80 bg-card p-3 space-y-2.5">
+                        <div className="flex items-center justify-between text-[11px] text-muted-foreground border-b border-border/50 pb-2">
+                          <span className="font-medium text-foreground">
+                            {activeSlotPeriod === "morning" && "🌅 Morning Hours (10:30 AM – 01:00 PM)"}
+                            {activeSlotPeriod === "afternoon" && "☀️ Afternoon Hours (01:30 PM – 05:00 PM)"}
+                            {activeSlotPeriod === "evening" && "🌆 Evening Hours (05:00 PM – 07:30 PM)"}
+                          </span>
+                          <span className="text-primary font-semibold text-[10.5px]">Select a 30-min slot</span>
+                        </div>
+
+                        {(() => {
+                          const currentSlots =
+                            activeSlotPeriod === "morning"
+                              ? morningSlots
+                              : activeSlotPeriod === "afternoon"
+                                ? afternoonSlots
+                                : eveningSlots;
+
+                          if (currentSlots.length === 0) {
+                            return (
+                              <p className="text-xs text-muted-foreground py-4 text-center">
+                                No slots available in the {activeSlotPeriod} on this date. Please choose another session or date.
+                              </p>
+                            );
+                          }
+
+                          return (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 pt-1">
+                              {currentSlots.map((slot) => {
+                                const isSelected = selectedSlot === slot;
+                                return (
+                                  <button
+                                    key={slot}
+                                    type="button"
+                                    onClick={() => handleSelectSlot(slot)}
+                                    className={`py-2 px-2 text-center rounded-lg text-xs transition-all border flex items-center justify-center gap-1.5 ${
+                                      isSelected
+                                        ? "bg-primary text-primary-foreground border-primary font-bold shadow-sm ring-2 ring-primary/30"
+                                        : "bg-muted/30 border-border hover:border-primary/50 text-foreground hover:bg-muted/60"
+                                    }`}
+                                  >
+                                    {isSelected && <Check className="h-3 w-3 shrink-0" />}
+                                    <span>{slot}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
+                      </div>
+
+                      {/* Selected Slot Highlight Tag */}
+                      {selectedSlot && (
+                        <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-primary/10 border border-primary/20 text-xs">
+                          <span className="text-muted-foreground">Selected Appointment Time:</span>
+                          <span className="font-bold text-primary flex items-center gap-1.5">
+                            <Clock className="h-3.5 w-3.5" />
+                            {selectedSlot} (
+                            {getSlotPeriod(selectedSlot) === "morning"
+                              ? "Morning"
+                              : getSlotPeriod(selectedSlot) === "afternoon"
+                                ? "Afternoon"
+                                : "Evening"}
+                            )
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Prescription Attachment Section for Bookings */}
+                    <div className="space-y-3.5 rounded-2xl border border-primary/25 bg-primary/5 p-4 sm:p-5 mt-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div>
+                          <span className="text-xs font-bold text-foreground flex items-center gap-1.5 uppercase tracking-wide">
+                            <FileText className="h-4 w-4 text-primary" /> Prescription Attachment (Doctor ka Parcha)
+                          </span>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">
+                            Already have an existing doctor prescription or slip? Attach it so our optometrists can review your power before your visit.
+                          </p>
+                        </div>
+                        <span className="text-[10px] font-semibold text-primary bg-primary/15 border border-primary/25 px-2 py-0.5 rounded-full self-start sm:self-auto">
+                          Optional
+                        </span>
+                      </div>
+
+                      {/* Mode Tabs */}
+                      <div className="flex rounded-xl border border-border bg-card p-1 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => setRxOption("upload")}
+                          className={`flex-1 py-1.5 px-2 rounded-lg font-medium text-center transition-all flex items-center justify-center gap-1.5 ${rxOption === "upload"
+                              ? "bg-primary text-primary-foreground font-bold shadow-sm"
+                              : "text-muted-foreground hover:text-foreground"
                             }`}
-                          >
-                            {slot}
-                          </button>
-                        ))}
+                        >
+                          <Upload className="h-3.5 w-3.5" /> Upload File (Photo / PDF)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setRxOption("manual")}
+                          className={`flex-1 py-1.5 px-2 rounded-lg font-medium text-center transition-all flex items-center justify-center gap-1.5 ${rxOption === "manual"
+                              ? "bg-primary text-primary-foreground font-bold shadow-sm"
+                              : "text-muted-foreground hover:text-foreground"
+                            }`}
+                        >
+                          <Glasses className="h-3.5 w-3.5" /> Enter Powers (OD / OS)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRxOption("none");
+                            clearFile();
+                          }}
+                          className={`flex-1 py-1.5 px-2 rounded-lg font-medium text-center transition-all flex items-center justify-center gap-1.5 ${rxOption === "none"
+                              ? "bg-muted text-foreground font-bold shadow-sm"
+                              : "text-muted-foreground hover:text-foreground"
+                            }`}
+                        >
+                          <Stethoscope className="h-3.5 w-3.5" /> Fresh Test in Store
+                        </button>
                       </div>
+
+                      {/* Mode A: Upload File */}
+                      {rxOption === "upload" && (
+                        <div className="space-y-2.5 pt-1">
+                          <div
+                            onClick={() => fileInputRef.current?.click()}
+                            className={`relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-4 sm:p-5 text-center cursor-pointer transition-all ${file
+                                ? "border-emerald-500/60 bg-emerald-500/5 hover:bg-emerald-500/10"
+                                : "border-primary/40 bg-card hover:border-primary hover:bg-primary/5"
+                              }`}
+                          >
+                            {file ? (
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-center gap-2 text-emerald-600 dark:text-emerald-400 font-semibold text-xs">
+                                  <CheckCircle2 className="h-5 w-5" /> Document Ready to Attach
+                                </div>
+                                {filePreview && (
+                                  <div className="mx-auto max-w-[180px] max-h-[100px] overflow-hidden rounded-lg border border-border shadow-sm my-1.5">
+                                    <img src={filePreview} alt="Prescription preview" className="w-full h-full object-cover" />
+                                  </div>
+                                )}
+                                <p className="font-mono text-xs font-semibold text-foreground truncate max-w-xs">
+                                  📄 {file.name} ({(file.size / (1024 * 1024)).toFixed(2)} MB)
+                                </p>
+                                <div className="flex items-center justify-center gap-2 pt-1">
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 text-[11px] rounded-lg"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      fileInputRef.current?.click();
+                                    }}
+                                  >
+                                    Change File
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 text-[11px] text-destructive hover:bg-destructive/10 rounded-lg"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      clearFile();
+                                    }}
+                                  >
+                                    <X className="h-3.5 w-3.5 mr-1" /> Remove
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="h-9 w-9 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-1.5">
+                                  <Upload className="h-4 w-4" />
+                                </div>
+                                <p className="text-xs font-semibold text-foreground">
+                                  Click or drag to attach prescription slip
+                                </p>
+                                <p className="text-[11px] text-muted-foreground mt-0.5">
+                                  Supports JPG, PNG, PDF up to 10 MB
+                                </p>
+                                <Button type="button" size="sm" variant="outline" className="mt-2 text-xs rounded-lg pointer-events-none">
+                                  Choose Document
+                                </Button>
+                              </>
+                            )}
+                            <input
+                              ref={fileInputRef}
+                              type="file"
+                              accept="image/*,application/pdf"
+                              className="sr-only"
+                              onChange={onFileChange}
+                            />
+                          </div>
+                          <p className="text-[11px] text-muted-foreground italic flex items-center gap-1.5">
+                            <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                            Your optical prescription is securely stored in our private clinical database.
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Mode B: Enter Manual Powers */}
+                      {rxOption === "manual" && (
+                        <div className="space-y-3 pt-1">
+                          <div className="rounded-xl border border-border bg-card p-3 sm:p-4 space-y-3">
+                            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                              Enter OD / OS Power Values
+                            </span>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div className="space-y-2 rounded-lg bg-muted/20 p-2.5 border border-border/60">
+                                <span className="text-xs font-bold text-primary flex items-center gap-1">
+                                  Right Eye (OD)
+                                </span>
+                                <Input
+                                  placeholder="SPH (e.g. -2.00)"
+                                  value={manualPowers.sphereOD}
+                                  onChange={(e) => setManualPowers((p) => ({ ...p, sphereOD: e.target.value }))}
+                                  className="h-8 text-xs"
+                                />
+                                <Input
+                                  placeholder="CYL (e.g. -0.50)"
+                                  value={manualPowers.cylinderOD}
+                                  onChange={(e) => setManualPowers((p) => ({ ...p, cylinderOD: e.target.value }))}
+                                  className="h-8 text-xs"
+                                />
+                                <Input
+                                  placeholder="AXIS (e.g. 90°)"
+                                  value={manualPowers.axisOD}
+                                  onChange={(e) => setManualPowers((p) => ({ ...p, axisOD: e.target.value }))}
+                                  className="h-8 text-xs"
+                                />
+                              </div>
+
+                              <div className="space-y-2 rounded-lg bg-muted/20 p-2.5 border border-border/60">
+                                <span className="text-xs font-bold text-primary flex items-center gap-1">
+                                  Left Eye (OS)
+                                </span>
+                                <Input
+                                  placeholder="SPH (e.g. -1.75)"
+                                  value={manualPowers.sphereOS}
+                                  onChange={(e) => setManualPowers((p) => ({ ...p, sphereOS: e.target.value }))}
+                                  className="h-8 text-xs"
+                                />
+                                <Input
+                                  placeholder="CYL (e.g. -0.75)"
+                                  value={manualPowers.cylinderOS}
+                                  onChange={(e) => setManualPowers((p) => ({ ...p, cylinderOS: e.target.value }))}
+                                  className="h-8 text-xs"
+                                />
+                                <Input
+                                  placeholder="AXIS (e.g. 180°)"
+                                  value={manualPowers.axisOS}
+                                  onChange={(e) => setManualPowers((p) => ({ ...p, axisOS: e.target.value }))}
+                                  className="h-8 text-xs"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3 pt-1 border-t border-border/50">
+                              <label className="grid gap-1 text-[11px] text-muted-foreground">
+                                ADD / Reading (Optional)
+                                <Input
+                                  placeholder="e.g. +1.50"
+                                  value={manualPowers.addition}
+                                  onChange={(e) => setManualPowers((p) => ({ ...p, addition: e.target.value }))}
+                                  className="h-8 text-xs"
+                                />
+                              </label>
+                              <label className="grid gap-1 text-[11px] text-muted-foreground">
+                                Pupillary Distance (PD)
+                                <Input
+                                  placeholder="e.g. 63 mm"
+                                  value={manualPowers.pd}
+                                  onChange={(e) => setManualPowers((p) => ({ ...p, pd: e.target.value }))}
+                                  className="h-8 text-xs"
+                                />
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Mode C: Fresh In-Store Exam */}
+                      {rxOption === "none" && (
+                        <div className="rounded-xl border border-border/80 bg-card p-3 text-xs text-muted-foreground flex items-center gap-2.5">
+                          <Sparkles className="h-4 w-4 text-primary shrink-0" />
+                          <span>No prior prescription needed. Our certified optometrist will conduct a full autorefraction eye check during your appointment.</span>
+                        </div>
+                      )}
                     </div>
                   </>
                 ) : null}
@@ -1319,12 +1866,17 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
                 ) : null}
 
                 <label className="grid gap-1.5 text-sm font-medium">
-                  <span>Additional Notes or Specific Eye Concerns</span>
+                  <div className="flex items-center justify-between">
+                    <span>Additional Notes or Specific Eye Concerns</span>
+                    <span className="text-[11px] font-normal text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-full">
+                      Optional
+                    </span>
+                  </div>
                   <Textarea
-                    rows={3}
+                    rows={2}
                     value={values.note}
                     onChange={(e) => set("note", e.target.value)}
-                    placeholder="e.g. Frequent screen eye strain, previous progressive wearer, frame repair request..."
+                    placeholder="e.g. Frequent screen eye strain, previous progressive wearer, frame repair request... (optional)"
                   />
                 </label>
 

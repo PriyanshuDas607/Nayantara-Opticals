@@ -115,7 +115,15 @@ export class AppointmentController {
         appointmentDate: req.body.appointmentDate,
         timeSlot: req.body.timeSlot,
         notes: notesArr.length > 0 ? notesArr.join(" | ") : undefined,
+        prescriptionId: req.body.prescriptionId || undefined,
       });
+
+      if (req.body.prescriptionId) {
+        await prisma.prescription.update({
+          where: { id: req.body.prescriptionId },
+          data: { appointmentId: appointment.id },
+        }).catch(() => {});
+      }
 
       res.status(201).json({
         success: true,

@@ -95,6 +95,7 @@ export class AppointmentService {
     appointmentDate: string; // "YYYY-MM-DD"
     timeSlot: string;
     notes?: string;
+    prescriptionId?: string;
   }) {
     const bookingDate = new Date(data.appointmentDate);
     bookingDate.setUTCHours(0, 0, 0, 0);
@@ -152,8 +153,16 @@ export class AppointmentService {
           include: {
             store: true,
             user: { include: { customerProfile: true } },
+            prescriptions: { include: { fileUpload: true } },
           },
         });
+
+        if (data.prescriptionId) {
+          await tx.prescription.update({
+            where: { id: data.prescriptionId },
+            data: { appointmentId: newAppointment.id },
+          }).catch(() => {});
+        }
 
         return newAppointment;
       });
@@ -185,6 +194,11 @@ export class AppointmentService {
       where: { userId },
       include: {
         store: true,
+        prescriptions: {
+          include: {
+            fileUpload: true,
+          },
+        },
         history: { orderBy: { createdAt: "desc" } },
       },
       orderBy: { appointmentDate: "desc" },
@@ -204,6 +218,11 @@ export class AppointmentService {
       include: {
         store: true,
         user: { include: { customerProfile: true } },
+        prescriptions: {
+          include: {
+            fileUpload: true,
+          },
+        },
         history: { orderBy: { createdAt: "desc" } },
       },
       orderBy: { appointmentDate: "desc" },
@@ -233,6 +252,11 @@ export class AppointmentService {
       include: {
         store: true,
         user: { include: { customerProfile: true } },
+        prescriptions: {
+          include: {
+            fileUpload: true,
+          },
+        },
         history: { orderBy: { createdAt: "desc" } },
       },
       orderBy: { appointmentDate: "desc" },

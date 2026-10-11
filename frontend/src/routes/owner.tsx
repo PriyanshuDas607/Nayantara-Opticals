@@ -78,6 +78,26 @@ interface AppointmentItem {
     phone?: string;
     email?: string;
   };
+  prescriptions?: Array<{
+    id: string;
+    type: string;
+    fileUpload?: {
+      id: string;
+      originalFileName: string;
+      objectKey: string;
+      mimeType: string;
+      sizeBytes: number;
+    };
+    sphereOD?: string;
+    cylinderOD?: string;
+    axisOD?: string;
+    sphereOS?: string;
+    cylinderOS?: string;
+    axisOS?: string;
+    addition?: string;
+    pd?: string;
+    notes?: string;
+  }>;
 }
 
 interface OrderItem {
@@ -1856,6 +1876,31 @@ export function OwnerPage() {
                               <div className="mt-2 rounded-lg border border-border/60 bg-muted/30 p-2.5 text-xs text-foreground/90">
                                 <span className="font-semibold text-primary">Patient Notes / Concerns:</span>{" "}
                                 <span className="italic">{noteText}</span>
+                              </div>
+                            )}
+
+                            {/* Attached Prescriptions */}
+                            {a.prescriptions && a.prescriptions.length > 0 && (
+                              <div className="mt-2 rounded-lg border border-primary/30 bg-primary/5 p-2.5 space-y-1.5 text-xs">
+                                <span className="font-semibold text-primary flex items-center gap-1.5">
+                                  <FileText className="h-3.5 w-3.5" /> Attached Clinical Prescription:
+                                </span>
+                                {a.prescriptions.map((rx) => (
+                                  <div key={rx.id} className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+                                    {rx.fileUpload ? (
+                                      <span className="font-mono text-foreground text-xs font-medium">
+                                        📄 {rx.fileUpload.originalFileName} ({(rx.fileUpload.sizeBytes / (1024 * 1024)).toFixed(2)} MB)
+                                      </span>
+                                    ) : (
+                                      <span className="font-mono text-foreground text-xs">
+                                        OD: {rx.sphereOD || "0.00"} / {rx.cylinderOD || "0.00"} | OS: {rx.sphereOS || "0.00"} / {rx.cylinderOS || "0.00"}
+                                      </span>
+                                    )}
+                                    <span className="rounded-full bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold">
+                                      VERIFIED ATTACHMENT
+                                    </span>
+                                  </div>
+                                ))}
                               </div>
                             )}
                           </div>

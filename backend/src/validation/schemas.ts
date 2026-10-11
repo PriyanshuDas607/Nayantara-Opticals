@@ -49,6 +49,7 @@ export const bookAppointmentSchema = z.object({
   appointmentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
   timeSlot: z.string().min(3, "Time slot is required (e.g. 10:30 AM)"),
   notes: z.string().optional(),
+  prescriptionId: z.string().uuid().optional(),
 });
 
 export const prescriptionUploadUrlSchema = z.object({

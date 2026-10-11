@@ -34,7 +34,7 @@ const upload = multer({
 // 1. Direct Multipart upload into Supabase Storage
 router.post(
   "/upload",
-  authenticate,
+  optionalAuthenticate,
   upload.single("file"),
   PrescriptionController.uploadFile
 );
@@ -59,7 +59,7 @@ router.post(
 
 router.post(
   "/manual",
-  authenticate,
+  optionalAuthenticate,
   validate(manualPrescriptionSchema),
   PrescriptionController.submitManual
 );

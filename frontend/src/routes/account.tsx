@@ -1338,6 +1338,40 @@ export function AccountPage() {
                         })}{" "}
                         at {a.timeSlot}
                       </p>
+
+                      {a.prescriptions && a.prescriptions.length > 0 ? (
+                        <div className="mt-2.5 rounded-lg border border-primary/25 bg-primary/5 p-2.5 space-y-1.5">
+                          <span className="text-[10px] font-bold text-primary uppercase tracking-wider block flex items-center gap-1.5">
+                            <FileText className="h-3 w-3" /> Attached Prescription
+                          </span>
+                          {a.prescriptions.map((rx: any) => (
+                            <div key={rx.id} className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                              {rx.fileUpload ? (
+                                <div className="flex items-center gap-1.5 font-mono text-primary truncate">
+                                  <span>📄 {rx.fileUpload.originalFileName}</span>
+                                  <span className="text-[10px] text-muted-foreground">
+                                    ({(rx.fileUpload.sizeBytes / (1024 * 1024)).toFixed(2)} MB)
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="text-[11px] font-mono text-foreground">
+                                  OD: {rx.sphereOD || "0.00"} SPH / {rx.cylinderOD || "0.00"} CYL · OS: {rx.sphereOS || "0.00"} SPH / {rx.cylinderOS || "0.00"} CYL
+                                </div>
+                              )}
+                              <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-500 border-emerald-500/30">
+                                Vault Synced
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="mt-2 flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 px-2.5 py-1.5 text-[11px] text-muted-foreground">
+                          <span>No prescription attached to this appointment slot.</span>
+                          <Button asChild size="sm" variant="quiet" className="h-6 text-[10px] font-semibold text-primary px-2 hover:bg-primary/10">
+                            <Link to="/prescription">Attach Prescription</Link>
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   ))}
 

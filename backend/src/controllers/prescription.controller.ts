@@ -155,13 +155,43 @@ export class PrescriptionController {
 
   static async submitManual(req: Request, res: Response, next: NextFunction) {
     try {
-      if (!req.user?.userId) {
-        res.status(401).json({ success: false, message: "Unauthorized." });
-        return;
+      let userId = req.user?.userId;
+      const patientPhone = req.body.phone?.trim();
+      const patientEmail = req.body.email?.trim() || null;
+      const patientName = req.body.name?.trim();
+
+      if (!userId) {
+        if (!patientPhone) {
+          res.status(401).json({ success: false, message: "Please sign in or provide a contact phone number." });
+          return;
+        }
+
+        let user = await prisma.user.findFirst({
+          where: {
+            OR: [{ phone: patientPhone }, ...(patientEmail ? [{ email: patientEmail }] : [])],
+          },
+        });
+
+        if (!user) {
+          user = await prisma.user.create({
+            data: {
+              phone: patientPhone,
+              email: patientEmail || undefined,
+              role: Role.CUSTOMER,
+              customerProfile: {
+                create: {
+                  fullName: patientName || "Customer",
+                  whatsappOptIn: true,
+                },
+              },
+            },
+          });
+        }
+        userId = user.id;
       }
 
       const prescription = await PrescriptionService.createManualPrescription({
-        userId: req.user.userId,
+        userId,
         ...req.body,
       });
 
