@@ -143,7 +143,7 @@ export function ServicesPage() {
                     {service.id === "myopia-management" ? (
                       <>
                         <Button asChild variant="gold" size="sm" className="h-8 text-xs font-semibold rounded-lg shadow-sm">
-                          <Link to="/book?service=myopia-management&type=myopia">Book Service (Attach Rx) →</Link>
+                          <a href="/book?service=myopia-management&type=myopia">Book Service (Attach Rx) →</a>
                         </Button>
                         <Button asChild variant="link" size="sm" className="px-1 text-xs text-muted-foreground hover:text-primary">
                           <Link to="/myopia-management">Clinic Info</Link>
@@ -152,7 +152,7 @@ export function ServicesPage() {
                     ) : service.id === "prescriptions" ? (
                       <>
                         <Button asChild variant="gold" size="sm" className="h-8 text-xs font-semibold rounded-lg shadow-sm">
-                          <Link to="/book?service=prescriptions">Book Verification (Attach Rx) →</Link>
+                          <a href="/book?service=prescriptions">Book Verification (Attach Rx) →</a>
                         </Button>
                         <Button asChild variant="link" size="sm" className="px-1 text-xs text-muted-foreground hover:text-primary">
                           <Link to="/prescription">Upload Rx Slip</Link>
@@ -160,7 +160,7 @@ export function ServicesPage() {
                       </>
                     ) : (
                       <Button asChild variant="gold" size="sm" className="h-8 text-xs font-semibold rounded-lg shadow-sm">
-                        <Link to={`/book?service=${service.id}`}>Book Service (Attach Rx) →</Link>
+                        <a href={`/book?service=${service.id}`}>Book Service (Attach Rx) →</a>
                       </Button>
                     )}
                   </div>
@@ -717,7 +717,7 @@ const SLOT_PERIODS = [
 
 function getSlotPeriod(slot: string): SlotPeriodId {
   const match = slot.match(/(\d+):(\d+)\s*(AM|PM)/i);
-  if (!match) return "morning";
+  if (!match || !match[1] || !match[3]) return "morning";
   let hour = parseInt(match[1], 10);
   const period = match[3].toUpperCase();
   if (period === "PM" && hour < 12) hour += 12;
