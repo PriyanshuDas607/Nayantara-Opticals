@@ -136,6 +136,7 @@ export function HomePage() {
   const [selected, setSelected] = useState<Product | null>(null);
   const [quizOpen, setQuizOpen] = useState(false);
   const [tryOnOpen, setTryOnOpen] = useState(false);
+  const [tryOnProduct, setTryOnProduct] = useState<Product | null>(null);
   const [slot, setSlot] = useState<string | null>(null);
   const [activeSlide, setActiveSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -280,7 +281,10 @@ export function HomePage() {
                   type="button"
                   variant="hero"
                   size="lg"
-                  onClick={() => setTryOnOpen(true)}
+                  onClick={() => {
+                    setTryOnProduct(PRODUCTS[0]);
+                    setTryOnOpen(true);
+                  }}
                   className="flex-1 sm:flex-initial h-11 text-xs sm:text-sm font-semibold rounded-md bg-amber-500 hover:bg-amber-400 text-black border-none gap-2 shadow-md active:scale-95 transition-all cursor-pointer"
                 >
                   <Camera className="h-4 w-4" aria-hidden="true" />
@@ -771,12 +775,21 @@ export function HomePage() {
         product={selected}
         onOpenChange={(open) => !open && setSelected(null)}
         onTryOn={(p) => {
-          setSelected(p);
+          const chosen = p || selected;
+          setSelected(null);
+          setTryOnProduct(chosen);
           setTryOnOpen(true);
         }}
       />
       <FrameQuiz open={quizOpen} onOpenChange={setQuizOpen} onSelect={openProduct} />
-      <TryOnDialog open={tryOnOpen} onOpenChange={setTryOnOpen} product={selected} />
+      <TryOnDialog
+        open={tryOnOpen}
+        onOpenChange={(open) => {
+          setTryOnOpen(open);
+          if (!open) setTryOnProduct(null);
+        }}
+        product={tryOnProduct}
+      />
     </>
   );
 }
