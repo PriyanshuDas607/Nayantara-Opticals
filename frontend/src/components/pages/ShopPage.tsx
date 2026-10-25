@@ -351,7 +351,14 @@ export function ShopPage() {
       </div>
 
       {/* Quick View Dialog */}
-      <ProductDialog product={selected} onOpenChange={(open) => !open && setSelected(null)} />
+      <ProductDialog
+        product={selected}
+        onOpenChange={(open) => !open && setSelected(null)}
+        onTryOn={(p) => {
+          setSelected(null);
+          setTryOnProduct(p);
+        }}
+      />
 
       {/* 3D AR Virtual Try-On Studio */}
       <TryOnDialog

@@ -15,9 +15,11 @@ import type { Product } from "@/data/catalog";
 export function ProductDialog({
   product,
   onOpenChange,
+  onTryOn,
 }: {
   product: Product | null;
   onOpenChange: (open: boolean) => void;
+  onTryOn?: (product: Product) => void;
 }) {
   const { addToCart, toggleWishlist, wishlist } = useShop();
   const [color, setColor] = useState<string>("");
@@ -180,8 +182,14 @@ export function ProductDialog({
                   <Button
                     variant="hero"
                     size="default"
-                    className="w-full bg-gradient-to-r from-amber-400 to-amber-500 text-black font-semibold hover:from-amber-300 hover:to-amber-400 shadow-md border-none gap-2"
-                    onClick={() => setTryOn(true)}
+                    className="w-full bg-gradient-to-r from-amber-400 to-amber-500 text-black font-semibold hover:from-amber-300 hover:to-amber-400 shadow-md border-none gap-2 cursor-pointer"
+                    onClick={() => {
+                      if (onTryOn) {
+                        onTryOn(product);
+                      } else {
+                        setTryOn(true);
+                      }
+                    }}
                   >
                     <Camera className="h-4 w-4" aria-hidden="true" />
                     3D Virtual Try-On

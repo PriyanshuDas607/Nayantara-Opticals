@@ -28,7 +28,6 @@ import { CookieConsent } from "@/components/layout/CookieConsent";
 
 const NAV = [
   ["Shop", "/shop"],
-  ["Virtual Try-On", "/try-on"],
   ["Services", "/services"],
   ["Lenses", "/lenses"],
   ["Myopia Care", "/myopia-management"],
@@ -200,20 +199,6 @@ export function SiteShell({ children }: { children: ReactNode }) {
                 </Link>
               </Button>
             ) : null}
-
-            {/* Virtual Try-On Studio Action */}
-            <Button
-              variant="outline"
-              size="sm"
-              asChild
-              className="hidden sm:inline-flex text-xs font-semibold text-amber-500 border-amber-500/30 rounded-md hover:bg-amber-500/10 gap-1.5"
-            >
-              <Link to="/try-on">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                <Camera className="h-3.5 w-3.5" />
-                <span>Try-On</span>
-              </Link>
-            </Button>
 
             {/* Notifications Bell */}
             <NotificationBell />

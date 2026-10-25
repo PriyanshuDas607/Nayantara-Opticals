@@ -275,7 +275,17 @@ export function HomePage() {
               </div>
 
               {/* Action Buttons */}
-              <div className="mt-3.5 sm:mt-6 flex flex-row items-center gap-2.5 sm:gap-3">
+              <div className="mt-3.5 sm:mt-6 flex flex-wrap items-center gap-2.5 sm:gap-3">
+                <Button
+                  type="button"
+                  variant="hero"
+                  size="lg"
+                  onClick={() => setTryOnOpen(true)}
+                  className="flex-1 sm:flex-initial h-11 text-xs sm:text-sm font-semibold rounded-md bg-amber-500 hover:bg-amber-400 text-black border-none gap-2 shadow-md active:scale-95 transition-all cursor-pointer"
+                >
+                  <Camera className="h-4 w-4" aria-hidden="true" />
+                  <span>3D Virtual Try-On</span>
+                </Button>
                 <Button asChild variant="gold" size="lg" className="flex-1 sm:flex-initial h-11 text-xs sm:text-sm font-semibold rounded-md shadow-xs">
                   <Link to="/shop">
                     Browse Frames <ArrowRight className="ml-1 h-3.5 w-3.5" aria-hidden="true" />
@@ -757,7 +767,14 @@ export function HomePage() {
         </div>
       </section>
 
-      <ProductDialog product={selected} onOpenChange={(open) => !open && setSelected(null)} />
+      <ProductDialog
+        product={selected}
+        onOpenChange={(open) => !open && setSelected(null)}
+        onTryOn={(p) => {
+          setSelected(p);
+          setTryOnOpen(true);
+        }}
+      />
       <FrameQuiz open={quizOpen} onOpenChange={setQuizOpen} onSelect={openProduct} />
       <TryOnDialog open={tryOnOpen} onOpenChange={setTryOnOpen} product={selected} />
     </>

@@ -15,6 +15,7 @@ import {
   Eye,
   Hand,
   Layers,
+  CheckCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PRODUCTS, type Product } from "@/data/catalog";
@@ -36,14 +37,15 @@ export interface VirtualTryOnModalProps {
 export function mapProductToShape(product: Product): FrameShape {
   const s = (product.style || "").toLowerCase();
   const n = (product.name || "").toLowerCase();
-  if (s.includes("aviator") || n.includes("aviator")) return "aviator";
-  if (s.includes("round") || n.includes("round")) return "round";
-  if (s.includes("cat") || n.includes("cat-eye") || n.includes("cateye")) return "cateye";
+  const id = (product.id || "").toLowerCase();
+  if (s.includes("aviator") || n.includes("aviator") || id.includes("aviator") || id.includes("solstice")) return "aviator";
+  if (s.includes("cat") || n.includes("cat-eye") || n.includes("cateye") || id.includes("amber")) return "cateye";
   if (s.includes("clubmaster") || s.includes("browline")) return "clubmaster";
   if (s.includes("hexagon") || s.includes("geometric")) return "hexagon";
   if (s.includes("rimless") || s.includes("drill")) return "rimless";
-  if (s.includes("square")) return "square";
-  if (s.includes("rectangle")) return "rectangle";
+  if (s.includes("rectangle") || n.includes("meridian") || id.includes("meridian")) return "rectangle";
+  if (s.includes("square") || n.includes("graphite") || id.includes("graphite") || id.includes("classic")) return "square";
+  if (s.includes("round") || n.includes("round") || id.includes("aurelia") || id.includes("aero")) return "round";
   return "wayfarer";
 }
 
@@ -54,10 +56,23 @@ export function getDefaultTintForProduct(product: Product): LensTint {
     }
     return "dark";
   }
-  if (product.badges?.some(b => b.toLowerCase().includes("blue"))) {
+  if (product.badges?.some((b) => b.toLowerCase().includes("blue")) || product.name.toLowerCase().includes("graphite")) {
     return "bluelight";
   }
   return "clear";
+}
+
+export function getDefaultColorForProduct(product: Product): { hex: string; name: string } {
+  const firstCol = product.colors?.[0];
+  const colName = firstCol?.name || "24K Royal Gold";
+  const lower = colName.toLowerCase();
+
+  if (lower.includes("gold")) return { hex: "#d4af37", name: colName };
+  if (lower.includes("tortoise") || lower.includes("amber")) return { hex: "#6f3d1e", name: colName };
+  if (lower.includes("matte black") || lower.includes("black") || lower.includes("ink")) return { hex: "#1c1d21", name: colName };
+  if (lower.includes("silver") || lower.includes("gunmetal") || lower.includes("titanium")) return { hex: "#cbd5e1", name: colName };
+  if (lower.includes("rose") || lower.includes("champagne")) return { hex: "#e6a89c", name: colName };
+  return { hex: "#d4af37", name: colName };
 }
 
 // Procedural vector rendering engine for 3D Eyewear
@@ -105,17 +120,20 @@ export function drawProceduralEyewear(
     return;
   }
 
-  const lensW = width * 0.41;
+  // Calculate lens dimensions tailored strictly to the shape
+  const lensW =
+    shape === "rectangle" ? width * 0.43 :
+    shape === "aviator" ? width * 0.42 :
+    shape === "cateye" ? width * 0.41 :
+    shape === "round" ? width * 0.39 : width * 0.40;
+
   const lensH =
-    shape === "round"
-      ? lensW * 0.92
-      : shape === "aviator"
-        ? lensW * 0.86
-        : shape === "cateye"
-          ? lensW * 0.74
-          : shape === "rimless"
-            ? lensW * 0.65
-            : lensW * 0.72;
+    shape === "rectangle" ? lensW * 0.60 : // Slim elegant rectangular rim (e.g. Meridian Gold)
+    shape === "round" ? lensW * 0.94 :     // Perfect vintage circular rim (e.g. Aurelia Round)
+    shape === "aviator" ? lensW * 0.88 :   // Teardrop pilot curve (e.g. Solstice Aviator)
+    shape === "cateye" ? lensW * 0.75 :    // Winged lift (e.g. Amber Cat-Eye)
+    shape === "square" ? lensW * 0.84 :    // Squared proportions (e.g. Graphite Squareline)
+    shape === "rimless" ? lensW * 0.64 : lensW * 0.74;
 
   const bridgeW = width * 0.14;
   const leftCenterX = -(bridgeW / 2 + lensW / 2);
@@ -125,7 +143,7 @@ export function drawProceduralEyewear(
   if (drawTemples) {
     ctx.save();
     ctx.strokeStyle = frameColor;
-    ctx.lineWidth = Math.max(2.5, width * 0.016);
+    ctx.lineWidth = shape === "rectangle" ? Math.max(2, width * 0.013) : Math.max(2.8, width * 0.017);
     ctx.lineCap = "round";
 
     const leftHingeX = leftCenterX - lensW / 2;
@@ -155,6 +173,7 @@ export function drawProceduralEyewear(
     if (shape === "round") {
       ctx.ellipse(cx, cy, hw * 0.94, hh * 0.94, 0, 0, Math.PI * 2);
     } else if (shape === "aviator") {
+      // Classic Pilot Teardrop
       ctx.moveTo(cx - hw * 0.92, cy - hh * 0.68);
       ctx.quadraticCurveTo(cx, cy - hh * 0.85, cx + hw * 0.92, cy - hh * 0.65);
       ctx.bezierCurveTo(
@@ -175,13 +194,22 @@ export function drawProceduralEyewear(
       );
       ctx.closePath();
     } else if (shape === "cateye") {
-      const outerX = cx + dir * hw * 1.08;
-      const innerX = cx - dir * hw * 0.92;
+      // Dramatic Swept-Up Winged Corners
+      const outerX = cx + dir * hw * 1.12;
+      const innerX = cx - dir * hw * 0.88;
       ctx.moveTo(innerX, cy - hh * 0.35);
-      ctx.quadraticCurveTo(cx, cy - hh * 0.75, outerX, cy - hh * 0.98);
-      ctx.quadraticCurveTo(outerX - dir * hw * 0.08, cy + hh * 0.75, cx, cy + hh * 0.88);
+      ctx.quadraticCurveTo(cx, cy - hh * 0.78, outerX, cy - hh * 1.05);
+      ctx.quadraticCurveTo(outerX - dir * hw * 0.08, cy + hh * 0.72, cx, cy + hh * 0.88);
       ctx.quadraticCurveTo(innerX, cy + hh * 0.78, innerX, cy - hh * 0.35);
       ctx.closePath();
+    } else if (shape === "rectangle") {
+      // Slim Executive Rectangular Metal Rims (Meridian Gold)
+      const r = 6;
+      ctx.roundRect(cx - hw, cy - hh * 0.85, w, h * 0.90, [r, r, r * 1.2, r * 1.2]);
+    } else if (shape === "square") {
+      // Bold Square Titanium/Acetate Rims (Graphite Squareline)
+      const r = 9;
+      ctx.roundRect(cx - hw, cy - hh * 0.82, w, h * 0.92, [r, r, r * 1.3, r * 1.3]);
     } else if (shape === "hexagon") {
       const pts = [
         [cx - hw * 0.75, cy - hh * 0.78],
@@ -195,7 +223,7 @@ export function drawProceduralEyewear(
       for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
       ctx.closePath();
     } else {
-      // Rectangle / Square / Wayfarer / Clubmaster
+      // Wayfarer Default
       const r = w * 0.18;
       ctx.roundRect(cx - hw, cy - hh * 0.82, w, h * 0.92, [r * 0.6, r * 0.6, r * 1.4, r * 1.4]);
     }
@@ -209,24 +237,24 @@ export function drawProceduralEyewear(
     ctx.save();
     traceLensPath(lens.cx, lensH * 0.06, lensW, lensH, lens.isRight);
 
-    ctx.shadowColor = "rgba(0, 0, 0, 0.38)";
+    ctx.shadowColor = "rgba(0, 0, 0, 0.45)";
     ctx.shadowBlur = width * 0.045;
     ctx.shadowOffsetY = width * 0.022;
 
     const lensGrad = ctx.createLinearGradient(lens.cx, -lensH / 2, lens.cx, lensH / 2);
     if (tintMode === "dark") {
-      lensGrad.addColorStop(0, "rgba(15, 20, 26, 0.88)");
-      lensGrad.addColorStop(1, "rgba(35, 44, 54, 0.72)");
+      lensGrad.addColorStop(0, "rgba(15, 20, 26, 0.90)");
+      lensGrad.addColorStop(1, "rgba(35, 44, 54, 0.76)");
     } else if (tintMode === "bluelight") {
-      lensGrad.addColorStop(0, "rgba(56, 189, 248, 0.25)");
-      lensGrad.addColorStop(0.5, "rgba(129, 140, 248, 0.16)");
-      lensGrad.addColorStop(1, "rgba(255, 255, 255, 0.06)");
+      lensGrad.addColorStop(0, "rgba(56, 189, 248, 0.28)");
+      lensGrad.addColorStop(0.5, "rgba(129, 140, 248, 0.18)");
+      lensGrad.addColorStop(1, "rgba(255, 255, 255, 0.08)");
     } else if (tintMode === "sunset") {
-      lensGrad.addColorStop(0, "rgba(180, 58, 95, 0.76)");
-      lensGrad.addColorStop(0.6, "rgba(234, 138, 85, 0.54)");
-      lensGrad.addColorStop(1, "rgba(253, 210, 140, 0.28)");
+      lensGrad.addColorStop(0, "rgba(180, 58, 95, 0.78)");
+      lensGrad.addColorStop(0.6, "rgba(234, 138, 85, 0.58)");
+      lensGrad.addColorStop(1, "rgba(253, 210, 140, 0.32)");
     } else {
-      lensGrad.addColorStop(0, "rgba(255, 255, 255, 0.18)");
+      lensGrad.addColorStop(0, "rgba(255, 255, 255, 0.20)");
       lensGrad.addColorStop(1, "rgba(200, 230, 255, 0.06)");
     }
     ctx.fillStyle = lensGrad;
@@ -236,7 +264,7 @@ export function drawProceduralEyewear(
     // Specular Reflection Glare
     ctx.save();
     ctx.clip();
-    ctx.fillStyle = tintMode === "bluelight" ? "rgba(165, 243, 252, 0.28)" : "rgba(255, 255, 255, 0.22)";
+    ctx.fillStyle = tintMode === "bluelight" ? "rgba(165, 243, 252, 0.32)" : "rgba(255, 255, 255, 0.24)";
     ctx.beginPath();
     ctx.moveTo(lens.cx - lensW * 0.35, -lensH * 0.5);
     ctx.lineTo(lens.cx - lensW * 0.08, -lensH * 0.5);
@@ -246,52 +274,64 @@ export function drawProceduralEyewear(
     ctx.fill();
     ctx.restore();
 
-    // Outer Rim Stroke
+    // Outer Rim Stroke (tailored to frame style)
     traceLensPath(lens.cx, lensH * 0.06, lensW, lensH, lens.isRight);
-    if (shape === "wayfarer" || shape === "cateye" || shape === "square") {
+    if (shape === "rectangle") {
+      // Whisper-thin metal wire (Meridian Gold)
+      ctx.lineWidth = Math.max(2.2, width * 0.016);
+      ctx.strokeStyle = frameColor;
+      ctx.stroke();
+    } else if (shape === "aviator") {
+      // Thin metal rim
+      ctx.lineWidth = Math.max(2.4, width * 0.018);
+      ctx.strokeStyle = frameColor;
+      ctx.stroke();
+    } else if (shape === "cateye") {
+      // Bold upswept acetate rim
+      ctx.lineWidth = Math.max(4.2, width * 0.038);
+      ctx.strokeStyle = frameColor;
+      ctx.stroke();
+    } else if (shape === "round") {
+      // Substantial round rim
       ctx.lineWidth = Math.max(3.8, width * 0.034);
       ctx.strokeStyle = frameColor;
       ctx.stroke();
-    } else if (shape === "clubmaster") {
-      // Gold lower wire rim + thick upper brow bar
-      ctx.lineWidth = Math.max(2, width * 0.015);
-      ctx.strokeStyle = "#d4af37";
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.lineWidth = Math.max(6, width * 0.045);
+    } else if (shape === "square") {
+      // Bold titanium / acetate rim
+      ctx.lineWidth = Math.max(4.0, width * 0.036);
       ctx.strokeStyle = frameColor;
-      ctx.moveTo(lens.cx - lensW * 0.52, -lensH * 0.28);
-      ctx.quadraticCurveTo(lens.cx, -lensH * 0.44, lens.cx + lensW * 0.52, -lensH * 0.28);
-      ctx.stroke();
-    } else if (shape === "rimless") {
-      ctx.lineWidth = 1.2;
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.45)";
       ctx.stroke();
     } else {
-      ctx.lineWidth = Math.max(2.5, width * 0.019);
+      ctx.lineWidth = Math.max(2.8, width * 0.022);
       ctx.strokeStyle = frameColor;
       ctx.stroke();
     }
     ctx.restore();
   });
 
-  // 3. Nose Bridge & Aviator Top Bar
+  // 3. Nose Bridge & Aviator Top Brow Bar
   ctx.save();
   ctx.strokeStyle = shape === "clubmaster" ? "#d4af37" : frameColor;
   ctx.lineCap = "round";
-  ctx.lineWidth = shape === "wayfarer" || shape === "square" ? Math.max(4.2, width * 0.032) : Math.max(2.4, width * 0.018);
+  ctx.lineWidth = shape === "rectangle" ? Math.max(2.2, width * 0.016) : Math.max(2.8, width * 0.020);
 
   ctx.beginPath();
-  ctx.moveTo(-bridgeW * 0.62, -lensH * 0.16);
-  ctx.quadraticCurveTo(0, -lensH * 0.34, bridgeW * 0.62, -lensH * 0.16);
+  if (shape === "round") {
+    // High arched keyhole bridge
+    ctx.moveTo(-bridgeW * 0.62, -lensH * 0.14);
+    ctx.quadraticCurveTo(0, -lensH * 0.42, bridgeW * 0.62, -lensH * 0.14);
+  } else {
+    ctx.moveTo(-bridgeW * 0.62, -lensH * 0.16);
+    ctx.quadraticCurveTo(0, -lensH * 0.32, bridgeW * 0.62, -lensH * 0.16);
+  }
   ctx.stroke();
 
+  // Aviator Signature Double Brow Bar
   if (shape === "aviator") {
-    ctx.lineWidth = Math.max(2, width * 0.014);
+    ctx.lineWidth = Math.max(2.4, width * 0.016);
     ctx.beginPath();
-    ctx.moveTo(leftCenterX + lensW * 0.18, -lensH * 0.36);
-    ctx.lineTo(rightCenterX - lensW * 0.18, -lensH * 0.36);
+    ctx.moveTo(leftCenterX + lensW * 0.14, -lensH * 0.40);
+    ctx.lineTo(rightCenterX - lensW * 0.14, -lensH * 0.40);
     ctx.stroke();
   }
   ctx.restore();
@@ -464,7 +504,7 @@ function loadMediaPipeScripts(): Promise<void> {
         s.src = src;
         s.crossOrigin = "anonymous";
         s.onload = () => res();
-        s.onerror = () => res(); // don't crash, fallback to demo portrait
+        s.onerror = () => res(); // fallback gracefully
         document.head.appendChild(s);
       });
     };
@@ -503,21 +543,13 @@ export function VirtualTryOnModal({
   // Selected frame
   const [selectedProduct, setSelectedProduct] = useState<Product>(() => {
     if (initialProductId) {
-      const match = availableFrames.find((p) => p.id === initialProductId);
+      const match = availableFrames.find(
+        (p) => p.id === initialProductId || p.slug === initialProductId || p.name.toLowerCase() === initialProductId.toLowerCase()
+      );
       if (match) return match;
     }
     return availableFrames[0] || PRODUCTS[0];
   });
-
-  // Keep selected frame synced with initialProductId prop
-  useEffect(() => {
-    if (initialProductId) {
-      const match = availableFrames.find((p) => p.id === initialProductId);
-      if (match) {
-        setSelectedProduct(match);
-      }
-    }
-  }, [initialProductId, availableFrames]);
 
   // Frame Customization State
   const [frameColor, setFrameColor] = useState<string>("#d4af37");
@@ -525,36 +557,55 @@ export function VirtualTryOnModal({
   const [lensTint, setLensTint] = useState<LensTint>("clear");
   const [scaleMultiplier, setScaleMultiplier] = useState<number>(1.0);
   const [offsetY, setOffsetY] = useState<number>(0);
+  const [flashMessage, setFlashMessage] = useState<string | null>(null);
 
-  // Sync default options when selected frame changes
+  // Sync selected frame & its default styling whenever initialProductId or open changes
   useEffect(() => {
-    if (selectedProduct) {
-      const defaultTint = getDefaultTintForProduct(selectedProduct);
-      setLensTint(defaultTint);
-
-      // Pick first color from product if available
-      const firstCol = selectedProduct.colors?.[0];
-      if (firstCol) {
-        setFrameColorName(firstCol.name);
-        if (firstCol.name.toLowerCase().includes("gold")) setFrameColor("#d4af37");
-        else if (firstCol.name.toLowerCase().includes("black") || firstCol.name.toLowerCase().includes("ink")) setFrameColor("#1c1d21");
-        else if (firstCol.name.toLowerCase().includes("silver") || firstCol.name.toLowerCase().includes("titanium")) setFrameColor("#cbd5e1");
-        else if (firstCol.name.toLowerCase().includes("champagne") || firstCol.name.toLowerCase().includes("amber") || firstCol.name.toLowerCase().includes("rose")) setFrameColor("#e6a89c");
-        else if (firstCol.name.toLowerCase().includes("tortoise")) setFrameColor("#6f3d1e");
-        else setFrameColor("#d4af37");
+    if (open && initialProductId) {
+      const match = availableFrames.find(
+        (p) => p.id === initialProductId || p.slug === initialProductId || p.name.toLowerCase() === initialProductId.toLowerCase()
+      );
+      if (match) {
+        setSelectedProduct(match);
+        const col = getDefaultColorForProduct(match);
+        setFrameColor(col.hex);
+        setFrameColorName(col.name);
+        setLensTint(getDefaultTintForProduct(match));
+        setFlashMessage(`Loaded: ${match.name} (${match.style})`);
+        setTimeout(() => setFlashMessage(null), 2500);
       }
     }
-  }, [selectedProduct]);
+  }, [initialProductId, open, availableFrames]);
 
   // Camera & Tracking State
   const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
   const [showMeshOverlay, setShowMeshOverlay] = useState<boolean>(false);
   const [cameraActive, setCameraActive] = useState<boolean>(false);
+  const [isCameraLoading, setIsCameraLoading] = useState<boolean>(true);
   const [telemetry, setTelemetry] = useState<{ pd: string; tilt: string; yaw: string }>({
     pd: "63.0 mm",
     tilt: "0.0°",
     yaw: "0.0°",
   });
+
+  // Dynamic Refs to eliminate stale closure values inside 60 FPS FaceMesh callbacks
+  const selectedProductRef = useRef(selectedProduct);
+  selectedProductRef.current = selectedProduct;
+
+  const frameColorRef = useRef(frameColor);
+  frameColorRef.current = frameColor;
+
+  const lensTintRef = useRef(lensTint);
+  lensTintRef.current = lensTint;
+
+  const scaleMultiplierRef = useRef(scaleMultiplier);
+  scaleMultiplierRef.current = scaleMultiplier;
+
+  const offsetYRef = useRef(offsetY);
+  offsetYRef.current = offsetY;
+
+  const showMeshOverlayRef = useRef(showMeshOverlay);
+  showMeshOverlayRef.current = showMeshOverlay;
 
   // DOM Refs
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -587,9 +638,28 @@ export function VirtualTryOnModal({
     demoHeadRef.current.isDragging = false;
   };
 
+  // Switch Frame in Carousel
+  const handleSelectFrame = (frame: Product) => {
+    setSelectedProduct(frame);
+    selectedProductRef.current = frame;
+
+    const col = getDefaultColorForProduct(frame);
+    setFrameColor(col.hex);
+    frameColorRef.current = col.hex;
+    setFrameColorName(col.name);
+
+    const tint = getDefaultTintForProduct(frame);
+    setLensTint(tint);
+    lensTintRef.current = tint;
+
+    setFlashMessage(`Loaded: ${frame.name} (${frame.style})`);
+    setTimeout(() => setFlashMessage(null), 2500);
+  };
+
   // Start MediaPipe + Camera
   const startARPipeline = useCallback(async () => {
     if (!open) return;
+    setIsCameraLoading(true);
 
     // Load scripts
     await loadMediaPipeScripts();
@@ -603,6 +673,7 @@ export function VirtualTryOnModal({
 
     // If Demo Mode requested, start portrait loop
     if (isDemoMode) {
+      setIsCameraLoading(false);
       startDemoPortraitLoop();
       return;
     }
@@ -635,6 +706,7 @@ export function VirtualTryOnModal({
       await video.play();
 
       setCameraActive(true);
+      setIsCameraLoading(false);
 
       const processFrame = async () => {
         if (!open) return;
@@ -654,10 +726,11 @@ export function VirtualTryOnModal({
     } catch {
       // Camera denied or unavailable -> switch to 3D Demo Portrait mode
       setIsDemoMode(true);
+      setIsCameraLoading(false);
     }
   }, [open, isDemoMode]);
 
-  // Demo Portrait Loop
+  // Demo Portrait Loop (Uses dynamic refs for instant frame/color updates)
   const startDemoPortraitLoop = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -672,16 +745,18 @@ export function VirtualTryOnModal({
         demoHeadRef.current.roll = Math.cos(demoHeadRef.current.autoTime * 0.7) * 0.05;
       }
 
-      const activeShape = mapProductToShape(selectedProduct);
+      const currentProd = selectedProductRef.current;
+      const activeShape = mapProductToShape(currentProd);
+
       renderStylizedPortrait(ctx, canvas.width, canvas.height, {
         yaw: demoHeadRef.current.yaw,
         roll: demoHeadRef.current.roll,
-        scale: scaleMultiplier,
-        offsetY: offsetY,
+        scale: scaleMultiplierRef.current,
+        offsetY: offsetYRef.current,
         frameShape: activeShape,
-        frameColor: frameColor,
-        tintMode: lensTint,
-        showMesh: showMeshOverlay,
+        frameColor: frameColorRef.current,
+        tintMode: lensTintRef.current,
+        showMesh: showMeshOverlayRef.current,
       });
 
       setTelemetry({
@@ -694,9 +769,9 @@ export function VirtualTryOnModal({
     };
 
     loop();
-  }, [open, selectedProduct, scaleMultiplier, offsetY, frameColor, lensTint, showMeshOverlay]);
+  }, [open]);
 
-  // Handle FaceMesh Results
+  // Handle FaceMesh Results (Always reads current refs for instant reaction)
   const onMediaPipeResults = (results: any) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -756,7 +831,7 @@ export function VirtualTryOnModal({
       }
 
       // Draw Face Landmark Points if toggled
-      if (showMeshOverlay) {
+      if (showMeshOverlayRef.current) {
         ctx.fillStyle = "rgba(212, 175, 55, 0.75)";
         for (let i = 0; i < landmarks.length; i += 2) {
           const lx = (1 - landmarks[i].x) * w;
@@ -767,16 +842,18 @@ export function VirtualTryOnModal({
         }
       }
 
-      // Draw Procedural Eyewear on user's face
-      const activeShape = mapProductToShape(selectedProduct);
+      // Read current product and draw its distinct shape in real-time
+      const currentProd = selectedProductRef.current;
+      const activeShape = mapProductToShape(currentProd);
+
       drawProceduralEyewear(ctx, activeShape, {
         x: pose.x,
-        y: pose.y + offsetY + pose.eyeDist * 0.04,
-        width: pose.eyeDist * scaleMultiplier,
+        y: pose.y + offsetYRef.current + pose.eyeDist * 0.04,
+        width: pose.eyeDist * scaleMultiplierRef.current,
         roll: pose.roll,
         yaw: pose.yaw,
-        frameColor: frameColor,
-        tintMode: lensTint,
+        frameColor: frameColorRef.current,
+        tintMode: lensTintRef.current,
       });
 
       // Update Telemetry
@@ -797,15 +874,16 @@ export function VirtualTryOnModal({
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     ctx.restore();
 
-    const activeShape = mapProductToShape(selectedProduct);
+    const currentProd = selectedProductRef.current;
+    const activeShape = mapProductToShape(currentProd);
     drawProceduralEyewear(ctx, activeShape, {
       x: canvas.width / 2,
-      y: canvas.height * 0.45 + offsetY,
-      width: 260 * scaleMultiplier,
+      y: canvas.height * 0.45 + offsetYRef.current,
+      width: 260 * scaleMultiplierRef.current,
       roll: 0,
       yaw: 0,
-      frameColor: frameColor,
-      tintMode: lensTint,
+      frameColor: frameColorRef.current,
+      tintMode: lensTintRef.current,
     });
   };
 
@@ -888,7 +966,7 @@ export function VirtualTryOnModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-xl p-0 sm:p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-2xl p-0 sm:p-4 overflow-y-auto animate-in fade-in duration-200">
       <div className="relative w-full max-w-6xl bg-[#0e1015] sm:rounded-3xl border border-white/15 shadow-2xl overflow-hidden flex flex-col lg:flex-row min-h-screen sm:min-h-[85vh] max-h-screen">
         {/* Left / Center AR Viewport */}
         <div className="relative flex-1 bg-black flex flex-col justify-between overflow-hidden min-h-[460px]">
@@ -912,7 +990,7 @@ export function VirtualTryOnModal({
                 </div>
                 <p className="text-[10.5px] text-stone-400 hidden sm:block">
                   {cameraActive
-                    ? "Facial geometry locked • Switch any in-stock frame below"
+                    ? `Fitting ${selectedProduct.name} (${selectedProduct.style}) on your face`
                     : "Drag portrait to tilt & rotate in 3D"}
                 </p>
               </div>
@@ -924,7 +1002,7 @@ export function VirtualTryOnModal({
                 type="button"
                 onClick={() => setShowMeshOverlay(!showMeshOverlay)}
                 className={cn(
-                  "px-2.5 py-1.5 rounded-full text-xs font-medium border transition-all flex items-center gap-1.5",
+                  "px-2.5 py-1.5 rounded-full text-xs font-medium border transition-all flex items-center gap-1.5 cursor-pointer",
                   showMeshOverlay
                     ? "bg-amber-500 text-black border-amber-400 font-semibold"
                     : "bg-white/10 hover:bg-white/20 text-stone-200 border-white/10"
@@ -945,7 +1023,7 @@ export function VirtualTryOnModal({
                     setCameraActive(false);
                   }
                 }}
-                className="px-2.5 py-1.5 rounded-full text-xs font-medium bg-white/10 hover:bg-white/20 text-stone-200 border border-white/10 transition-all flex items-center gap-1.5"
+                className="px-2.5 py-1.5 rounded-full text-xs font-medium bg-white/10 hover:bg-white/20 text-stone-200 border border-white/10 transition-all flex items-center gap-1.5 cursor-pointer"
               >
                 <Scan className="h-3.5 w-3.5 text-emerald-400" />
                 <span>{isDemoMode ? "Use Camera" : "3D Portrait"}</span>
@@ -954,7 +1032,7 @@ export function VirtualTryOnModal({
               <button
                 type="button"
                 onClick={() => onOpenChange(false)}
-                className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/10 hover:bg-red-500/80 text-white flex items-center justify-center transition-colors"
+                className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/10 hover:bg-red-500/80 text-white flex items-center justify-center transition-colors cursor-pointer"
                 title="Close Studio"
               >
                 <X className="h-4 w-4" />
@@ -979,8 +1057,35 @@ export function VirtualTryOnModal({
             <video ref={videoRef} className="hidden" playsInline muted />
             <canvas ref={canvasRef} className="w-full h-full object-contain" />
 
+            {/* Connecting Spinner / Initial Loader */}
+            {isCameraLoading && !isDemoMode && (
+              <div className="absolute inset-0 z-30 bg-black/75 flex flex-col items-center justify-center gap-3">
+                <div className="w-10 h-10 rounded-full border-2 border-amber-400/30 border-t-amber-400 animate-spin" />
+                <p className="text-sm font-semibold text-white">
+                  Loading 3D AR Mirror for <span className="text-amber-400">{selectedProduct.name}</span>...
+                </p>
+                <p className="text-xs text-stone-400">Locking 468 facial landmark mesh</p>
+              </div>
+            )}
+
+            {/* Instant Flash Notification when switching frames */}
+            {flashMessage && (
+              <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30 bg-amber-500 text-black px-4 py-1.5 rounded-full text-xs font-bold shadow-xl flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                <CheckCircle className="h-3.5 w-3.5 text-black" />
+                <span>{flashMessage}</span>
+              </div>
+            )}
+
             {/* Telemetry HUD Pill */}
             <div className="absolute top-4 left-4 z-20 hidden sm:flex flex-col gap-1 bg-black/65 backdrop-blur-md px-3.5 py-2 rounded-xl border border-white/10 text-[11px] font-mono text-stone-300">
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-stone-400">FRAME:</span>
+                <span className="text-amber-300 font-bold truncate max-w-[130px]">{selectedProduct.name}</span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-stone-400">SHAPE:</span>
+                <span className="text-white font-mono uppercase">{mapProductToShape(selectedProduct)}</span>
+              </div>
               <div className="flex items-center justify-between gap-4">
                 <span className="text-stone-400">EST. PD:</span>
                 <span className="text-amber-300 font-semibold">{telemetry.pd}</span>
@@ -1015,7 +1120,7 @@ export function VirtualTryOnModal({
                   type="button"
                   onClick={() => setCategoryFilter("all")}
                   className={cn(
-                    "px-3 py-1 rounded-full text-[11px] font-semibold transition-all",
+                    "px-3 py-1 rounded-full text-[11px] font-semibold transition-all cursor-pointer",
                     categoryFilter === "all"
                       ? "bg-amber-400 text-black shadow-md font-bold"
                       : "bg-white/10 text-stone-300 hover:bg-white/20"
@@ -1027,7 +1132,7 @@ export function VirtualTryOnModal({
                   type="button"
                   onClick={() => setCategoryFilter("eyeglasses")}
                   className={cn(
-                    "px-3 py-1 rounded-full text-[11px] font-semibold transition-all",
+                    "px-3 py-1 rounded-full text-[11px] font-semibold transition-all cursor-pointer",
                     categoryFilter === "eyeglasses"
                       ? "bg-amber-400 text-black shadow-md font-bold"
                       : "bg-white/10 text-stone-300 hover:bg-white/20"
@@ -1039,7 +1144,7 @@ export function VirtualTryOnModal({
                   type="button"
                   onClick={() => setCategoryFilter("sunglasses")}
                   className={cn(
-                    "px-3 py-1 rounded-full text-[11px] font-semibold transition-all",
+                    "px-3 py-1 rounded-full text-[11px] font-semibold transition-all cursor-pointer",
                     categoryFilter === "sunglasses"
                       ? "bg-amber-400 text-black shadow-md font-bold"
                       : "bg-white/10 text-stone-300 hover:bg-white/20"
@@ -1049,7 +1154,7 @@ export function VirtualTryOnModal({
                 </button>
               </div>
               <span className="text-[11px] font-mono text-emerald-400 hidden sm:inline">
-                {filteredFrames.length} Frames Ready
+                Click any frame to try immediately
               </span>
             </div>
 
@@ -1062,11 +1167,11 @@ export function VirtualTryOnModal({
                     <button
                       key={frame.id}
                       type="button"
-                      onClick={() => setSelectedProduct(frame)}
+                      onClick={() => handleSelectFrame(frame)}
                       className={cn(
-                        "shrink-0 px-3 py-2 rounded-2xl border text-left transition-all flex items-center gap-2.5",
+                        "shrink-0 px-3 py-2 rounded-2xl border text-left transition-all flex items-center gap-2.5 cursor-pointer",
                         isSelected
-                          ? "bg-amber-400/20 border-amber-400 text-white shadow-lg ring-1 ring-amber-400/50"
+                          ? "bg-amber-400/25 border-amber-400 text-white shadow-lg ring-2 ring-amber-400/70 scale-[1.02]"
                           : "bg-white/5 border-white/10 text-stone-300 hover:bg-white/10"
                       )}
                     >
@@ -1094,7 +1199,7 @@ export function VirtualTryOnModal({
               <button
                 type="button"
                 onClick={captureSnapshot}
-                className="shrink-0 inline-flex items-center gap-1.5 bg-amber-400 hover:bg-amber-300 text-black font-bold px-3.5 py-2.5 rounded-xl shadow-lg transition-all hover:scale-105 text-xs sm:text-sm"
+                className="shrink-0 inline-flex items-center gap-1.5 bg-amber-400 hover:bg-amber-300 text-black font-bold px-3.5 py-2.5 rounded-xl shadow-lg transition-all hover:scale-105 text-xs sm:text-sm cursor-pointer"
               >
                 <Download className="h-4 w-4" />
                 <span className="hidden sm:inline">Snapshot</span>
@@ -1153,10 +1258,11 @@ export function VirtualTryOnModal({
                   title="24K Royal Gold"
                   onClick={() => {
                     setFrameColor("#d4af37");
+                    frameColorRef.current = "#d4af37";
                     setFrameColorName("24K Royal Gold");
                   }}
                   className={cn(
-                    "w-7 h-7 rounded-full bg-gradient-to-br from-yellow-200 via-yellow-500 to-amber-700 transition-transform hover:scale-110",
+                    "w-7 h-7 rounded-full bg-gradient-to-br from-yellow-200 via-yellow-500 to-amber-700 transition-transform hover:scale-110 cursor-pointer",
                     frameColor === "#d4af37" ? "ring-2 ring-white ring-offset-2 ring-offset-[#13161f]" : "opacity-80"
                   )}
                 />
@@ -1165,10 +1271,11 @@ export function VirtualTryOnModal({
                   title="Matte Obsidian"
                   onClick={() => {
                     setFrameColor("#1c1d21");
+                    frameColorRef.current = "#1c1d21";
                     setFrameColorName("Matte Obsidian");
                   }}
                   className={cn(
-                    "w-7 h-7 rounded-full bg-gradient-to-br from-stone-600 to-black transition-transform hover:scale-110",
+                    "w-7 h-7 rounded-full bg-gradient-to-br from-stone-600 to-black transition-transform hover:scale-110 cursor-pointer",
                     frameColor === "#1c1d21" ? "ring-2 ring-white ring-offset-2 ring-offset-[#13161f]" : "opacity-80"
                   )}
                 />
@@ -1177,10 +1284,11 @@ export function VirtualTryOnModal({
                   title="Brushed Titanium"
                   onClick={() => {
                     setFrameColor("#cbd5e1");
+                    frameColorRef.current = "#cbd5e1";
                     setFrameColorName("Brushed Titanium");
                   }}
                   className={cn(
-                    "w-7 h-7 rounded-full bg-gradient-to-br from-white via-slate-300 to-slate-500 transition-transform hover:scale-110",
+                    "w-7 h-7 rounded-full bg-gradient-to-br from-white via-slate-300 to-slate-500 transition-transform hover:scale-110 cursor-pointer",
                     frameColor === "#cbd5e1" ? "ring-2 ring-white ring-offset-2 ring-offset-[#13161f]" : "opacity-80"
                   )}
                 />
@@ -1189,10 +1297,11 @@ export function VirtualTryOnModal({
                   title="Rose Champagne"
                   onClick={() => {
                     setFrameColor("#e6a89c");
+                    frameColorRef.current = "#e6a89c";
                     setFrameColorName("Rose Champagne");
                   }}
                   className={cn(
-                    "w-7 h-7 rounded-full bg-gradient-to-br from-rose-200 via-rose-400 to-amber-700 transition-transform hover:scale-110",
+                    "w-7 h-7 rounded-full bg-gradient-to-br from-rose-200 via-rose-400 to-amber-700 transition-transform hover:scale-110 cursor-pointer",
                     frameColor === "#e6a89c" ? "ring-2 ring-white ring-offset-2 ring-offset-[#13161f]" : "opacity-80"
                   )}
                 />
@@ -1201,10 +1310,11 @@ export function VirtualTryOnModal({
                   title="Havana Tortoise"
                   onClick={() => {
                     setFrameColor("#6f3d1e");
+                    frameColorRef.current = "#6f3d1e";
                     setFrameColorName("Havana Tortoise");
                   }}
                   className={cn(
-                    "w-7 h-7 rounded-full bg-gradient-to-br from-amber-600 via-amber-900 to-stone-900 transition-transform hover:scale-110",
+                    "w-7 h-7 rounded-full bg-gradient-to-br from-amber-600 via-amber-900 to-stone-900 transition-transform hover:scale-110 cursor-pointer",
                     frameColor === "#6f3d1e" ? "ring-2 ring-white ring-offset-2 ring-offset-[#13161f]" : "opacity-80"
                   )}
                 />
@@ -1219,9 +1329,12 @@ export function VirtualTryOnModal({
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <button
                   type="button"
-                  onClick={() => setLensTint("clear")}
+                  onClick={() => {
+                    setLensTint("clear");
+                    lensTintRef.current = "clear";
+                  }}
                   className={cn(
-                    "px-3 py-2 rounded-xl border text-stone-300 font-medium flex items-center gap-2 transition-all",
+                    "px-3 py-2 rounded-xl border text-stone-300 font-medium flex items-center gap-2 transition-all cursor-pointer",
                     lensTint === "clear"
                       ? "border-amber-400 bg-amber-400/20 text-white font-semibold"
                       : "border-white/10 bg-white/5 hover:bg-white/10"
@@ -1232,9 +1345,12 @@ export function VirtualTryOnModal({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setLensTint("dark")}
+                  onClick={() => {
+                    setLensTint("dark");
+                    lensTintRef.current = "dark";
+                  }}
                   className={cn(
-                    "px-3 py-2 rounded-xl border text-stone-300 font-medium flex items-center gap-2 transition-all",
+                    "px-3 py-2 rounded-xl border text-stone-300 font-medium flex items-center gap-2 transition-all cursor-pointer",
                     lensTint === "dark"
                       ? "border-amber-400 bg-amber-400/20 text-white font-semibold"
                       : "border-white/10 bg-white/5 hover:bg-white/10"
@@ -1245,9 +1361,12 @@ export function VirtualTryOnModal({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setLensTint("bluelight")}
+                  onClick={() => {
+                    setLensTint("bluelight");
+                    lensTintRef.current = "bluelight";
+                  }}
                   className={cn(
-                    "px-3 py-2 rounded-xl border text-stone-300 font-medium flex items-center gap-2 transition-all",
+                    "px-3 py-2 rounded-xl border text-stone-300 font-medium flex items-center gap-2 transition-all cursor-pointer",
                     lensTint === "bluelight"
                       ? "border-amber-400 bg-amber-400/20 text-white font-semibold"
                       : "border-white/10 bg-white/5 hover:bg-white/10"
@@ -1258,9 +1377,12 @@ export function VirtualTryOnModal({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setLensTint("sunset")}
+                  onClick={() => {
+                    setLensTint("sunset");
+                    lensTintRef.current = "sunset";
+                  }}
                   className={cn(
-                    "px-3 py-2 rounded-xl border text-stone-300 font-medium flex items-center gap-2 transition-all",
+                    "px-3 py-2 rounded-xl border text-stone-300 font-medium flex items-center gap-2 transition-all cursor-pointer",
                     lensTint === "sunset"
                       ? "border-amber-400 bg-amber-400/20 text-white font-semibold"
                       : "border-white/10 bg-white/5 hover:bg-white/10"
@@ -1282,9 +1404,11 @@ export function VirtualTryOnModal({
                   type="button"
                   onClick={() => {
                     setScaleMultiplier(1.0);
+                    scaleMultiplierRef.current = 1.0;
                     setOffsetY(0);
+                    offsetYRef.current = 0;
                   }}
-                  className="text-[11px] text-amber-400 hover:underline"
+                  className="text-[11px] text-amber-400 hover:underline cursor-pointer"
                 >
                   Reset
                 </button>
@@ -1300,8 +1424,12 @@ export function VirtualTryOnModal({
                   max="1.25"
                   step="0.01"
                   value={scaleMultiplier}
-                  onChange={(e) => setScaleMultiplier(parseFloat(e.target.value))}
-                  className="w-full accent-amber-400"
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    setScaleMultiplier(val);
+                    scaleMultiplierRef.current = val;
+                  }}
+                  className="w-full accent-amber-400 cursor-pointer"
                 />
               </div>
               <div>
@@ -1317,8 +1445,12 @@ export function VirtualTryOnModal({
                   max="25"
                   step="1"
                   value={offsetY}
-                  onChange={(e) => setOffsetY(parseInt(e.target.value, 10))}
-                  className="w-full accent-amber-400"
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10);
+                    setOffsetY(val);
+                    offsetYRef.current = val;
+                  }}
+                  className="w-full accent-amber-400 cursor-pointer"
                 />
               </div>
             </div>
@@ -1329,7 +1461,7 @@ export function VirtualTryOnModal({
             <button
               type="button"
               onClick={handleAddToCart}
-              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black font-bold text-sm shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center gap-2"
+              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black font-bold text-sm shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
               <ShoppingBag className="h-4 w-4" />
               <span>Select {selectedProduct.name} & Add to Bag</span>
