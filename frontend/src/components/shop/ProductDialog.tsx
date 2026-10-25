@@ -147,7 +147,7 @@ export function ProductDialog({
               <div className="grid gap-2 sm:grid-cols-2">
                 <Button
                   variant="hero"
-                  size="pill"
+                  size="default"
                   className="w-full"
                   disabled={!product.inStock}
                   onClick={() => addToCart(product, { color })}
@@ -157,7 +157,7 @@ export function ProductDialog({
                 </Button>
                 <Button
                   variant="quiet"
-                  size="pill"
+                  size="default"
                   className="w-full"
                   onClick={() => toggleWishlist(product)}
                 >
@@ -167,7 +167,7 @@ export function ProductDialog({
                   />
                   {wished ? "Saved" : "Wishlist"}
                 </Button>
-                <Button variant="gold" size="pill" className="w-full" asChild>
+                <Button variant="gold" size="default" className="w-full" asChild>
                   <a
                     href={waLink(`Hi Nayantara Opticals, I'd like to know more about ${product.name}.`)}
                     target="_blank"
@@ -176,14 +176,17 @@ export function ProductDialog({
                     <MessageCircle className="h-4 w-4" aria-hidden="true" /> Ask on WhatsApp
                   </a>
                 </Button>
-                <Button
-                  variant="outline"
-                  size="pill"
-                  className="w-full rounded-full"
-                  onClick={() => setTryOn(true)}
-                >
-                  <Camera className="h-4 w-4" aria-hidden="true" /> Try-On · Phase 2
-                </Button>
+                {isFrame && (
+                  <Button
+                    variant="hero"
+                    size="default"
+                    className="w-full bg-gradient-to-r from-amber-400 to-amber-500 text-black font-semibold hover:from-amber-300 hover:to-amber-400 shadow-md border-none gap-2"
+                    onClick={() => setTryOn(true)}
+                  >
+                    <Camera className="h-4 w-4" aria-hidden="true" />
+                    3D Virtual Try-On
+                  </Button>
+                )}
               </div>
 
               <div className="space-y-1.5 text-xs text-muted-foreground">
@@ -203,7 +206,7 @@ export function ProductDialog({
           </div>
         </DialogContent>
       </Dialog>
-      <TryOnDialog open={tryOn} onOpenChange={setTryOn} productName={product.name} />
+      <TryOnDialog open={tryOn} onOpenChange={setTryOn} product={product} />
     </>
   );
 }

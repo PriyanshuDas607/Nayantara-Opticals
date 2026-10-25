@@ -73,7 +73,7 @@ export function PageIntro({
 }
 
 /* =========================================================================
-   1. SERVICES PAGE — Full Optical Clinic & Healthcare Offerings
+   1. SERVICES PAGE - Full Optical Clinic & Healthcare Offerings
    ========================================================================= */
 export function ServicesPage() {
   return (
@@ -82,14 +82,14 @@ export function ServicesPage() {
         eyebrow="Clinical Care & Precision Optics"
         title="Comprehensive eye care & optical services."
         action={
-          <Button asChild variant="hero" size="default" className="rounded-full shadow-gold">
+          <Button asChild variant="hero" size="default" className="rounded-md">
             <Link to="/book">
               <Eye className="mr-1.5 h-4 w-4" /> Book Consultation
             </Link>
           </Button>
         }
       >
-        From computer-assisted refractions to bespoke progressive lens fittings, pediatric myopia control, and specialist hearing aids — delivered with unhurried clinical care in New Delhi.
+        From computer-assisted refractions to bespoke progressive lens fittings, pediatric myopia control, and specialist hearing aids, delivered with unhurried clinical care in New Delhi.
       </PageIntro>
 
       {/* 6 Comprehensive Service Offerings */}
@@ -138,12 +138,12 @@ export function ServicesPage() {
                   ))}
                 </ul>
 
-                <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
+                <div className="mt-5 flex flex-wrap items-center justify-between gap-2.5">
                   <div className="flex flex-wrap items-center gap-2">
                     {service.id === "myopia-management" ? (
                       <>
                         <Button asChild variant="gold" size="sm" className="h-8 text-xs font-semibold rounded-lg shadow-sm">
-                          <a href="/book?service=myopia-management&type=myopia">Book Service (Attach Rx) →</a>
+                          <Link to="/book" search={{ service: "myopia-management", type: "myopia" } as never}>Book Service →</Link>
                         </Button>
                         <Button asChild variant="link" size="sm" className="px-1 text-xs text-muted-foreground hover:text-primary">
                           <Link to="/myopia-management">Clinic Info</Link>
@@ -152,7 +152,7 @@ export function ServicesPage() {
                     ) : service.id === "prescriptions" ? (
                       <>
                         <Button asChild variant="gold" size="sm" className="h-8 text-xs font-semibold rounded-lg shadow-sm">
-                          <a href="/book?service=prescriptions">Book Verification (Attach Rx) →</a>
+                          <Link to="/book" search={{ service: "prescriptions" } as never}>Book Verification →</Link>
                         </Button>
                         <Button asChild variant="link" size="sm" className="px-1 text-xs text-muted-foreground hover:text-primary">
                           <Link to="/prescription">Upload Rx Slip</Link>
@@ -160,7 +160,7 @@ export function ServicesPage() {
                       </>
                     ) : (
                       <Button asChild variant="gold" size="sm" className="h-8 text-xs font-semibold rounded-lg shadow-sm">
-                        <a href={`/book?service=${service.id}`}>Book Service (Attach Rx) →</a>
+                        <Link to="/book" search={{ service: service.id } as never}>Book Service →</Link>
                       </Button>
                     )}
                   </div>
@@ -169,7 +169,7 @@ export function ServicesPage() {
                     href={waLink(`Hi Nayantara Opticals, I want to enquire about ${service.title}.`)}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                    className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground font-medium"
                     title="Enquire on WhatsApp"
                   >
                     <MessageCircle className="h-3.5 w-3.5 text-emerald-600" />
@@ -269,7 +269,7 @@ export function ServicesPage() {
 }
 
 /* =========================================================================
-   2. OUR STORY PAGE — Heritage, 35+ Years Trust, Craftsmanship
+   2. OUR STORY PAGE - Heritage, 35+ Years Trust, Craftsmanship
    ========================================================================= */
 export function AboutPage() {
   return (
@@ -278,7 +278,7 @@ export function AboutPage() {
         eyebrow="Our Story & Heritage"
         title="Neighbourhood trust, refined over 35 years."
         action={
-          <Button asChild variant="hero" size="default" className="rounded-full shadow-gold">
+          <Button asChild variant="hero" size="default" className="rounded-md">
             <a href={SITE.directionsUrl} target="_blank" rel="noreferrer">
               <MapPin className="mr-1.5 h-4 w-4" /> Get Store Directions
             </a>
@@ -313,8 +313,8 @@ export function AboutPage() {
                 <p className="mt-1 text-xs text-muted-foreground">Generations Served</p>
               </div>
               <div className="rounded-xl border border-border bg-background p-4 text-center sm:text-left">
-                <p className="font-display text-3xl font-semibold text-primary">640+</p>
-                <p className="mt-1 text-xs text-muted-foreground">4.8★ Verified Reviews</p>
+                <p className="font-display text-3xl font-semibold text-primary">In-Store</p>
+                <p className="mt-1 text-xs text-muted-foreground">Custom Lens Lab</p>
               </div>
             </div>
           </div>
@@ -405,7 +405,7 @@ export function AboutPage() {
 }
 
 /* =========================================================================
-   3. MYOPIA MANAGEMENT PAGE — Specialized Pediatric & Youth Eye Clinic
+   3. MYOPIA MANAGEMENT PAGE - Specialized Pediatric & Youth Eye Clinic
    ========================================================================= */
 export function MyopiaPage() {
   const steps = [
@@ -455,7 +455,7 @@ export function MyopiaPage() {
         eyebrow="Pediatric & Youth Eye Care"
         title="Clinically structured myopia control for children."
         action={
-          <Button asChild variant="hero" size="default" className="rounded-full shadow-gold">
+          <Button asChild variant="hero" size="default" className="rounded-md">
             <a href="/book?service=myopia-management&type=myopia">
               <HeartPulse className="mr-1.5 h-4 w-4" /> Book Myopia Consultation (Attach Rx)
             </a>
@@ -531,7 +531,7 @@ export function MyopiaPage() {
 }
 
 /* =========================================================================
-   4. LENS STUDIO PAGE — Comprehensive Lens Portfolio, Coatings & Indices
+   4. LENS STUDIO PAGE - Comprehensive Lens Portfolio, Coatings & Indices
    ========================================================================= */
 export function LensesPage() {
   const lensPortfolios = [
@@ -591,7 +591,7 @@ export function LensesPage() {
         eyebrow="Lens Studio & Optical Physics"
         title="Precision lenses tailored to your visual lifestyle."
         action={
-          <Button asChild variant="hero" size="default" className="rounded-full shadow-gold">
+          <Button asChild variant="hero" size="default" className="rounded-md">
             <a href="/book?service=prescriptions">
               <Upload className="mr-1.5 h-4 w-4" /> Book Consultation with Rx
             </a>
@@ -607,7 +607,7 @@ export function LensesPage() {
           {lensPortfolios.map((lens) => (
             <article
               key={lens.id}
-              className="card-3d flex flex-col justify-between rounded-2xl border border-border bg-card p-6 shadow-soft transition-all hover:border-primary/50"
+              className="flex flex-col justify-between rounded-2xl border border-border bg-card p-6 shadow-soft transition-all hover:border-primary/50"
             >
               <div>
                 <div className="flex items-center justify-between">
@@ -631,7 +631,7 @@ export function LensesPage() {
               </div>
 
               <div className="mt-6 border-t border-border/70 pt-4 flex items-center justify-between">
-                <Button asChild variant="outline" size="sm" className="rounded-full text-xs">
+                <Button asChild variant="outline" size="sm" className="rounded-md text-xs">
                   <a href="/book?service=prescriptions">Choose this lens (Attach Rx)</a>
                 </Button>
                 <a
@@ -690,7 +690,7 @@ export function LensesPage() {
 }
 
 /* =========================================================================
-   5. FORM PAGE — Book Eye Check, Upload Prescription, Contact Us
+   5. FORM PAGE - Book Eye Check, Upload Prescription, Contact Us
    ========================================================================= */
 type SlotPeriodId = "morning" | "afternoon" | "evening";
 
@@ -1181,7 +1181,7 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
                         <div className="col-span-2">
                           <span className="text-muted-foreground block">Attached Prescription</span>
                           <strong className="text-primary truncate block font-mono">
-                            📄 {file.name} ({(file.size / (1024 * 1024)).toFixed(2)} MB)
+                            <FileText className="inline h-3.5 w-3.5 mr-1" /> {file.name} ({(file.size / (1024 * 1024)).toFixed(2)} MB)
                           </strong>
                         </div>
                       )
@@ -1207,7 +1207,7 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
                             {bookedData.prescriptionAttached.type === "file" ? (
                               <div className="flex items-center justify-between gap-2">
                                 <span className="text-foreground truncate font-mono text-xs font-semibold">
-                                  📄 {bookedData.prescriptionAttached.fileName}{" "}
+                                  <FileText className="inline h-3.5 w-3.5 mr-1" /> {bookedData.prescriptionAttached.fileName}{" "}
                                   {bookedData.prescriptionAttached.fileSize
                                     ? `(${(bookedData.prescriptionAttached.fileSize / (1024 * 1024)).toFixed(2)} MB)`
                                     : ""}
@@ -1532,9 +1532,9 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
                       <div className="rounded-xl border border-border/80 bg-card p-3 space-y-2.5">
                         <div className="flex items-center justify-between text-[11px] text-muted-foreground border-b border-border/50 pb-2">
                           <span className="font-medium text-foreground">
-                            {activeSlotPeriod === "morning" && "🌅 Morning Hours (10:30 AM – 01:00 PM)"}
-                            {activeSlotPeriod === "afternoon" && "☀️ Afternoon Hours (01:30 PM – 05:00 PM)"}
-                            {activeSlotPeriod === "evening" && "🌆 Evening Hours (05:00 PM – 07:30 PM)"}
+                            {activeSlotPeriod === "morning" && "Morning Hours (10:30 AM - 01:00 PM)"}
+                            {activeSlotPeriod === "afternoon" && "Afternoon Hours (01:30 PM - 05:00 PM)"}
+                            {activeSlotPeriod === "evening" && "Evening Hours (05:00 PM - 07:30 PM)"}
                           </span>
                           <span className="text-primary font-semibold text-[10.5px]">Select a 30-min slot</span>
                         </div>
@@ -1672,7 +1672,7 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
                                   </div>
                                 )}
                                 <p className="font-mono text-xs font-semibold text-foreground truncate max-w-xs">
-                                  📄 {file.name} ({(file.size / (1024 * 1024)).toFixed(2)} MB)
+                                  <FileText className="inline h-3.5 w-3.5 mr-1" /> {file.name} ({(file.size / (1024 * 1024)).toFixed(2)} MB)
                                 </p>
                                 <div className="flex items-center justify-center gap-2 pt-1">
                                   <Button
@@ -1943,12 +1943,12 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
               </div>
 
               <div className="mt-6 flex flex-wrap gap-2.5">
-                <Button asChild variant="outline" size="sm" className="rounded-full">
+                <Button asChild variant="outline" size="sm" className="rounded-md">
                   <a href={SITE.directionsUrl} target="_blank" rel="noreferrer">
                     <MapPin className="mr-1.5 h-3.5 w-3.5" /> Directions
                   </a>
                 </Button>
-                <Button asChild variant="quiet" size="sm" className="rounded-full border-border">
+                <Button asChild variant="quiet" size="sm" className="rounded-md border-border">
                   <a href={`tel:${SITE.phone}`}>
                     <Phone className="mr-1.5 h-3.5 w-3.5" /> Call Store
                   </a>
@@ -1972,7 +1972,7 @@ export function FormPage({ kind }: { kind: "book" | "prescription" | "contact" }
 }
 
 /* =========================================================================
-   6. CART PAGE — Bag & Reservation Summary
+   6. CART PAGE - Bag & Reservation Summary
    ========================================================================= */
 export function CartPage() {
   return (

@@ -167,7 +167,7 @@ export function FeedbackSection({ id = "feedback" }: { id?: string }) {
     setRating(0);
     setText("");
     setErrors({});
-    toast.success("Thank you — your feedback has been added.");
+    toast.success("Thank you, your feedback has been added.");
   };
 
   return (

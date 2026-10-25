@@ -99,9 +99,9 @@ export function CartDrawer() {
               </span>
               <p className="mt-4 font-display text-lg font-semibold">Your bag is empty</p>
               <p className="mt-1 max-w-xs text-sm text-muted-foreground">
-                Browse frames, lenses and hearing aids — explore our handcrafted catalog.
+                Browse frames, lenses and hearing aids, explore our handcrafted catalog.
               </p>
-              <Button variant="hero" size="pill" className="mt-5" asChild>
+              <Button variant="hero" size="default" className="mt-5" asChild>
                 <Link to="/shop" onClick={() => setCartOpen(false)}>
                   Shop eyewear
                 </Link>
@@ -260,7 +260,7 @@ export function CartDrawer() {
             <div className="grid gap-2">
               <Button
                 variant="hero"
-                size="pill"
+                size="lg"
                 onClick={handleCheckout}
                 disabled={submittingOrder}
               >

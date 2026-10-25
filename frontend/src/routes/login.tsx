@@ -24,7 +24,7 @@ export const Route = createFileRoute("/login")({
   staticData: { sitemap: false },
   head: () => ({
     meta: [
-      { title: "Sign In — Nayantara Opticals" },
+      { title: "Sign In - Nayantara Opticals" },
       { name: "description", content: "Sign in to your Nayantara Opticals account." },
     ],
   }),

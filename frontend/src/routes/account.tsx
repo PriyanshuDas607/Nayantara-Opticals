@@ -39,7 +39,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useAuth, SavedAddress } from "@/store/auth";
 import { useNotifications } from "@/store/notifications";
-import { apiRequest } from "@/lib/api";
+import { apiRequest, resolvePrescriptionUrl } from "@/lib/api";
 import { detectUserLocation } from "@/lib/location";
 import { toast } from "sonner";
 
@@ -47,7 +47,7 @@ export const Route = createFileRoute("/account")({
   staticData: { sitemap: false },
   head: () => ({
     meta: [
-      { title: "My Account & Settings — Nayantara Opticals" },
+      { title: "My Account & Settings - Nayantara Opticals" },
       { name: "description", content: "Manage your personal profile, delivery addresses, prescriptions, and orders." },
     ],
   }),
@@ -1257,22 +1257,27 @@ export function AccountPage() {
                       {p.fileUpload ? (
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-1">
                           <p className="font-mono text-xs text-primary truncate flex items-center gap-1.5">
-                            📄 {p.fileUpload.originalFileName}
+                            <FileText className="h-3.5 w-3.5 shrink-0" /> {p.fileUpload.originalFileName}
                           </p>
-                          {p.downloadUrl ? (
-                            <div className="flex gap-2">
-                              <Button asChild size="sm" variant="outline" className="h-7 text-xs">
-                                <a href={p.downloadUrl} target="_blank" rel="noopener noreferrer">
-                                  View File
-                                </a>
-                              </Button>
-                              <Button asChild size="sm" variant="ghost" className="h-7 text-xs">
-                                <a href={p.downloadUrl} download={p.fileUpload.originalFileName}>
-                                  Download
-                                </a>
-                              </Button>
-                            </div>
-                          ) : null}
+                          <div className="flex gap-2">
+                            <Button asChild size="sm" variant="outline" className="h-7 text-xs">
+                              <a
+                                href={resolvePrescriptionUrl(p.downloadUrl, p.id, p.fileUpload)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                View File
+                              </a>
+                            </Button>
+                            <Button asChild size="sm" variant="ghost" className="h-7 text-xs">
+                              <a
+                                href={resolvePrescriptionUrl(p.downloadUrl, p.id, p.fileUpload)}
+                                download={p.fileUpload.originalFileName}
+                              >
+                                Download
+                              </a>
+                            </Button>
+                          </div>
                         </div>
                       ) : (
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs bg-muted/30 p-2.5 rounded-lg">
@@ -1348,7 +1353,8 @@ export function AccountPage() {
                             <div key={rx.id} className="flex flex-wrap items-center justify-between gap-2 text-xs">
                               {rx.fileUpload ? (
                                 <div className="flex items-center gap-1.5 font-mono text-primary truncate">
-                                  <span>📄 {rx.fileUpload.originalFileName}</span>
+                                  <FileText className="h-3 w-3 shrink-0" />
+                                  <span>{rx.fileUpload.originalFileName}</span>
                                   <span className="text-[10px] text-muted-foreground">
                                     ({(rx.fileUpload.sizeBytes / (1024 * 1024)).toFixed(2)} MB)
                                   </span>

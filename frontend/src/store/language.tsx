@@ -14,8 +14,6 @@ export interface LanguageOption {
   code: Language;
   label: string;
   nativeLabel: string;
-  flag: string;
-  badge?: string;
 }
 
 export const LANGUAGE_OPTIONS: readonly LanguageOption[] = [
@@ -23,20 +21,16 @@ export const LANGUAGE_OPTIONS: readonly LanguageOption[] = [
     code: "en",
     label: "English",
     nativeLabel: "English",
-    flag: "🇬🇧",
   },
   {
     code: "hi",
     label: "Hindi",
     nativeLabel: "हिन्दी",
-    flag: "🇮🇳",
   },
   {
     code: "hinglish",
     label: "Hinglish",
-    nativeLabel: "Gen-Z Hinglish",
-    badge: "⚡ Trendy",
-    flag: "😎",
+    nativeLabel: "Hinglish",
   },
 ];
 
@@ -57,19 +51,19 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     "hero.titleLine1": "See Life in",
     "hero.titleHighlight": "Perfect Focus.",
     "hero.description":
-      "Premium eyewear, precision lenses and 35+ years of trusted optical expertise — fitted with care in Uttam Nagar, New Delhi.",
+      "Premium eyewear, precision lenses and 35+ years of trusted optical expertise, fitted with care in Uttam Nagar, New Delhi.",
     "hero.ctaShop": "Shop Eyeglasses",
     "hero.ctaBook": "Book Eye Test",
-    "hero.stat1Val": "35+",
-    "hero.stat1Label": "Years of optical experience",
-    "hero.stat2Val": "3",
-    "hero.stat2Label": "Generations of local families",
-    "hero.stat3Val": "4.9★",
-    "hero.stat3Label": "From 500+ in-store reviews",
+    "hero.stat1Val": "1990",
+    "hero.stat1Label": "Established in Uttam Nagar",
+    "hero.stat2Val": "In-Store",
+    "hero.stat2Label": "Computerized eye testing",
+    "hero.stat3Val": "Custom",
+    "hero.stat3Label": "Hand-fitted frame alignment",
     "cat.eyebrow": "Shop by category",
     "cat.title": "Everything your eyes need, under one roof.",
     "cat.description":
-      "Frames, lenses, contacts and specialist aids — each with hands-on guidance in store.",
+      "Frames, lenses, contacts and specialist aids, each with hands-on guidance in store.",
     "cat.eyeglasses": "Eyeglasses",
     "cat.sunglasses": "Sunglasses",
     "cat.contacts": "Contact Lenses",
@@ -82,10 +76,10 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
       "Dedicated appointment slots so your prescription, routine and comfort are all discussed properly.",
     "reasons.2.title": "Fitting is part of the frame",
     "reasons.2.body":
-      "Every pair is adjusted on your face — nose pads, temple curve, pantoscopic tilt — before you leave.",
+      "Every pair is adjusted on your face (nose pads, temple curve, pantoscopic tilt) before you leave.",
     "reasons.3.title": "Plain-language advice",
     "reasons.3.body":
-      "We explain what each lens option actually does, including when you don't need the pricier one.",
+      "We explain what each lens option actually does, including when you do not need the pricier one.",
     "reasons.4.title": "Care that continues",
     "reasons.4.body":
       "Come back for adjustments and check-ins. Most of our customers were sent by someone they know.",
@@ -97,13 +91,13 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     "quiz.badge": "Guided",
     "quiz.title": "Find Your Frame",
     "quiz.desc":
-      "Three quick questions on face shape, style and material — we shortlist frames worth trying on your next visit.",
+      "Three quick questions on face shape, style and material to shortlist frames worth trying on your next visit.",
     "quiz.btn": "Take the 30-second quiz",
     "tryon.badge": "Phase 2",
     "tryon.title": "Virtual Try-On",
     "tryon.desc":
       "Live camera try-on is in development for the next release. Until then, every frame on this site is on the shelf in store.",
-    "tryon.btn": "Preview what's coming",
+    "tryon.btn": "Preview what is coming",
     "lensStudio.eyebrow": "Lens studio",
     "lensStudio.title": "Compare lenses without the jargon.",
     "lensStudio.desc":
@@ -113,19 +107,19 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     "bookSlot.eyebrow": "Book an eye check",
     "bookSlot.title": "Pick a time that suits you.",
     "bookSlot.desc":
-      "Choose a slot to carry through to the booking page. Zero waiting time guaranteed.",
+      "Choose a slot to carry through to the booking page. Dedicated appointment slots.",
     "bookSlot.continueBtn": "Continue booking",
     "bookSlot.waBtn": "Ask on WhatsApp",
     "legacy.eyebrow": "A 35-year legacy",
     "legacy.title": "The confidence of being truly looked after.",
     "legacy.desc":
-      "Since 1990 we have fitted glasses for families across Uttam Nagar, Dwarka, Janakpuri and West Delhi. We take time to understand your prescription, your routine and how a frame sits — not simply how it looks on a shelf.",
+      "Since 1990 we have fitted glasses for families across Uttam Nagar, Dwarka, Janakpuri and West Delhi. We take time to understand your prescription, your routine and how a frame sits, not simply how it looks on a shelf.",
     "legacy.storyBtn": "Our story",
     "visit.eyebrow": "Visit the store",
     "visit.title": "Near Metro Pillar 703, Uttam Nagar.",
     "visit.directionsBtn": "Get directions",
     "visit.contactBtn": "Contact & hours",
-    "bookCta.badge": "Zero waiting time",
+    "bookCta.badge": "Dedicated slots",
     "bookCta.title": "Ready for crystal-clear vision?",
     "bookCta.subtitle":
       "Reserve an unhurried 20-minute computerized eye checkup with our senior optometrist at Uttam Nagar.",
@@ -135,12 +129,12 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     "footer.visit": "Visit Showroom",
     "footer.explore": "Explore",
     "footer.rights": "© 2026 Nayantara Opticals · New Delhi",
-    "chat.btnTitle": "Ask Optical AI",
+    "chat.btnTitle": "Optometry Support",
     "chat.btnSubtitle": "Eyecare, Frames & Clinic",
     "chat.greeting":
-      "Namaste! 🙏 I'm **Tara**, your Optical & Eyecare Advisor at **Nayantara Opticals**.",
+      "Namaste! I am **Tara**, your Optical & Eyecare Advisor at **Nayantara Opticals**.",
     "chat.intro":
-      "How can I assist you today? You can ask me about **frame selection for your face**, **progressive or blue-cut lenses**, **pediatric myopia management**, or **booking an eye test** in Uttam Nagar!",
+      "How can I assist you today? You can ask me about **frame selection for your face**, **progressive or blue-cut lenses**, **pediatric myopia management**, or **booking an eye test** in Uttam Nagar.",
     "chat.placeholder": "Ask about frames, lenses, eye tests...",
   },
   hi: {
@@ -159,19 +153,19 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     "hero.titleLine1": "ज़िंदगी को देखें बिल्कुल",
     "hero.titleHighlight": "साफ़ और स्पष्ट।",
     "hero.description":
-      "प्रीमियम चश्मे, आधुनिक लेंस और 35+ वर्षों का भरोसेमंद अनुभव — उत्तम नगर, नई दिल्ली में पूर्ण संतुष्टि के साथ।",
+      "प्रीमियम चश्मे, आधुनिक लेंस और 35+ वर्षों का भरोसेमंद अनुभव - उत्तम नगर, नई दिल्ली में पूर्ण संतुष्टि के साथ।",
     "hero.ctaShop": "चश्मे देखें",
     "hero.ctaBook": "जाँच बुक करें",
-    "hero.stat1Val": "35+",
-    "hero.stat1Label": "वर्षों का ऑप्टिकल अनुभव",
-    "hero.stat2Val": "3",
-    "hero.stat2Label": "पीढ़ियों का अटूट भरोसा",
-    "hero.stat3Val": "4.9★",
-    "hero.stat3Label": "500+ संतुष्ट ग्राहकों द्वारा सत्यापित",
+    "hero.stat1Val": "1990",
+    "hero.stat1Label": "उत्तम नगर में स्थापित",
+    "hero.stat2Val": "स्टोर में",
+    "hero.stat2Label": "कंप्यूटरीकृत आँखों की जाँच",
+    "hero.stat3Val": "कस्टम",
+    "hero.stat3Label": "हाथ से अनुकूलित फ़्रेम फ़िटिंग",
     "cat.eyebrow": "श्रेणी अनुसार खरीदें",
     "cat.title": "आपकी आँखों की हर ज़रूरत, एक ही छत के नीचे।",
     "cat.description":
-      "फ़्रेम्स, लेंस, कॉन्टैक्ट लेंस और सहायक उपकरण — हर उत्पाद पर विशेषज्ञ मार्गदर्शन।",
+      "फ़्रेम्स, लेंस, कॉन्टैक्ट लेंस और सहायक उपकरण - हर उत्पाद पर विशेषज्ञ मार्गदर्शन।",
     "cat.eyeglasses": "नज़र के चश्मे",
     "cat.sunglasses": "धूप के चश्मे",
     "cat.contacts": "कॉन्टैक्ट लेंस",
@@ -184,7 +178,7 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
       "समर्पित समय स्लॉट ताकि आपकी आँखों का नंबर, दिनचर्या और आराम सभी पर खुलकर चर्चा हो सके।",
     "reasons.2.title": "फ़ेस पर सटीक फ़िटिंग",
     "reasons.2.body":
-      "हर चश्मा आपके चेहरे के अनुसार पूरी तरह से एडजस्ट किया जाता है — नोज़ पैड और टेम्पल कर्व तक।",
+      "हर चश्मा आपके चेहरे के अनुसार पूरी तरह से एडजस्ट किया जाता है (नोज़ पैड और टेम्पल कर्व तक)।",
     "reasons.3.title": "सरल और सच्ची सलाह",
     "reasons.3.body":
       "हम साफ़ समझाते हैं कि कौन सा लेंस आपके लिए सही है और कब महँगे लेंस की ज़रूरत नहीं होती।",
@@ -198,7 +192,7 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     "quiz.badge": "मार्गदर्शन",
     "quiz.title": "अपना सही फ़्रेम चुनें",
     "quiz.desc":
-      "चेहरे के आकार और पसंद के अनुसार तीन आसान सवाल — हम आपके लिए सबसे बेहतरीन फ़्रेम चुनेंगे।",
+      "चेहरे के आकार और पसंद के अनुसार तीन आसान सवाल, हम आपके लिए सबसे बेहतरीन फ़्रेम चुनेंगे।",
     "quiz.btn": "30 सेकंड का क्विज़ शुरू करें",
     "tryon.badge": "आगामी",
     "tryon.title": "वर्चुअल ट्राई-ऑन",
@@ -212,7 +206,7 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     "lensStudio.badge": "सबसे पसंदीदा",
     "bookSlot.eyebrow": "आँखों की जाँच बुक करें",
     "bookSlot.title": "अपनी सुविधानुसार समय चुनें।",
-    "bookSlot.desc": "बुकिंग पेज पर आगे बढ़ने के लिए समय स्लॉट चुनें। कोई प्रतीक्षा समय नहीं।",
+    "bookSlot.desc": "बुकिंग पेज पर आगे बढ़ने के लिए समय स्लॉट चुनें। समर्पित समय स्लॉट।",
     "bookSlot.continueBtn": "बुकिंग जारी रखें",
     "bookSlot.waBtn": "व्हाट्सएप पर पूछें",
     "legacy.eyebrow": "35 वर्षों की अटूट विरासत",
@@ -224,123 +218,123 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     "visit.title": "मेट्रो पिलर 703 के पास, उत्तम नगर।",
     "visit.directionsBtn": "रास्ता देखें (Google Maps)",
     "visit.contactBtn": "संपर्क और समय",
-    "bookCta.badge": "शून्य प्रतीक्षा समय",
+    "bookCta.badge": "समर्पित स्लॉट",
     "bookCta.title": "क्या आप साफ़ और सुंदर दृष्टि के लिए तैयार हैं?",
     "bookCta.subtitle":
-      "उत्तम नगर में हमारे वरिष्ठ ऑप्टोमेट्रिस्ट के साथ 20 मिनट का कंप्यूटर-assisted आई टेस्ट स्लॉट बुक करें।",
+      "उत्तम नगर में हमारे वरिष्ठ ऑप्टोमेट्रिस्ट के साथ 20 मिनट का कंप्यूटरीकृत आई टेस्ट स्लॉट बुक करें।",
     "bookCta.btn": "अभी स्लॉट रिज़र्व करें",
     "footer.desc":
       "1990 से उत्तम नगर, नई दिल्ली में स्वतंत्र ऑप्टिकल देखभाल, प्रीमियम फ़्रेम्स और विशेषज्ञ फ़िटिंग।",
     "footer.visit": "शोरूम पर पधारें",
     "footer.explore": "एक्सप्लोर करें",
     "footer.rights": "© 2026 नयनतारा ऑप्टिकल्स · नई दिल्ली",
-    "chat.btnTitle": "ऑप्टिकल AI से पूछें",
+    "chat.btnTitle": "ऑप्टिकल सहायता",
     "chat.btnSubtitle": "आईकेयर, फ़्रेम्स और क्लिनिक",
-    "chat.greeting": "नमस्ते! 🙏 मैं **तारा** हूँ, **नयनतारा ऑप्टिकल्स** की आपकी आईकेयर एडवाइज़र।",
+    "chat.greeting": "नमस्ते! मैं **तारा** हूँ, **नयनतारा ऑप्टिकल्स** की आपकी आईकेयर एडवाइज़र।",
     "chat.intro":
-      "आज मैं आपकी क्या सहायता कर सकती हूँ? आप मुझसे **चेहरे के अनुसार फ़्रेम**, **ब्लू-कट व प्रोग्रेसिव लेंस**, **बच्चों के मायोपिया की देखभाल** या उत्तम नगर में **आँखों की जाँच का स्लॉट** बुक करने के बारे में पूछ सकते हैं!",
+      "आज मैं आपकी क्या सहायता कर सकती हूँ? आप मुझसे **चेहरे के अनुसार फ़्रेम**, **ब्लू-कट व प्रोग्रेसिव लेंस**, **बच्चों के मायोपिया की देखभाल** या उत्तम नगर में **आँखों की जाँच का स्लॉट** बुक करने के बारे में पूछ सकते हैं।",
     "chat.placeholder": "चश्मे, लेंस या जाँच के बारे में पूछें...",
   },
   hinglish: {
-    announcement: "35+ years of pure trust in Delhi · Sabka eye game sorted! ⚡",
-    "nav.shop": "Drip Collection",
+    announcement: "35+ years of trusted optical care in Uttam Nagar, New Delhi",
+    "nav.shop": "Chashme & Frames",
     "nav.services": "Eye Care & Services",
-    "nav.lenses": "Smart Lenses",
-    "nav.myopia": "Kids Eye Care",
-    "nav.reviews": "Public Review Check",
-    "nav.story": "The OG Legacy",
-    "nav.book": "Book Slot in 2 Mins ⚡",
-    "nav.bag": "Bag Check",
+    "nav.lenses": "Prescription Lenses",
+    "nav.myopia": "Bachhon ki Eye Care",
+    "nav.reviews": "Customer Feedback",
+    "nav.story": "Hamari Kahani",
+    "nav.book": "Eye Checkup Book Karein",
+    "nav.bag": "Aapka Bag",
     "nav.admin": "Admin",
-    "nav.skip": "Direct content pe jao",
-    "hero.badge": "✨ The OG Optical Boutique · Slaying Since 1990",
-    "hero.titleLine1": "See Life in Ultra",
-    "hero.titleHighlight": "4K Focus, No Cap.",
+    "nav.skip": "Content par jayein",
+    "hero.badge": "Independent Optical Clinic since 1990",
+    "hero.titleLine1": "Clear aur Comfortable",
+    "hero.titleHighlight": "Vision Har Din.",
     "hero.description":
-      "Aesthetic frames, anti-glare blue cut lenses, aur 35+ saal ka trust — Uttam Nagar me aao aur full drip check karwao.",
-    "hero.ctaShop": "Explore Slaying Specs 👓",
-    "hero.ctaBook": "Book Slot, Fast AF ⚡",
-    "hero.stat1Val": "35+",
-    "hero.stat1Label": "Years ka solid optical legacy",
-    "hero.stat2Val": "3",
-    "hero.stat2Label": "Generations ka unconditional trust",
-    "hero.stat3Val": "4.9★",
-    "hero.stat3Label": "500+ verified customer vibes",
-    "cat.eyebrow": "Category pick karo",
-    "cat.title": "Aapke aankho ka scene sorted, sab kuch ek hi jagah.",
+      "Premium frames, computer lenses aur 35+ saal ka vishwas, Uttam Nagar Metro Pillar 703 ke samne.",
+    "hero.ctaShop": "Frames Dekhein",
+    "hero.ctaBook": "Eye Test Book Karein",
+    "hero.stat1Val": "1990",
+    "hero.stat1Label": "Uttam Nagar me sthapit",
+    "hero.stat2Val": "In-Store",
+    "hero.stat2Label": "Computerized eye testing",
+    "hero.stat3Val": "Custom",
+    "hero.stat3Label": "Face ke anusaar fitting",
+    "cat.eyebrow": "Category chunein",
+    "cat.title": "Aankhon ki har zaroorat ek hi jagah.",
     "cat.description":
-      "Killer frames, blue-cut computer lenses, contacts aur smart vision gear — expert guidance ke sath.",
-    "cat.eyeglasses": "Everyday Specs 👓",
-    "cat.sunglasses": "Shades & Drip 😎",
-    "cat.contacts": "Contact Lenses 👁️",
-    "cat.hearing": "Hearing Gear 🦻",
-    "cat.vision": "Vision Aids 🔍",
-    "reasons.eyebrow": "Kyu Nayantara Best Hai?",
-    "reasons.title": "Optical care jo genuinely aapke comfort pe focus kare.",
-    "reasons.1.title": "Zero rush, pure chill consultations",
+      "Frames, lenses, contacts aur audiology aids, in-store guidance ke sath.",
+    "cat.eyeglasses": "Nazar ke Chashme",
+    "cat.sunglasses": "Sunglasses",
+    "cat.contacts": "Contact Lenses",
+    "cat.hearing": "Hearing Aids",
+    "cat.vision": "Vision Aids",
+    "reasons.eyebrow": "Nayantara Opticals kyu?",
+    "reasons.title": "Optical care jo aapke comfort ko pehle rakhe.",
+    "reasons.1.title": "Unhurried consultations",
     "reasons.1.body":
-      "Dedicated appointment slots taaki aapke number, screen routine aur face shape pe detailed baat ho sake.",
-    "reasons.2.title": "Chehre pe custom fit, guaranteed",
+      "Dedicated appointment slots taaki prescription, screen time aur routine par detail me baat ho sake.",
+    "reasons.2.title": "Face par custom fit",
     "reasons.2.body":
-      "Nose pads se leke ear curve tak — jab tak frame face pe butter smooth na baithe, tab tak we don't let you leave.",
-    "reasons.3.title": "No bakwaas, 100% genuine advice",
+      "Nose pads aur temple curve har frame ke liye check karke adjust kiya jata hai.",
+    "reasons.3.title": "Clear aur genuine advice",
     "reasons.3.body":
-      "Overpriced cheezein zabardasti push nahi karte. Jo lens sach me chahiye, wahi recommend karte hain.",
-    "reasons.4.title": "Lifetime free adjustments",
+      "Lens options ko simple bhasha me samjhaya jata hai bina kisi unnecessary upsell ke.",
+    "reasons.4.title": "Free adjustments aur service",
     "reasons.4.body":
-      "Specs loose ho gaye ya deep cleaning chahiye? Kabhi bhi showroom me tap in karo, absolutely free!",
-    "trending.eyebrow": "Trending drops",
-    "trending.title": "Frames that actually hit different on your face.",
+      "Frame loose ho ya cleaning chahiye, kabhi bhi showroom me aakar adjustment karwayein.",
+    "trending.eyebrow": "Popular frames",
+    "trending.title": "Daily wear ke liye selected designs.",
     "trending.subtitle":
-      "Carefully handpicked shapes and premium lightweight acetates, sab Uttam Nagar showroom me ready.",
-    "trending.viewAll": "Explore All Frames →",
-    "quiz.badge": "AI Matcher ⚡",
-    "quiz.title": "Face Shape Matcher",
+      "Lightweight acetates aur titanium frames Uttam Nagar showroom me ready.",
+    "trending.viewAll": "Sare Frames Dekhein",
+    "quiz.badge": "Guided",
+    "quiz.title": "Face Shape Quiz",
     "quiz.desc":
-      "Bas 3 quick questions me pata lagao kaunsa frame aapke face pe aesthetic lagega aur full drip dega!",
-    "quiz.btn": "Take 30-Sec Quiz 🚀",
-    "tryon.badge": "Cooking 🔥",
-    "tryon.title": "Virtual AR Try-On",
+      "3 simple sawalon ke sath janein aapke chehre par kaunsa frame style sabse achha baithega.",
+    "quiz.btn": "Quiz Shuru Karein",
+    "tryon.badge": "Phase 2",
+    "tryon.title": "Virtual Try-On",
     "tryon.desc":
-      "Live camera se frame try karne ka feature cooking hai! Tab tak Uttam Nagar showroom me aao aur real me try karo.",
-    "tryon.btn": "Preview The Feature 👀",
-    "lensStudio.eyebrow": "Smart Lens Studio",
-    "lensStudio.title": "No medical jargon, bas clear comparison.",
+      "Live camera try-on feature development me hai. Tab tak sabhi frames Uttam Nagar store me try karein.",
+    "tryon.btn": "Preview Dekhein",
+    "lensStudio.eyebrow": "Lens Studio",
+    "lensStudio.title": "Lens comparison bina medical jargon ke.",
     "lensStudio.desc":
-      "Transparent pricing without any hidden charges. Fitting testing clinic me hoti hai.",
-    "lensStudio.action": "Compare All Lenses",
-    "lensStudio.badge": "Top Pick 🔥",
-    "bookSlot.eyebrow": "Instant Eye Checkup ⚡",
-    "bookSlot.title": "Aapke schedule ke hisaab se best time.",
+      "Transparent packages. Measurement aur fitting in-store hoti hai.",
+    "lensStudio.action": "Sare Lenses Dekhein",
+    "lensStudio.badge": "Top Choice",
+    "bookSlot.eyebrow": "Eye Checkup",
+    "bookSlot.title": "Apne schedule ke hisaab se time chunein.",
     "bookSlot.desc":
-      "Preferred slot select karo aur 2 mins me booking done. Zero waiting line, guaranteed!",
-    "bookSlot.continueBtn": "Proceed to Book ⚡",
-    "bookSlot.waBtn": "WhatsApp pe pucho 💬",
-    "legacy.eyebrow": "35+ Years of Pure Vibe & Trust",
-    "legacy.title": "Aankhon ki care me no compromise, period.",
+      "Slot select karein aur consultation reserve karein. Dedicated appointments.",
+    "bookSlot.continueBtn": "Booking Continue Karein",
+    "bookSlot.waBtn": "WhatsApp par Puchein",
+    "legacy.eyebrow": "35+ Years of Trust",
+    "legacy.title": "Aankhon ki care me continuous support.",
     "legacy.desc":
-      "1990 se Uttam Nagar, Dwarka aur pure West Delhi ke families ka favorite optical spot. Yahan frame sirf bechte nahi, aapke face aur screen lifestyle ke hisaab se perfection me fit karte hain.",
-    "legacy.storyBtn": "Checkout Our Story 📖",
-    "visit.eyebrow": "Showroom Visit Karo 📍",
-    "visit.title": "Metro Pillar 703 ke bilkul samne, Uttam Nagar.",
-    "visit.directionsBtn": "Get Directions (Maps) 🗺️",
-    "visit.contactBtn": "Timings & Contact 📞",
-    "bookCta.badge": "No queue, no drama ⚡",
-    "bookCta.title": "Ready for crystal-clear 4K vision?",
+      "1990 se Uttam Nagar, Dwarka aur Janakpuri ke parivaron ka vishwas. Hum prescription aur frame dono ko face ke anusaar perfectly fit karte hain.",
+    "legacy.storyBtn": "Hamari Kahani",
+    "visit.eyebrow": "Showroom Address",
+    "visit.title": "Metro Pillar 703 ke samne, Uttam Nagar.",
+    "visit.directionsBtn": "Google Maps Directions",
+    "visit.contactBtn": "Timings & Contact",
+    "bookCta.badge": "Dedicated slots",
+    "bookCta.title": "Clear vision ke liye tayyar?",
     "bookCta.subtitle":
-      "Reserve an unhurried 20-minute computerized eye test with our senior optometrist at Uttam Nagar. Zero waiting time!",
-    "bookCta.btn": "Grab Your Slot Now ⚡",
+      "Senior optometrist ke sath 20-minute computerized eye checkup reserve karein Uttam Nagar me.",
+    "bookCta.btn": "Slot Reserve Karein",
     "footer.desc":
-      "Independent optical care, considered eyewear and patient fitting in Uttam Nagar since 1990.",
-    "footer.visit": "Showroom Vibe Check",
-    "footer.explore": "Quick Explore",
+      "Independent optical care, considered eyewear aur patient fitting Uttam Nagar me 1990 se.",
+    "footer.visit": "Showroom Visit",
+    "footer.explore": "Explore",
     "footer.rights": "© 2026 Nayantara Opticals · New Delhi",
-    "chat.btnTitle": "Ask Optical AI",
-    "chat.btnSubtitle": "Frames, Care & Doctor Slot",
-    "chat.greeting": "Yo! 👋 I'm **Tara**, your AI Optical Advisor at **Nayantara Opticals**.",
+    "chat.btnTitle": "Optometry Support",
+    "chat.btnSubtitle": "Frames, Care & Clinic",
+    "chat.greeting": "Namaste! Main **Tara** hoon, **Nayantara Opticals** ki Advisor.",
     "chat.intro":
-      "Batao bro, kya scene hai? **Chehre pe kaunsa frame suit karega**, **screen strain se kaise bachein**, **blue-cut lenses ka scene**, ya **Uttam Nagar me eye test slot book karna hai**? Sab sorted hai!",
-    "chat.placeholder": "Specs, lenses ya doctor appointment ke baare me pucho...",
+      "Aap mujhse **frame selection**, **blue-cut ya progressive lenses**, **pediatric myopia care**, ya **Uttam Nagar me eye test slot booking** ke baare me pooch sakte hain.",
+    "chat.placeholder": "Frames, lenses ya appointment ke baare me puchein...",
   },
 };
 
@@ -407,7 +401,7 @@ export function useLanguage(): LanguageContextType {
 }
 
 /**
- * Compact and stylish Language Selector dropdown component
+ * Clean and professional Language Selector dropdown component
  */
 export function LanguageSelector({ className = "" }: { className?: string }) {
   const { language, setLanguage } = useLanguage();
@@ -438,19 +432,18 @@ export function LanguageSelector({ className = "" }: { className?: string }) {
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="group inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-card/80 px-2.5 py-1 text-xs font-medium text-foreground backdrop-blur-sm transition-all hover:bg-muted/80 hover:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/20"
+        className="group inline-flex items-center gap-1.5 rounded-md border border-border/80 bg-card/80 px-2.5 py-1 text-xs font-medium text-foreground backdrop-blur-sm transition-all hover:bg-muted/80 hover:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/20"
         aria-label="Change Website Language"
         aria-expanded={isOpen}
       >
-        <span className="text-sm select-none">{currentOption.flag}</span>
+        <Globe className="h-3.5 w-3.5 text-muted-foreground transition-transform group-hover:rotate-12" />
         <span className="text-[11px] font-semibold text-foreground/90 group-hover:text-primary transition-colors">
           {currentOption.nativeLabel}
         </span>
-        <Globe className="h-3 w-3 text-muted-foreground transition-transform group-hover:rotate-12" />
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-1.5 w-48 rounded-xl border border-border/80 bg-card/95 p-1.5 shadow-xl backdrop-blur-md z-50 animate-in fade-in zoom-in-95 duration-150">
+        <div className="absolute right-0 mt-1.5 w-44 rounded-md border border-border/80 bg-card/95 p-1.5 shadow-xl backdrop-blur-md z-50 animate-in fade-in zoom-in-95 duration-150">
           <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border/40 mb-1">
             Choose Language
           </div>
@@ -464,24 +457,16 @@ export function LanguageSelector({ className = "" }: { className?: string }) {
                   setLanguage(opt.code);
                   setIsOpen(false);
                 }}
-                className={`flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-colors ${
+                className={`flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-2 text-left text-xs transition-colors ${
                   isSelected
                     ? "bg-primary/10 text-primary font-semibold"
                     : "text-foreground hover:bg-muted/80"
                 }`}
               >
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-base select-none">{opt.flag}</span>
-                  <div className="truncate">
-                    <p className="leading-tight">{opt.nativeLabel}</p>
-                    <p className="text-[10px] text-muted-foreground leading-tight">{opt.label}</p>
-                  </div>
+                <div className="truncate">
+                  <p className="leading-tight">{opt.nativeLabel}</p>
+                  <p className="text-[10px] text-muted-foreground leading-tight">{opt.label}</p>
                 </div>
-                {opt.badge && (
-                  <span className="rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 px-1.5 py-0.5 text-[9px] font-bold uppercase">
-                    {opt.badge}
-                  </span>
-                )}
                 {isSelected && <Check className="h-3.5 w-3.5 text-primary shrink-0 ml-1" />}
               </button>
             );

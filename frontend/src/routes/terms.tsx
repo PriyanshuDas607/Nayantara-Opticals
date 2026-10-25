@@ -5,13 +5,13 @@ export const Route = createFileRoute("/terms")({
   staticData: { sitemap: true },
   head: () => ({
     meta: [
-      { title: "Terms & Conditions — Nayantara Opticals" },
+      { title: "Terms & Conditions - Nayantara Opticals" },
       {
         name: "description",
         content:
           "Terms and conditions for optical checkup appointments, eyewear orders, and warranty at Nayantara Opticals.",
       },
-      { property: "og:title", content: "Terms & Conditions — Nayantara Opticals" },
+      { property: "og:title", content: "Terms & Conditions - Nayantara Opticals" },
       {
         property: "og:description",
         content: "Agreement for optical care, eyewear fitting, and custom lens dispensing in Uttam Nagar.",

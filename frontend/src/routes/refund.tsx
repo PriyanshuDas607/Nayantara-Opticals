@@ -5,13 +5,13 @@ export const Route = createFileRoute("/refund")({
   staticData: { sitemap: true },
   head: () => ({
     meta: [
-      { title: "Refund & Replacement Policy — Nayantara Opticals" },
+      { title: "Refund & Replacement Policy - Nayantara Opticals" },
       {
         name: "description",
         content:
           "Returns, 7-day frame exchange, power adaptation guarantee, and refund policies for eyewear at Nayantara Opticals.",
       },
-      { property: "og:title", content: "Refund & Replacement Policy — Nayantara Opticals" },
+      { property: "og:title", content: "Refund & Replacement Policy - Nayantara Opticals" },
       {
         property: "og:description",
         content: "Transparent return and power adaptation policies for spectacles and lenses in New Delhi.",

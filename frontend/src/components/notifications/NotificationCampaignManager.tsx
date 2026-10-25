@@ -203,7 +203,7 @@ export function NotificationCampaignManager({ senderRole }: { senderRole: "OWNER
       });
 
       if (res.success) {
-        toast.success(`🎉 Campaign Dispatched! Delivered to ${res.data?.recipientCount ?? "all"} customer(s).`);
+        toast.success(`Campaign Dispatched! Delivered to ${res.data?.recipientCount ?? "all"} customer(s).`);
         loadData();
       } else {
         toast.error(res.message || "Failed to broadcast notification.");
@@ -610,11 +610,11 @@ export function NotificationCampaignManager({ senderRole }: { senderRole: "OWNER
                   onChange={(e) => setCategory(e.target.value as NotificationCategory)}
                   className="w-full h-9 rounded-xl border border-border bg-card px-3 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 >
-                  <option value="NEW_COLLECTION">👓 New Eyewear Collection / Drop</option>
-                  <option value="PROMOTION">🎉 Promotional Offer & Discount</option>
-                  <option value="EYE_HEALTH">👁️ Eye Health / Exam Reminder</option>
-                  <option value="STORE_UPDATE">📢 Store Update / Clinic News</option>
-                  <option value="ANNOUNCEMENT">✨ General Announcement</option>
+                  <option value="NEW_COLLECTION">New Eyewear Collection / Drop</option>
+                  <option value="PROMOTION">Promotional Offer & Discount</option>
+                  <option value="EYE_HEALTH">Eye Health / Exam Reminder</option>
+                  <option value="STORE_UPDATE">Store Update / Clinic News</option>
+                  <option value="ANNOUNCEMENT">General Announcement</option>
                 </select>
               </div>
 
@@ -653,7 +653,7 @@ export function NotificationCampaignManager({ senderRole }: { senderRole: "OWNER
                 value={title}
                 maxLength={100}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. 👓 Fresh Italian Titanium Frames Just Dropped!"
+                placeholder="e.g. Fresh Italian Titanium Frames In Store"
                 className="text-xs font-medium"
               />
             </div>
@@ -897,7 +897,7 @@ export function NotificationCampaignManager({ senderRole }: { senderRole: "OWNER
 
             <div className="rounded-xl bg-primary/5 border border-primary/15 p-3 text-xs text-muted-foreground space-y-1">
               <strong className="text-foreground block font-semibold">
-                💡 Tip on &#123;name&#125; Personalization
+                Tip on &#123;name&#125; Personalization
               </strong>
               <p className="text-[11px] leading-relaxed">
                 Use <code className="bg-muted px-1 py-0.5 rounded text-foreground font-mono">&#123;name&#125;</code> in either headline or body. Nayantara will automatically swap it with each recipient’s registered full name upon dispatch!

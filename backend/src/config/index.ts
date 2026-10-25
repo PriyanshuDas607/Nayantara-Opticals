@@ -23,6 +23,12 @@ export const config = {
   nodeEnv: process.env.NODE_ENV || "development",
   isProduction: process.env.NODE_ENV === "production",
   clientUrl: process.env.CLIENT_URL || "http://localhost:3000",
+  backendUrl: (() => {
+    if (process.env.BACKEND_URL) return process.env.BACKEND_URL.trim().replace(/\/$/, "");
+    if (process.env.RENDER_EXTERNAL_URL) return process.env.RENDER_EXTERNAL_URL.trim().replace(/\/$/, "");
+    if (process.env.NODE_ENV === "production") return "https://nayantara-backend.onrender.com";
+    return `http://localhost:${process.env.PORT || "5000"}`;
+  })(),
 
   // Database & Redis
   databaseUrl: process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/nayantara_opticals?schema=public",
@@ -65,7 +71,7 @@ export const config = {
   supabase: {
     url: process.env.SUPABASE_URL || "https://zxiatmlrdfzfettbyqmj.supabase.co",
     serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
-    anonKey: process.env.SUPABASE_ANON_KEY || "",
+    anonKey: process.env.SUPABASE_ANON_KEY || "sb_publishable_AEl0thnV7V9bOr_dSDoiGA_9gl_MRlU",
     bucketName: process.env.SUPABASE_STORAGE_BUCKET || "prescriptions",
   },
 

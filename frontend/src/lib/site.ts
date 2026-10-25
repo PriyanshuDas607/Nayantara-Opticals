@@ -16,7 +16,7 @@ export const SITE = {
   hours: [
     { day: "Monday – Saturday", time: "10:00 AM – 8:30 PM" },
     { day: "Sunday", time: "11:00 AM – 6:00 PM" },
-    { day: "Public holidays", time: "Hours may vary — WhatsApp to confirm" },
+    { day: "Public holidays", time: "Hours may vary, WhatsApp to confirm" },
   ],
 } as const;
 

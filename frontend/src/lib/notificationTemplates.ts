@@ -34,7 +34,7 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplate[] = [
     iconName: "Glasses",
     badgeLabel: "New Arrival",
     badgeColor: "bg-blue-500/10 text-blue-500 border-blue-500/30",
-    defaultTitle: "👓 Fresh Italian Titanium & Acetate Frames Just Dropped!",
+    defaultTitle: "Fresh Italian Titanium & Acetate Frames In Store",
     defaultBody:
       "Hello {name}, discover our latest ultra-lightweight titanium and handcrafted acetate frames designed for all-day comfort. Visit Nayantara Opticals at Uttam Nagar or browse online to get an exclusive 15% introductory discount on your complete frame & lens pair!",
     defaultLinkUrl: "/shop",
@@ -50,7 +50,7 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplate[] = [
     iconName: "Tag",
     badgeLabel: "Limited Offer",
     badgeColor: "bg-amber-500/10 text-amber-500 border-amber-500/30",
-    defaultTitle: "🎉 Festive Special: Flat 20% Off + Free Blue-Cut Lens Coating!",
+    defaultTitle: "Festive Special: Flat 20% Off + Free Blue-Cut Lens Coating!",
     defaultBody:
       "Upgrade your vision this season! Enjoy flat 20% savings across our entire designer optical frame range and receive complimentary anti-reflective digital screen protection coatings on all Zeiss & Essilor prescription lenses. Limited period offer.",
     defaultLinkUrl: "/shop",
@@ -66,7 +66,7 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplate[] = [
     iconName: "Eye",
     badgeLabel: "Eye Health",
     badgeColor: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30",
-    defaultTitle: "👁️ Time for Your Computerized Vision Checkup, {name}?",
+    defaultTitle: "Time for Your Computerized Vision Checkup, {name}?",
     defaultBody:
       "Regular eye exams keep your vision sharp and catch refractive shifts early. Reserve your computerized 15-minute eye evaluation and autorefraction with our certified optometrist at Nayantara Opticals, Pillar 703, Uttam Nagar. Zero wait time when booked in advance!",
     defaultLinkUrl: "/book-appointment",
@@ -79,10 +79,10 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplate[] = [
     name: "Pediatric Eye Care & Student Glasses",
     category: "EYE_HEALTH",
     priority: "NORMAL",
-    iconName: "Sparkles",
+    iconName: "Eye",
     badgeLabel: "Child Wellness",
-    badgeColor: "bg-purple-500/10 text-purple-500 border-purple-500/30",
-    defaultTitle: "👶 Children's Vision Care: Myopia Management & Study Glasses",
+    badgeColor: "bg-teal-500/10 text-teal-600 border-teal-500/30",
+    defaultTitle: "Children's Vision Care: Myopia Management & Study Glasses",
     defaultBody:
       "Increasing digital screen time can trigger student myopia. Our clinic now features specialized pediatric myopia assessment, lightweight flexible frames, and impact-resistant blue-shield lenses for school children and teenagers.",
     defaultLinkUrl: "/book-appointment?type=myopia",
@@ -98,7 +98,7 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplate[] = [
     iconName: "Megaphone",
     badgeLabel: "Store Update",
     badgeColor: "bg-cyan-500/10 text-cyan-500 border-cyan-500/30",
-    defaultTitle: "📢 In-Store Update: Robotic Lens Edging & 30-Min Express Fitting!",
+    defaultTitle: "In-Store Update: Precision Lens Edging & Express Fitting",
     defaultBody:
       "We have upgraded our clinic with a high-precision digital patternless edger! Enjoy express 30-minute fitting on popular single-vision prescription lenses. We are open all 7 days from 10:30 AM to 9:00 PM near Metro Pillar 703, Uttam Nagar.",
     defaultLinkUrl: "/contact",
@@ -113,8 +113,8 @@ export const NOTIFICATION_TEMPLATES: NotificationTemplate[] = [
     priority: "NORMAL",
     iconName: "CheckCircle",
     badgeLabel: "Special Deal",
-    badgeColor: "bg-indigo-500/10 text-indigo-500 border-indigo-500/30",
-    defaultTitle: "✨ Soft Contact Lens Trial & Free 120ml Solution Kit",
+    badgeColor: "bg-blue-500/10 text-blue-500 border-blue-500/30",
+    defaultTitle: "Soft Contact Lens Trial & Free 120ml Solution Kit",
     defaultBody:
       "Switching to lenses or need fresh daily/monthly disposables? Book a complimentary contact lens trial session with our contact lens specialist and receive a 120ml lens disinfectant solution bottle with any 2-box purchase.",
     defaultLinkUrl: "/book-appointment",

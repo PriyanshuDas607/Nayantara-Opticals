@@ -460,6 +460,7 @@ model FileUpload {
   scannedAt        DateTime?
   uploadedAt       DateTime     @default(now())
   deletedAt        DateTime?
+  fileDataBase64   String?      @db.Text
 
   prescription     Prescription?
 }

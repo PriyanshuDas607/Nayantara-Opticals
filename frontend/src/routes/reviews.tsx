@@ -4,13 +4,13 @@ import { FeedbackSection } from "@/components/feedback/FeedbackSection";
 export const Route = createFileRoute("/reviews")({
   staticData: { sitemap: true }, head: () => ({
     meta: [
-      { title: "Reviews & Feedback — Nayantara Opticals" },
+      { title: "Reviews & Feedback - Nayantara Opticals" },
       {
         name: "description",
         content:
           "Read customer ratings for Nayantara Opticals in Uttam Nagar, New Delhi, and share your own star rating and written feedback.",
       },
-      { property: "og:title", content: "Reviews & Feedback — Nayantara Opticals" },
+      { property: "og:title", content: "Reviews & Feedback - Nayantara Opticals" },
       {
         property: "og:description",
         content: "Customer ratings and feedback for Nayantara Opticals, New Delhi.",
@@ -34,7 +34,7 @@ function ReviewsPage() {
             What our customers say.
           </h1>
           <p className="mt-2 max-w-xl text-sm sm:text-base leading-relaxed text-background/70">
-            Honest experiences from families we have fitted glasses for across West Delhi — and space
+            Honest experiences from families we have fitted glasses for across West Delhi - and space
             for you to add yours.
           </p>
         </div>

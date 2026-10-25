@@ -8,7 +8,7 @@ export const Route = createFileRoute("/cart")({
   staticData: { sitemap: false },
   head: () => ({
     meta: [
-      { title: "Your Bag — Nayantara Opticals" },
+      { title: "Your Bag - Nayantara Opticals" },
       { name: "description", content: "Review eyewear selected for reservation and expert fitting at Nayantara Opticals." },
     ],
   }),

@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search, SlidersHorizontal, Plus, Sparkles, X, Check, Package, Image as ImageIcon, Edit2, Trash2 } from "lucide-react";
+import { Search, SlidersHorizontal, Plus, Sparkles, X, Check, Package, Image as ImageIcon, Edit2, Trash2, Camera } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ProductCard } from "@/components/shop/ProductCard";
 import { ProductDialog } from "@/components/shop/ProductDialog";
+import { TryOnDialog } from "@/components/common/TryOnDialog";
 import { CATEGORIES, PRODUCTS as STATIC_PRODUCTS, type CategoryId, type Product } from "@/data/catalog";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/store/auth";
@@ -25,6 +26,7 @@ export function ShopPage() {
   const [category, setCategory] = useState<CategoryId | "all">("all");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Product | null>(null);
+  const [tryOnProduct, setTryOnProduct] = useState<Product | null>(null);
   const [productsList, setProductsList] = useState<Product[]>(STATIC_PRODUCTS);
   const [loading, setLoading] = useState(false);
 
@@ -199,7 +201,7 @@ export function ShopPage() {
         });
 
         if (res.success) {
-          toast.success(`✨ Product "${formName}" updated successfully!`);
+          toast.success(`Product "${formName}" updated successfully!`);
         } else {
           toast.error(res.message || "Failed to update product.");
         }
@@ -211,7 +213,7 @@ export function ShopPage() {
         });
 
         if (res.success) {
-          toast.success(`✨ Product "${formName}" published to shop!`);
+          toast.success(`Product "${formName}" published to shop!`);
         } else {
           toast.error(res.message || "Failed to publish product.");
         }
@@ -244,7 +246,7 @@ export function ShopPage() {
             Find a frame that feels like you.
           </h1>
           <p className="mt-1 text-xs sm:text-sm text-muted-foreground">
-            Curated eyewear, contact lenses and specialist audiology aids—available to reserve for an expert in-store fitting.
+            Curated eyewear, contact lenses and specialist audiology aids, available to reserve for an expert in-store fitting.
           </p>
         </div>
 
@@ -294,6 +296,19 @@ export function ShopPage() {
               {item.label}
             </Button>
           ))}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              const frame = filteredProducts.find((p) => p.category === "eyeglasses" || p.category === "sunglasses") || productsList[0];
+              setTryOnProduct(frame);
+            }}
+            className="rounded-full shrink-0 h-7 text-xs px-3 gap-1.5 border-amber-500/40 text-amber-500 hover:bg-amber-500/10 font-semibold"
+            title="Open 3D Virtual Try-On Studio"
+          >
+            <Camera className="h-3 w-3" />
+            3D Virtual Try-On
+          </Button>
         </div>
       </div>
 
@@ -318,6 +333,7 @@ export function ShopPage() {
             key={product.id}
             product={product}
             onQuickView={setSelected}
+            onTryOn={(p) => setTryOnProduct(p)}
             onEdit={isAdmin || isOwner ? handleOpenEditModal : undefined}
             onDelete={isAdmin || isOwner ? handleDeleteProduct : undefined}
           />
@@ -327,7 +343,7 @@ export function ShopPage() {
             <Package className="mx-auto h-12 w-12 text-muted-foreground/50 mb-3" />
             <p className="font-display text-2xl font-semibold">No exact match found</p>
             <p className="mt-2 text-sm text-muted-foreground">Try clearing your search query or selecting another category.</p>
-            <Button variant="outline" className="mt-4 rounded-full" onClick={() => { setQuery(""); setCategory("all"); }}>
+            <Button variant="outline" className="mt-4 rounded-md" onClick={() => { setQuery(""); setCategory("all"); }}>
               Reset Filters
             </Button>
           </div>
@@ -336,6 +352,14 @@ export function ShopPage() {
 
       {/* Quick View Dialog */}
       <ProductDialog product={selected} onOpenChange={(open) => !open && setSelected(null)} />
+
+      {/* 3D AR Virtual Try-On Studio */}
+      <TryOnDialog
+        open={!!tryOnProduct}
+        onOpenChange={(open) => !open && setTryOnProduct(null)}
+        product={tryOnProduct}
+        allProducts={productsList}
+      />
 
       {/* Add / Edit Product Modal for Store Owner & Super Admin */}
       {isModalOpen && (
@@ -541,8 +565,8 @@ export function ShopPage() {
                 <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" variant="hero" disabled={submitting} className="rounded-full shadow-gold">
-                  {submitting ? "Saving..." : editingProduct ? "Save Changes" : "✨ Publish to Shop"}
+                <Button type="submit" variant="hero" disabled={submitting} className="rounded-md">
+                  {submitting ? "Saving..." : editingProduct ? "Save Changes" : "Publish to Shop"}
                 </Button>
               </div>
             </form>

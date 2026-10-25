@@ -6,13 +6,13 @@ export const Route = createFileRoute("/shop")({
   staticData: { sitemap: true },
   head: () => ({
     meta: [
-      { title: "Shop Eyewear — Nayantara Opticals" },
+      { title: "Shop Eyewear - Nayantara Opticals" },
       {
         name: "description",
         content:
           "Shop premium eyeglasses, sunglasses, contact lenses and optical aids in New Delhi.",
       },
-      { property: "og:title", content: "Shop Eyewear — Nayantara Opticals" },
+      { property: "og:title", content: "Shop Eyewear - Nayantara Opticals" },
       {
         property: "og:description",
         content: "Curated eyewear with expert in-store fitting in Uttam Nagar.",

@@ -13,7 +13,7 @@ export const SERVICES: Service[] = [
     title: "Myopia Management",
     summary: "Structured follow-up programmes for children and young adults with changing distance vision.",
     detail:
-      "We track prescription changes over time and discuss the options your eye care professional may recommend — specialised spectacle lenses, soft lens designs, or scheduled reviews. Every plan is documented so parents can see progress at each visit.",
+      "We track prescription changes over time and discuss the options your eye care professional may recommend, such as specialised spectacle lenses, soft lens designs, or scheduled reviews. Every plan is documented so parents can see progress at each visit.",
     points: ["Baseline measurement & records", "Scheduled review visits", "Parent-friendly progress reports"],
     icon: "scan",
   },
@@ -22,14 +22,14 @@ export const SERVICES: Service[] = [
     title: "Eye Care & Optical Consultation",
     summary: "Unhurried consultations to understand how you actually use your eyes each day.",
     detail:
-      "Screen time, driving, night glare, reading distance — we map your visual routine before recommending anything. Consultations are booked in dedicated slots so nobody feels rushed.",
+      "Screen time, driving, night glare, reading distance: we map your visual routine before recommending anything. Consultations are booked in dedicated slots so nobody feels rushed.",
     points: ["Lifestyle-led recommendations", "Frame fit & comfort assessment", "Written summary you can keep"],
     icon: "eye",
   },
   {
     id: "prescriptions",
     title: "Prescription Support",
-    summary: "Bring an existing prescription or record one with us — we handle the interpretation into lenses.",
+    summary: "Bring an existing prescription or record one with us; we handle the interpretation into lenses.",
     detail:
       "Upload a photo of your prescription or type in your OD/OS values. We explain what each field means in plain language and confirm the details with you before any lens is ordered.",
     points: ["Photo or manual entry", "Plain-language explanation", "Double-check before ordering"],
@@ -58,7 +58,7 @@ export const SERVICES: Service[] = [
     title: "Vision Aids Services",
     summary: "Magnification and low-vision support for reading, hobbies and daily independence.",
     detail:
-      "Handheld and stand magnifiers, task lighting and high-contrast reading aids — matched to the exact tasks you find hardest, and demonstrated with your own reading material.",
+      "Handheld and stand magnifiers, task lighting and high-contrast reading aids, matched to the exact tasks you find hardest, and demonstrated with your own reading material.",
     points: ["Task-based matching", "Lighting recommendations", "Family guidance session"],
     icon: "glasses",
   },
@@ -107,7 +107,7 @@ export const REVIEW_SUMMARY = { average: 4.8, count: 640 };
 
 export const FACE_SHAPE_GUIDE = [
   { shape: "Round", advice: "Angular and rectangular frames add definition." },
-  { shape: "Oval", advice: "Most shapes work — balance width with your cheekbones." },
+  { shape: "Oval", advice: "Most shapes work; balance frame width with cheekbones." },
   { shape: "Square", advice: "Round and oval frames soften a strong jawline." },
   { shape: "Heart", advice: "Wider bottoms and light rims balance the forehead." },
   { shape: "Diamond", advice: "Cat-eye and oval frames highlight the cheekbones." },

@@ -5,13 +5,13 @@ export const Route = createFileRoute("/")({
   staticData: { sitemap: true },
   head: () => ({
     meta: [
-      { title: "Nayantara Opticals — Premium Eyewear in New Delhi" },
+      { title: "Nayantara Opticals - Premium Eyewear in New Delhi" },
       {
         name: "description",
         content:
           "Premium eyewear, precision lenses and trusted optical care in Uttam Nagar, New Delhi, backed by 35+ years of optical experience.",
       },
-      { property: "og:title", content: "Nayantara Opticals — Premium Eyewear in New Delhi" },
+      { property: "og:title", content: "Nayantara Opticals - Premium Eyewear in New Delhi" },
       {
         property: "og:description",
         content:

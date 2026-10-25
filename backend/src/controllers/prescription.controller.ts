@@ -86,31 +86,71 @@ export class PrescriptionController {
   }
 
   /**
-   * Stream locally stored prescription file (fallback when Supabase keys pending)
+   * Stream prescription file by objectKey (from PostgreSQL DB, Supabase, or local fallback)
    */
   static async getRawFile(req: Request, res: Response, next: NextFunction) {
     try {
-      const paramKey = req.params.objectKey;
+      const paramKey = req.params.objectKey || (req.params as Record<string, string>)["0"];
       const objectKey = Array.isArray(paramKey) ? paramKey[0] : paramKey;
       if (!objectKey) {
         res.status(400).send("Invalid file request.");
         return;
       }
 
-      const fileData = StorageService.getLocalFile(objectKey);
+      const fileData = await StorageService.getFile(objectKey);
       if (!fileData) {
         res.status(404).send("Prescription file not found.");
         return;
       }
 
-      const ext = (fileData.fileName.split(".").pop() || "").toLowerCase();
-      let contentType = "application/octet-stream";
-      if (ext === "pdf") contentType = "application/pdf";
-      else if (ext === "jpg" || ext === "jpeg") contentType = "image/jpeg";
-      else if (ext === "png") contentType = "image/png";
-
-      res.setHeader("Content-Type", contentType);
+      res.removeHeader("X-Frame-Options");
+      res.setHeader("Content-Security-Policy", "frame-ancestors *");
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Content-Type", fileData.mimeType);
       res.setHeader("Content-Disposition", `inline; filename="${fileData.fileName}"`);
+      res.setHeader("Content-Length", fileData.buffer.length);
+      res.setHeader("Cache-Control", "public, max-age=86400");
+      res.send(fileData.buffer);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Stream prescription file directly by prescription ID
+   */
+  static async getFileById(req: Request, res: Response, next: NextFunction) {
+    try {
+      const param = req.params.id;
+      const id = Array.isArray(param) ? param[0] : param;
+      if (!id) {
+        res.status(400).send("Invalid prescription ID.");
+        return;
+      }
+
+      const rx = await prisma.prescription.findUnique({
+        where: { id },
+        include: { fileUpload: true },
+      });
+
+      if (!rx || !rx.fileUpload) {
+        res.status(404).send("Prescription record not found.");
+        return;
+      }
+
+      const fileData = await StorageService.getFile(rx.fileUpload.objectKey);
+      if (!fileData) {
+        res.status(404).send("Prescription file not found.");
+        return;
+      }
+
+      res.removeHeader("X-Frame-Options");
+      res.setHeader("Content-Security-Policy", "frame-ancestors *");
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Content-Type", fileData.mimeType);
+      res.setHeader("Content-Disposition", `inline; filename="${fileData.fileName}"`);
+      res.setHeader("Content-Length", fileData.buffer.length);
+      res.setHeader("Cache-Control", "public, max-age=86400");
       res.send(fileData.buffer);
     } catch (error) {
       next(error);

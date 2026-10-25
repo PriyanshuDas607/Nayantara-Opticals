@@ -1,4 +1,4 @@
-import { Heart, Eye, ShoppingBag, Edit, Trash2 } from "lucide-react";
+import { Heart, Eye, ShoppingBag, Edit, Trash2, Camera } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StarRating } from "@/components/common/StarRating";
@@ -13,22 +13,24 @@ export function ProductCard({
   onQuickView,
   onEdit,
   onDelete,
+  onTryOn,
 }: {
   product: Product;
   onQuickView: (product: Product) => void;
   onEdit?: ((product: Product) => void) | undefined;
   onDelete?: ((product: Product) => void | Promise<void>) | undefined;
+  onTryOn?: ((product: Product) => void) | undefined;
 }) {
   const { addToCart, toggleWishlist, wishlist } = useShop();
   const { isAdmin, isOwner } = useAuth();
   const wished = wishlist.includes(product.id);
 
   return (
-    <article className="card-3d group relative flex flex-col overflow-hidden rounded-2xl border border-border/70 bg-card shadow-soft">
-      <div className="sheen relative aspect-square overflow-hidden bg-muted/60">
+    <article className="group relative flex flex-col overflow-hidden rounded-2xl border border-border/70 bg-card shadow-soft">
+      <div className="relative aspect-square overflow-hidden bg-muted/60">
         <img
           src={product.image || "https://images.unsplash.com/photo-1591076482161-42ce6da69f67?w=800&auto=format&fit=crop&q=80"}
-          alt={`${product.brand} ${product.name} — ${product.style} ${(product.category || "").replace("-", " ")}`}
+          alt={`${product.brand} ${product.name} - ${product.style} ${(product.category || "").replace("-", " ")}`}
           loading="lazy"
           width={800}
           height={800}
@@ -100,13 +102,25 @@ export function ProductCard({
           <Button
             variant="quiet"
             size="sm"
-            className="flex-1 rounded-full text-[10px] sm:text-xs h-7 sm:h-8 px-2"
+            className="flex-1 rounded-full text-[10.5px] sm:text-xs h-8 px-2.5 font-medium backdrop-blur-md bg-card/90 hover:bg-card active:scale-[0.98] transition-all shadow-xs"
             onClick={() => onQuickView(product)}
           >
-            <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1" aria-hidden="true" />
+            <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 text-primary" aria-hidden="true" />
             <span className="hidden sm:inline">Quick view</span>
             <span className="sm:hidden">View</span>
           </Button>
+          {(product.category === "eyeglasses" || product.category === "sunglasses") && onTryOn && (
+            <Button
+              variant="hero"
+              size="sm"
+              className="rounded-full text-[10.5px] sm:text-xs h-8 px-2.5 font-medium backdrop-blur-md bg-amber-500 hover:bg-amber-400 text-black active:scale-[0.98] transition-all shadow-xs border-none"
+              onClick={() => onTryOn(product)}
+              title="Virtual Try-On"
+            >
+              <Camera className="h-3.5 w-3.5 sm:mr-1" aria-hidden="true" />
+              <span className="hidden sm:inline">Try On</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -138,7 +152,7 @@ export function ProductCard({
           <Button
             size="sm"
             variant={product.inStock ? "hero" : "quiet"}
-            className="rounded-full text-xs sm:text-sm h-7 sm:h-9 px-2 sm:px-3.5"
+            className="rounded-full text-xs sm:text-sm h-8 sm:h-9 px-2.5 sm:px-3.5 active:scale-95 transition-transform"
             onClick={() => (product.inStock ? addToCart(product) : onQuickView(product))}
           >
             <ShoppingBag className="h-3.5 w-3.5 sm:h-4 sm:w-4 sm:mr-1" aria-hidden="true" />

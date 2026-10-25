@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, ArrowRight, Sparkles, RotateCcw } from "lucide-react";
+import { ArrowLeft, ArrowRight, Compass, RotateCcw } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,7 @@ const STEPS = [
   {
     id: "face",
     question: "Which face shape sounds most like you?",
-    hint: "Not sure? Pick the closest — we confirm the fit in store.",
+    hint: "Not sure? Pick the closest; we confirm the fit in store.",
     options: ["Round", "Oval", "Square", "Heart", "Diamond"],
   },
   {
@@ -41,7 +41,7 @@ const STEPS = [
   {
     id: "budget",
     question: "What budget range are you planning for?",
-    hint: "Frame only — lens packages are quoted separately in store.",
+    hint: "Frame only (lens packages are quoted separately in store).",
     options: ["Under ₹3,500", "₹3,500 – ₹5,000", "₹5,000 +", "Flexible"],
   },
 ] as const;
@@ -138,8 +138,8 @@ export function FrameQuiz({
     >
       <DialogContent className="max-h-[92dvh] max-w-lg overflow-y-auto">
         <DialogHeader>
-          <Badge variant="secondary" className="w-fit gap-1 rounded-full">
-            <Sparkles className="h-3 w-3" aria-hidden="true" /> Find your frame
+          <Badge variant="secondary" className="w-fit gap-1 rounded-md">
+            <Compass className="h-3 w-3" aria-hidden="true" /> Find your frame
           </Badge>
           <DialogTitle className="mt-2 text-2xl">
             {done ? "Three frames worth trying" : current?.question}
@@ -219,7 +219,7 @@ export function FrameQuiz({
                       {reasons.slice(0, 3).map((reason) => (
                         <span
                           key={reason}
-                          className="rounded-full bg-secondary px-2 py-0.5 text-[11px] leading-4 text-secondary-foreground"
+                          className="rounded-md bg-secondary px-2 py-0.5 text-[11px] leading-4 text-secondary-foreground"
                         >
                           {reason}
                         </span>

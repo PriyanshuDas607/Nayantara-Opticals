@@ -1,11 +1,10 @@
-@import "tailwindcss" source(none);
-@source "../src";
+@import "tailwindcss";
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Nayantara Opticals — editorial luxury optical design system.
+ * Nayantara Opticals - clinical & luxury optical design system.
  * Warm ivory surfaces, deep ink typography, refined teal, champagne highlights.
  * All colors are oklch semantic tokens. Never hardcode colors in components.
  */
@@ -234,95 +233,27 @@
 }
 
 @utility card-3d {
-  transform-style: preserve-3d;
-  transition:
-    transform 500ms cubic-bezier(0.22, 1, 0.36, 1),
-    box-shadow 500ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: box-shadow 200ms ease, border-color 200ms ease;
   &:hover {
-    transform: translateY(-6px) perspective(900px) rotateX(2.2deg);
-    box-shadow: var(--shadow-lift);
+    box-shadow: var(--shadow-soft);
   }
 }
 
 @utility sheen {
   position: relative;
-  overflow: hidden;
-  &::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      115deg,
-      transparent 35%,
-      oklch(1 0 0 / 0.55) 48%,
-      transparent 62%
-    );
-    transform: translateX(-120%);
-    transition: transform 900ms cubic-bezier(0.22, 1, 0.36, 1);
-    pointer-events: none;
-  }
-  &:hover::after {
-    transform: translateX(120%);
-  }
-}
-
-@keyframes float-slow {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0) rotate(0deg);
-  }
-  50% {
-    transform: translate3d(0, -16px, 0) rotate(1.2deg);
-  }
-}
-
-@keyframes float-slower {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-  50% {
-    transform: translate3d(0, 12px, 0) scale(1.03);
-  }
 }
 
 @keyframes rise-in {
   from {
     opacity: 0;
-    transform: translate3d(0, 18px, 0);
   }
   to {
     opacity: 1;
-    transform: none;
   }
-}
-
-@keyframes pulse-ring {
-  0% {
-    box-shadow: 0 0 0 0 color-mix(in oklab, var(--primary) 45%, transparent);
-  }
-  70% {
-    box-shadow: 0 0 0 14px transparent;
-  }
-  100% {
-    box-shadow: 0 0 0 0 transparent;
-  }
-}
-
-@utility animate-float {
-  animation: float-slow 9s ease-in-out infinite;
-}
-
-@utility animate-float-alt {
-  animation: float-slower 11s ease-in-out infinite;
 }
 
 @utility animate-rise {
-  animation: rise-in 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-@utility animate-pulse-ring {
-  animation: pulse-ring 2.6s ease-out infinite;
+  animation: rise-in 300ms ease-out both;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -340,3 +271,14 @@
   .card-3d:hover { transform: none; }
   .sheen::after { display: none; }
 }
+
+.scrollbar-none::-webkit-scrollbar,
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none,
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+

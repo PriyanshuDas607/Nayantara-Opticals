@@ -47,7 +47,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/store/auth";
-import { apiRequest } from "@/lib/api";
+import { apiRequest, resolvePrescriptionUrl } from "@/lib/api";
 import { NotificationCampaignManager } from "@/components/notifications/NotificationCampaignManager";
 
 export const Route = createFileRoute("/owner")({
@@ -491,7 +491,7 @@ export function OwnerPage() {
     setUpdatingProduct(false);
 
     if (res.success) {
-      toast.success(`✨ Product "${eName}" updated successfully!`);
+      toast.success(`Product "${eName}" updated successfully!`);
       setIsEditModalOpen(false);
       setEditingProduct(null);
       await fetchStoreData();
@@ -1170,7 +1170,7 @@ export function OwnerPage() {
                   <tbody className="divide-y divide-border/50">
                     {filteredPrescriptions.map((rx) => {
                       const patientName = rx.user?.customerProfile?.fullName || "Clinic Customer";
-                      const phone = rx.user?.phone || "—";
+                      const phone = rx.user?.phone || "-";
 
                       return (
                         <tr key={rx.id} className="hover:bg-muted/30 transition-colors">
@@ -1196,7 +1196,7 @@ export function OwnerPage() {
                             <div className="font-mono text-xs text-foreground flex items-center gap-1">
                               <Phone className="h-3 w-3 text-primary" /> {phone}
                             </div>
-                            {phone !== "—" && (
+                            {phone !== "-" && (
                               <a
                                 href={`https://wa.me/91${phone.replace(/\D/g, "")}?text=Hello%20${encodeURIComponent(patientName)},%20we%20have%20reviewed%20your%20prescription%20at%20Nayantara%20Opticals.`}
                                 target="_blank"
@@ -1222,7 +1222,7 @@ export function OwnerPage() {
                             {rx.fileUpload ? (
                               <div className="space-y-1">
                                 <span className="font-medium text-foreground truncate block font-mono text-xs">
-                                  📄 {rx.fileUpload.originalFileName}
+                                  <FileText className="inline h-3.5 w-3.5 mr-1" /> {rx.fileUpload.originalFileName}
                                 </span>
                                 <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                                   <span className="rounded bg-muted px-1.5 py-0.2 uppercase font-mono">
@@ -1245,53 +1245,29 @@ export function OwnerPage() {
                           </td>
                           <td className="py-3 px-3 text-right">
                             <div className="flex items-center justify-end gap-1.5">
-                              {rx.downloadUrl ? (
-                                <>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    asChild
-                                    className="h-7 text-[10px] bg-primary/10 text-primary border-primary/30 hover:bg-primary/20"
-                                  >
-                                    <a href={rx.downloadUrl} target="_blank" rel="noopener noreferrer">
-                                      <Eye className="h-3 w-3 mr-1" /> View File
-                                    </a>
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    asChild
-                                    className="h-7 text-[10px]"
-                                  >
-                                    <a href={rx.downloadUrl} download={rx.fileUpload?.originalFileName || "prescription"}>
-                                      <Download className="h-3 w-3 mr-1" /> Download
-                                    </a>
-                                  </Button>
-                                </>
-                              ) : rx.type === "FILE" ? (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={async () => {
-                                    const res = await apiRequest<{ downloadUrl: string }>(`/owner/prescriptions/${rx.id}/download-url`);
-                                    if (res.success && res.data?.downloadUrl) {
-                                      window.open(res.data.downloadUrl, "_blank");
-                                    } else {
-                                      toast.error("Could not retrieve prescription link.");
-                                    }
-                                  }}
-                                  className="h-7 text-[10px]"
-                                >
-                                  <Eye className="h-3 w-3 mr-1" /> View File
-                                </Button>
-                              ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setSelectedPrescription(rx)}
+                                className="h-7 text-[10px] bg-primary/10 text-primary border-primary/30 hover:bg-primary/20"
+                              >
+                                <Eye className="h-3 w-3 mr-1" /> View {rx.type === "FILE" ? "File" : "Powers"}
+                              </Button>
+                              {rx.type === "FILE" && (
                                 <Button
                                   size="sm"
                                   variant="ghost"
-                                  onClick={() => setSelectedPrescription(rx)}
+                                  asChild
                                   className="h-7 text-[10px]"
                                 >
-                                  <Eye className="h-3 w-3 mr-1" /> View Powers
+                                  <a
+                                    href={resolvePrescriptionUrl(rx.downloadUrl, rx.id, rx.fileUpload)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    download={rx.fileUpload?.originalFileName || "prescription"}
+                                  >
+                                    <Download className="h-3 w-3 mr-1" /> Download
+                                  </a>
                                 </Button>
                               )}
                             </div>
@@ -1312,45 +1288,140 @@ export function OwnerPage() {
               </div>
             </div>
 
-            {/* Manual Rx Detail Modal */}
+            {/* Prescription Detail & Document Viewer Modal */}
             {selectedPrescription ? (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-                <div className="surface-glass rounded-2xl p-6 shadow-lift max-w-lg w-full flex flex-col border border-border space-y-4">
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-md">
+                <div className={`surface-glass rounded-2xl shadow-lift w-full flex flex-col border border-border space-y-4 max-h-[92vh] overflow-hidden ${
+                  selectedPrescription.type === "FILE" ? "max-w-3xl p-5" : "max-w-lg p-6"
+                }`}>
                   <div className="flex items-center justify-between border-b border-border/80 pb-3">
                     <div>
-                      <h4 className="font-display font-bold text-base text-foreground">
-                        Customer Eye Parameters
+                      <h4 className="font-display font-bold text-base text-foreground flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-primary" />
+                        {selectedPrescription.type === "FILE" ? "Prescription Medical Document" : "Customer Eye Parameters"}
                       </h4>
                       <p className="text-xs text-muted-foreground font-mono">
-                        Ref: #{selectedPrescription.id.slice(0, 8).toUpperCase()}
+                        Ref: #{selectedPrescription.id.slice(0, 8).toUpperCase()} • Patient: {selectedPrescription.user?.customerProfile?.fullName || selectedPrescription.user?.email || selectedPrescription.user?.phone || "Customer"}
                       </p>
                     </div>
                     <Button size="sm" variant="ghost" onClick={() => setSelectedPrescription(null)}>
-                      Close
+                      <X className="h-4 w-4" />
                     </Button>
                   </div>
-                  <div className="grid grid-cols-2 gap-3 text-xs">
-                    <div className="p-3 bg-card rounded-xl border border-border">
-                      <span className="font-bold text-primary block">Right Eye (OD)</span>
-                      <div className="mt-2 space-y-1">
-                        <div>SPH: <strong>{selectedPrescription.sphereOD || "0.00"}</strong></div>
-                        <div>CYL: <strong>{selectedPrescription.cylinderOD || "0.00"}</strong></div>
-                        <div>AXIS: <strong>{selectedPrescription.axisOD || "0"}°</strong></div>
+
+                  {selectedPrescription.type === "FILE" ? (
+                    <div className="space-y-3 overflow-y-auto pr-1">
+                      {/* Document Metadata Bar */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-card border border-border text-xs">
+                        <div className="flex items-center gap-2 truncate">
+                          <span className="font-semibold text-foreground truncate">
+                            {selectedPrescription.fileUpload?.originalFileName || "prescription_file"}
+                          </span>
+                          <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-mono text-primary uppercase">
+                            {selectedPrescription.fileUpload?.mimeType?.split("/")[1] || "DOC"}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            asChild
+                            className="h-7 text-xs bg-primary/10 text-primary border-primary/30"
+                          >
+                            <a
+                              href={resolvePrescriptionUrl(selectedPrescription.downloadUrl, selectedPrescription.id, selectedPrescription.fileUpload)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5 mr-1" /> Open Fullscreen
+                            </a>
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="default"
+                            asChild
+                            className="h-7 text-xs"
+                          >
+                            <a
+                              href={resolvePrescriptionUrl(selectedPrescription.downloadUrl, selectedPrescription.id, selectedPrescription.fileUpload)}
+                              download={selectedPrescription.fileUpload?.originalFileName || "prescription"}
+                            >
+                              <Download className="h-3.5 w-3.5 mr-1" /> Download
+                            </a>
+                          </Button>
+                        </div>
                       </div>
+
+                      {/* Document Viewer Frame */}
+                      {(() => {
+                        const fileUrl = resolvePrescriptionUrl(selectedPrescription.downloadUrl, selectedPrescription.id, selectedPrescription.fileUpload);
+                        const isPdf =
+                          selectedPrescription.fileUpload?.mimeType?.includes("pdf") ||
+                          selectedPrescription.fileUpload?.originalFileName?.toLowerCase().endsWith(".pdf");
+
+                        return (
+                          <div className="rounded-xl border border-border/80 bg-black/40 overflow-hidden flex items-center justify-center p-2 min-h-[300px] max-h-[55vh]">
+                            {isPdf ? (
+                              <iframe
+                                src={fileUrl}
+                                title="Prescription PDF Document"
+                                className="w-full h-[52vh] rounded-lg border-0 bg-white"
+                              />
+                            ) : (
+                              <img
+                                src={fileUrl}
+                                alt="Prescription Medical File"
+                                className="max-h-[52vh] max-w-full object-contain rounded-lg shadow-lg"
+                                onError={(e) => {
+                                  const target = e.currentTarget;
+                                  target.style.display = "none";
+                                  const parent = target.parentElement;
+                                  if (parent && !parent.querySelector(".fallback-notice")) {
+                                    const div = document.createElement("div");
+                                    div.className = "fallback-notice text-center p-6 space-y-2 text-muted-foreground";
+                                    div.innerHTML = `<p class="text-sm font-medium">Document ready for download</p><a href="${fileUrl}" target="_blank" class="text-primary underline text-xs">Click here to open directly</a>`;
+                                    parent.appendChild(div);
+                                  }
+                                }}
+                              />
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      {selectedPrescription.notes && (
+                        <div className="text-xs bg-muted/40 p-3 rounded-lg border border-border">
+                          <span className="text-muted-foreground font-semibold block mb-0.5">Optometrist Clinical Notes:</span>
+                          <p className="text-foreground">{selectedPrescription.notes}</p>
+                        </div>
+                      )}
                     </div>
-                    <div className="p-3 bg-card rounded-xl border border-border">
-                      <span className="font-bold text-primary block">Left Eye (OS)</span>
-                      <div className="mt-2 space-y-1">
-                        <div>SPH: <strong>{selectedPrescription.sphereOS || "0.00"}</strong></div>
-                        <div>CYL: <strong>{selectedPrescription.cylinderOS || "0.00"}</strong></div>
-                        <div>AXIS: <strong>{selectedPrescription.axisOS || "0"}°</strong></div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-3 text-xs">
+                        <div className="p-3 bg-card rounded-xl border border-border">
+                          <span className="font-bold text-primary block">Right Eye (OD)</span>
+                          <div className="mt-2 space-y-1">
+                            <div>SPH: <strong>{selectedPrescription.sphereOD || "0.00"}</strong></div>
+                            <div>CYL: <strong>{selectedPrescription.cylinderOD || "0.00"}</strong></div>
+                            <div>AXIS: <strong>{selectedPrescription.axisOD || "0"}°</strong></div>
+                          </div>
+                        </div>
+                        <div className="p-3 bg-card rounded-xl border border-border">
+                          <span className="font-bold text-primary block">Left Eye (OS)</span>
+                          <div className="mt-2 space-y-1">
+                            <div>SPH: <strong>{selectedPrescription.sphereOS || "0.00"}</strong></div>
+                            <div>CYL: <strong>{selectedPrescription.cylinderOS || "0.00"}</strong></div>
+                            <div>AXIS: <strong>{selectedPrescription.axisOS || "0"}°</strong></div>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                  {selectedPrescription.notes && (
-                    <div className="text-xs bg-muted/40 p-3 rounded-lg">
-                      <span className="text-muted-foreground font-semibold block mb-1">Notes:</span>
-                      {selectedPrescription.notes}
+                      {selectedPrescription.notes && (
+                        <div className="text-xs bg-muted/40 p-3 rounded-lg">
+                          <span className="text-muted-foreground font-semibold block mb-1">Notes:</span>
+                          {selectedPrescription.notes}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1841,7 +1912,9 @@ export function OwnerPage() {
                             <div className="flex flex-wrap items-center gap-3 pt-1 text-xs">
                               {phone ? (
                                 <div className="flex items-center gap-1.5">
-                                  <span className="font-mono text-foreground font-medium">📞 {phone}</span>
+                                  <span className="font-mono text-foreground font-medium flex items-center gap-1">
+                                    <Phone className="h-3 w-3 text-primary" /> {phone}
+                                  </span>
                                   <a
                                     href={`tel:${phone}`}
                                     className="rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary hover:bg-primary/20 transition-colors"
@@ -1889,7 +1962,7 @@ export function OwnerPage() {
                                   <div key={rx.id} className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
                                     {rx.fileUpload ? (
                                       <span className="font-mono text-foreground text-xs font-medium">
-                                        📄 {rx.fileUpload.originalFileName} ({(rx.fileUpload.sizeBytes / (1024 * 1024)).toFixed(2)} MB)
+                                        <FileText className="inline h-3.5 w-3.5 mr-1" /> {rx.fileUpload.originalFileName} ({(rx.fileUpload.sizeBytes / (1024 * 1024)).toFixed(2)} MB)
                                       </span>
                                     ) : (
                                       <span className="font-mono text-foreground text-xs">

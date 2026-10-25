@@ -37,7 +37,7 @@ function LegalHeader({
     <div className="border-b border-border bg-aurora">
       <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
         <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary">
+          <span className="inline-flex items-center gap-1.5 rounded-md border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary">
             <Icon className="h-3.5 w-3.5" />
             {badge}
           </span>
@@ -196,7 +196,7 @@ export function PrivacyPolicyPage() {
                 If you have questions, concerns, or requests regarding your data, contact our designated Grievance Officer:
               </p>
               <div className="rounded-xl border border-border bg-card p-4 space-y-1.5 text-sm">
-                <p className="font-semibold text-foreground">Grievance & Privacy Officer — Nayantara Opticals</p>
+                <p className="font-semibold text-foreground">Grievance & Privacy Officer - Nayantara Opticals</p>
                 <p className="text-muted-foreground flex items-center gap-1.5">
                   <MapPin className="h-3.5 w-3.5 text-primary" /> {SITE.address}
                 </p>
@@ -365,7 +365,7 @@ export function RefundPolicyPage() {
               <div className="rounded-xl border border-border bg-card p-4 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="font-semibold text-sm text-foreground">7-Day Hassle-Free Exchange & Return</span>
-                  <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">Eligible</span>
+                  <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">Eligible</span>
                 </div>
                 <p className="text-xs text-muted-foreground leading-relaxed">
                   Frames and non-powered sunglasses can be exchanged or returned within <strong>7 days of delivery</strong>, provided they are in unused condition, accompanied by the original case, micro-fiber cloth, warranty card, and receipt tags.
@@ -377,7 +377,7 @@ export function RefundPolicyPage() {
               <div className="rounded-xl border border-border bg-card p-4 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="font-semibold text-sm text-foreground">Custom Glazed Power Lenses</span>
-                  <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400">Power Remake Guarantee</span>
+                  <span className="rounded-md bg-amber-500/10 px-2 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400">Power Remake Guarantee</span>
                 </div>
                 <p className="text-xs text-muted-foreground leading-relaxed">
                   Because optical lenses (single vision, blue-cut, bifocal, and progressive) are custom cut and surfaced to your unique interpupillary distance and optical prescription, they cannot be resold or refunded once cut.
@@ -485,7 +485,7 @@ export function CookiePolicyPage() {
                 <div className="rounded-xl border border-border bg-card p-4">
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-sm text-foreground">A. Strictly Necessary & Functional</span>
-                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">Always Active</span>
+                    <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">Always Active</span>
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
                     Essential for the site to function properly. Includes session tokens for authenticating your customer or store manager account, 2FA security tokens, the <code className="rounded bg-muted px-1 py-0.5">sidebar_state</code> cookie, and cart state so your chosen eyewear remains in your bag.
@@ -495,7 +495,7 @@ export function CookiePolicyPage() {
                 <div className="rounded-xl border border-border bg-card p-4">
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-sm text-foreground">B. User Preferences & Wishlist</span>
-                    <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">Functional</span>
+                    <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">Functional</span>
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
                     Remembers your saved frame bookmarks (wishlist), dark/light mode appearance, and cookie consent choices across page reloads.
@@ -505,7 +505,7 @@ export function CookiePolicyPage() {
                 <div className="rounded-xl border border-border bg-card p-4">
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-sm text-foreground">C. Performance & Telemetry</span>
-                    <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-semibold text-blue-600 dark:text-blue-400">Internal Only</span>
+                    <span className="rounded-md bg-blue-500/10 px-2 py-0.5 text-xs font-semibold text-blue-600 dark:text-blue-400">Internal Only</span>
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
                     Measures aggregated page dwell time and client error logs. Used solely by our internal system health monitoring to diagnose crashes and optimize page load speeds. <em>Never shared with external advertisers.</em>

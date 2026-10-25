@@ -2,6 +2,7 @@ import { PrescriptionType, UploadStatus } from "@prisma/client";
 import { prisma } from "../utils/prisma.js";
 import { StorageService } from "./storage.service.js";
 import { AuditService } from "./audit.service.js";
+import { config } from "../config/index.js";
 
 export class PrescriptionService {
   /**
@@ -43,6 +44,7 @@ export class PrescriptionService {
           mimeType: data.file.mimetype,
           sizeBytes: data.file.size,
           uploadStatus: UploadStatus.AVAILABLE,
+          fileDataBase64: data.file.buffer.toString("base64"),
         },
       });
 
@@ -182,13 +184,16 @@ export class PrescriptionService {
 
     return Promise.all(
       list.map(async (rx) => {
-        let downloadUrl = null;
+        let downloadUrl: string | null = null;
         if (rx.fileUpload?.objectKey) {
           try {
             downloadUrl = await StorageService.getPresignedDownloadUrl(rx.fileUpload.objectKey);
           } catch {
             downloadUrl = null;
           }
+        }
+        if (!downloadUrl && rx.fileUpload) {
+          downloadUrl = `${config.backendUrl}/api/v1/prescriptions/${rx.id}/file`;
         }
         return {
           ...rx,
@@ -222,8 +227,16 @@ export class PrescriptionService {
       throw new Error("Unauthorized to access this prescription.");
     }
 
-    // Generate signed download URL from Supabase Storage
-    const downloadUrl = await StorageService.getPresignedDownloadUrl(rx.fileUpload.objectKey);
+    // Generate signed download URL from Supabase Storage with direct backend endpoint fallback
+    let downloadUrl: string | null = null;
+    try {
+      downloadUrl = await StorageService.getPresignedDownloadUrl(rx.fileUpload.objectKey);
+    } catch {
+      downloadUrl = null;
+    }
+    if (!downloadUrl) {
+      downloadUrl = `${config.backendUrl}/api/v1/prescriptions/${rx.id}/file`;
+    }
 
     // Record mandatory audit log
     await AuditService.log({
@@ -274,13 +287,16 @@ export class PrescriptionService {
 
     const enrichedItems = await Promise.all(
       items.map(async (rx) => {
-        let downloadUrl = null;
+        let downloadUrl: string | null = null;
         if (rx.fileUpload?.objectKey) {
           try {
             downloadUrl = await StorageService.getPresignedDownloadUrl(rx.fileUpload.objectKey);
           } catch {
             downloadUrl = null;
           }
+        }
+        if (!downloadUrl && rx.fileUpload) {
+          downloadUrl = `${config.backendUrl}/api/v1/prescriptions/${rx.id}/file`;
         }
         return {
           ...rx,

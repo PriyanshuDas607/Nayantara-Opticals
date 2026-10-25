@@ -45,6 +45,7 @@ router.patch("/orders/:id/status", OrderController.updateStatus);
 // Global Prescriptions with Audit
 router.get("/prescriptions", PrescriptionController.getAllPrescriptions);
 router.get("/prescriptions/:id/download-url", PrescriptionController.getDownloadUrl);
+router.get("/prescriptions/:id/file", PrescriptionController.getFileById);
 
 // Global Analytics & Audits
 router.get("/analytics/global", AnalyticsController.getGlobalMetrics);
