@@ -696,42 +696,49 @@ export function VirtualTryOnModal({
     if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
       const landmarks = results.multiFaceLandmarks[0];
 
-      // Mirror X coordinates for user's webcam intuition
+      // Mirror X coordinates for screen positioning on mirrored video
       const getPt = (idx: number) => {
         const pt = landmarks[idx];
         return { x: (1 - pt.x) * w, y: pt.y * h, z: pt.z };
       };
 
-      // In mirrored screen-space:
-      // Landmark 263 (anatomical left eye outer) → screen-left
-      // Landmark 33 (anatomical right eye outer) → screen-right
-      const screenLeftEyeOuter = getPt(263);
-      const screenRightEyeOuter = getPt(33);
-      const noseBridge = getPt(168);
-      const noseTip = getPt(1);
-      // Use temple landmarks for more precise width
-      const leftTemple = getPt(454);   // left face boundary
-      const rightTemple = getPt(234);  // right face boundary
+      // Get RAW (un-mirrored) landmark coordinates for roll/yaw computation
+      const getRawPt = (idx: number) => {
+        const pt = landmarks[idx];
+        return { x: pt.x * w, y: pt.y * h, z: pt.z };
+      };
 
-      // Estimate 3D Head Pose (vector from screen-left to screen-right eye)
-      const dx = screenRightEyeOuter.x - screenLeftEyeOuter.x;
-      const dy = screenRightEyeOuter.y - screenLeftEyeOuter.y;
-      const outerEyeDist = Math.sqrt(dx * dx + dy * dy);
-      const rollAngle = Math.atan2(dy, dx);
+      // Screen-space positions for placing the glasses overlay
+      const noseBridgeScreen = getPt(168);
+      const noseTipScreen = getPt(1);
+      const eyeLeftScreen = getPt(263);   // anatomical left → screen left in mirror
+      const eyeRightScreen = getPt(33);   // anatomical right → screen right in mirror
 
-      // Yaw from nose-tip offset relative to eye center
-      const eyeCenterMidX = (screenLeftEyeOuter.x + screenRightEyeOuter.x) / 2;
-      const yawRatio = Math.max(-0.6, Math.min(0.6, (noseTip.x - eyeCenterMidX) / (outerEyeDist * 0.4)));
+      // Use RAW coordinates for roll angle — this avoids ALL mirror confusion
+      // In raw coords, landmark 33 is always left-of 263 (subject's right eye is on camera's left)
+      const raw33 = getRawPt(33);   // subject's right eye outer, camera-left
+      const raw263 = getRawPt(263); // subject's left eye outer, camera-right
+      // Vector from raw33 to raw263 always points rightward (positive dx)
+      const rawDx = raw263.x - raw33.x;
+      const rawDy = raw263.y - raw33.y;
+      const outerEyeDist = Math.sqrt(rawDx * rawDx + rawDy * rawDy);
 
-      // Compute bridge position: midpoint between the two inner eye corners for centering,
-      // but use nose bridge (168) for vertical
-      const eyeMidX = (screenLeftEyeOuter.x + screenRightEyeOuter.x) / 2;
-      const eyeMidY = (screenLeftEyeOuter.y + screenRightEyeOuter.y) / 2;
+      // Roll angle from raw coordinates — guaranteed in [-pi/2, pi/2] range for normal head positions
+      let rollAngle = Math.atan2(rawDy, rawDx);
+      // In mirrored display, left-right is flipped, so negate the roll
+      rollAngle = -rollAngle;
+      // Safety clamp: head tilt beyond ±45° is extremely unlikely
+      const MAX_ROLL = Math.PI / 4;
+      rollAngle = Math.max(-MAX_ROLL, Math.min(MAX_ROLL, rollAngle));
+
+      // Yaw from nose-tip offset relative to eye center (in screen space)
+      const eyeCenterMidX = (eyeLeftScreen.x + eyeRightScreen.x) / 2;
+      const yawRatio = Math.max(-0.6, Math.min(0.6, (noseTipScreen.x - eyeCenterMidX) / (outerEyeDist * 0.4)));
 
       // Raw tracking values
       const rawBridge = {
-        x: noseBridge.x,
-        y: noseBridge.y,
+        x: noseBridgeScreen.x,
+        y: noseBridgeScreen.y,
         roll: rollAngle,
         yaw: yawRatio,
         eyeDist: outerEyeDist * 1.82,
@@ -773,7 +780,7 @@ export function VirtualTryOnModal({
         frameColor: frameColorRef.current,
         tintMode: lensTintRef.current,
         imageElement: activeImageRef.current,
-        mirrored: true,
+        mirrored: false,
       });
 
       // Update Telemetry
