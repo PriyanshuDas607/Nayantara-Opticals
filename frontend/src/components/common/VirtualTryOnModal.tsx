@@ -123,6 +123,7 @@ export function drawProceduralEyewear(
     tintMode?: LensTint;
     drawTemples?: boolean;
     imageElement?: HTMLImageElement | null;
+    mirrored?: boolean;
   } = {}
 ) {
   const {
@@ -135,41 +136,66 @@ export function drawProceduralEyewear(
     tintMode = "clear",
     drawTemples = true,
     imageElement = null,
+    mirrored = false,
   } = options;
 
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(roll);
 
-  const perspectiveScaleX = Math.max(0.78, 1 - Math.abs(yaw) * 0.18);
-  const yawShiftX = yaw * width * 0.08;
+  // 3D perspective: compress horizontally as head turns, shift towards the nearer side
+  const absYaw = Math.abs(yaw);
+  const perspectiveScaleX = Math.max(0.72, 1 - absYaw * 0.28);
+  const yawShiftX = yaw * width * 0.12;
   ctx.translate(yawShiftX, 0);
   ctx.scale(perspectiveScaleX, 1);
 
-  // 1. Photographic Cutout Rendering (Studio Realism - NOT crayon drawing!)
+  // 1. Photographic Cutout Rendering (Studio Realism)
   if (imageElement && imageElement.complete && imageElement.naturalWidth > 0) {
     const imgH = (imageElement.naturalHeight / imageElement.naturalWidth) * width;
 
-    // Contact drop shadow onto face contours
-    ctx.save();
-    ctx.shadowColor = "rgba(0, 0, 0, 0.28)";
-    ctx.shadowBlur = 12;
-    ctx.shadowOffsetY = 4;
-    ctx.drawImage(imageElement, -width / 2, -imgH * 0.48, width, imgH);
-    ctx.restore();
+    // Use offscreen canvas to isolate glasses pixels so tint only affects the frame, not the video
+    const needsTint = tintMode === "bluelight" || tintMode === "sunset";
 
-    // Optional subtle lens tint overlay
-    if (tintMode === "bluelight") {
+    if (needsTint) {
+      // Render glasses + tint on an isolated offscreen canvas
+      const offW = Math.ceil(width);
+      const offH = Math.ceil(imgH);
+      const offscreen = document.createElement("canvas");
+      offscreen.width = offW;
+      offscreen.height = offH;
+      const offCtx = offscreen.getContext("2d")!;
+
+      // Draw glasses image on offscreen canvas (centered)
+      offCtx.drawImage(imageElement, 0, 0, offW, offH);
+
+      // Apply tint ONLY on glasses pixels using source-atop
+      offCtx.globalCompositeOperation = "source-atop";
+      if (tintMode === "bluelight") {
+        offCtx.fillStyle = "rgba(100, 180, 255, 0.18)";
+      } else {
+        offCtx.fillStyle = "rgba(245, 158, 11, 0.22)";
+      }
+      offCtx.fillRect(0, 0, offW, offH);
+
+      // Draw the tinted result onto main canvas
       ctx.save();
-      ctx.globalCompositeOperation = "source-atop";
-      ctx.fillStyle = "rgba(125, 211, 252, 0.14)";
-      ctx.fillRect(-width / 2, -imgH * 0.48, width, imgH);
+      if (mirrored) ctx.scale(-1, 1);
+      ctx.shadowColor = "rgba(0, 0, 0, 0.22)";
+      ctx.shadowBlur = 8;
+      ctx.shadowOffsetY = 3;
+      ctx.shadowOffsetX = yaw * 2;
+      ctx.drawImage(offscreen, -width / 2, -imgH * 0.48, width, imgH);
       ctx.restore();
-    } else if (tintMode === "sunset") {
+    } else {
+      // No tint — draw glasses directly with shadow
       ctx.save();
-      ctx.globalCompositeOperation = "source-atop";
-      ctx.fillStyle = "rgba(245, 158, 11, 0.18)";
-      ctx.fillRect(-width / 2, -imgH * 0.48, width, imgH);
+      if (mirrored) ctx.scale(-1, 1);
+      ctx.shadowColor = "rgba(0, 0, 0, 0.22)";
+      ctx.shadowBlur = 8;
+      ctx.shadowOffsetY = 3;
+      ctx.shadowOffsetX = yaw * 2;
+      ctx.drawImage(imageElement, -width / 2, -imgH * 0.48, width, imgH);
       ctx.restore();
     }
 
@@ -532,6 +558,12 @@ export function VirtualTryOnModal({
   const offsetYRef = useRef(offsetY);
   const showMeshOverlayRef = useRef(showMeshOverlay);
 
+  // EMA smoothing state for jitter-free tracking (like competitors)
+  const smoothedRef = useRef<{
+    x: number; y: number; roll: number; yaw: number; eyeDist: number;
+  } | null>(null);
+  const EMA_ALPHA = 0.35; // Higher = more responsive, lower = smoother
+
   // Synchronize refs on every render
   selectedProductRef.current = selectedProduct;
   frameColorRef.current = frameColor;
@@ -670,23 +702,34 @@ export function VirtualTryOnModal({
         return { x: (1 - pt.x) * w, y: pt.y * h, z: pt.z };
       };
 
-      const leftEyeOuter = getPt(33);
-      const rightEyeOuter = getPt(263);
-      const leftEyeInner = getPt(133);
-      const rightEyeInner = getPt(362);
+      // In mirrored screen-space:
+      // Landmark 263 (anatomical left eye outer) → screen-left
+      // Landmark 33 (anatomical right eye outer) → screen-right
+      const screenLeftEyeOuter = getPt(263);
+      const screenRightEyeOuter = getPt(33);
       const noseBridge = getPt(168);
       const noseTip = getPt(1);
+      // Use temple landmarks for more precise width
+      const leftTemple = getPt(454);   // left face boundary
+      const rightTemple = getPt(234);  // right face boundary
 
-      // Estimate 3D Head Pose
-      const dx = rightEyeOuter.x - leftEyeOuter.x;
-      const dy = rightEyeOuter.y - leftEyeOuter.y;
+      // Estimate 3D Head Pose (vector from screen-left to screen-right eye)
+      const dx = screenRightEyeOuter.x - screenLeftEyeOuter.x;
+      const dy = screenRightEyeOuter.y - screenLeftEyeOuter.y;
       const outerEyeDist = Math.sqrt(dx * dx + dy * dy);
       const rollAngle = Math.atan2(dy, dx);
 
-      const eyeCenterMidX = (leftEyeOuter.x + rightEyeOuter.x) / 2;
+      // Yaw from nose-tip offset relative to eye center
+      const eyeCenterMidX = (screenLeftEyeOuter.x + screenRightEyeOuter.x) / 2;
       const yawRatio = Math.max(-0.6, Math.min(0.6, (noseTip.x - eyeCenterMidX) / (outerEyeDist * 0.4)));
 
-      const bridgeCenter = {
+      // Compute bridge position: midpoint between the two inner eye corners for centering,
+      // but use nose bridge (168) for vertical
+      const eyeMidX = (screenLeftEyeOuter.x + screenRightEyeOuter.x) / 2;
+      const eyeMidY = (screenLeftEyeOuter.y + screenRightEyeOuter.y) / 2;
+
+      // Raw tracking values
+      const rawBridge = {
         x: noseBridge.x,
         y: noseBridge.y,
         roll: rollAngle,
@@ -694,10 +737,22 @@ export function VirtualTryOnModal({
         eyeDist: outerEyeDist * 1.82,
       };
 
+      // Apply EMA smoothing for jitter-free, silky tracking
+      const prev = smoothedRef.current;
+      const a = EMA_ALPHA;
+      const bridgeCenter = prev ? {
+        x: prev.x + a * (rawBridge.x - prev.x),
+        y: prev.y + a * (rawBridge.y - prev.y),
+        roll: prev.roll + a * (rawBridge.roll - prev.roll),
+        yaw: prev.yaw + a * (rawBridge.yaw - prev.yaw),
+        eyeDist: prev.eyeDist + a * (rawBridge.eyeDist - prev.eyeDist),
+      } : rawBridge;
+      smoothedRef.current = bridgeCenter;
+
       // Draw Landmark Mesh if toggled
       if (showMeshOverlayRef.current) {
         ctx.fillStyle = "rgba(217, 119, 6, 0.85)";
-        [33, 133, 168, 263, 362, 1, 195, 4, 152].forEach((idx) => {
+        [33, 133, 168, 263, 362, 1, 195, 4, 152, 234, 454].forEach((idx) => {
           const p = getPt(idx);
           ctx.beginPath();
           ctx.arc(p.x, p.y, 2.8, 0, Math.PI * 2);
@@ -711,13 +766,14 @@ export function VirtualTryOnModal({
 
       drawProceduralEyewear(ctx, activeShape, {
         x: bridgeCenter.x,
-        y: bridgeCenter.y + offsetYRef.current + bridgeCenter.eyeDist * 0.04,
+        y: bridgeCenter.y + offsetYRef.current + bridgeCenter.eyeDist * 0.02,
         width: bridgeCenter.eyeDist * scaleMultiplierRef.current,
         roll: bridgeCenter.roll,
         yaw: bridgeCenter.yaw,
         frameColor: frameColorRef.current,
         tintMode: lensTintRef.current,
         imageElement: activeImageRef.current,
+        mirrored: true,
       });
 
       // Update Telemetry
