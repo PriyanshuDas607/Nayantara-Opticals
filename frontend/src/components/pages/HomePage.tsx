@@ -282,7 +282,7 @@ export function HomePage() {
                   variant="hero"
                   size="lg"
                   onClick={() => {
-                    setTryOnProduct(PRODUCTS[0]);
+                    setTryOnProduct(PRODUCTS[0] ?? null);
                     setTryOnOpen(true);
                   }}
                   className="flex-1 sm:flex-initial h-11 text-xs sm:text-sm font-semibold rounded-md bg-amber-500 hover:bg-amber-400 text-black border-none gap-2 shadow-md active:scale-95 transition-all cursor-pointer"

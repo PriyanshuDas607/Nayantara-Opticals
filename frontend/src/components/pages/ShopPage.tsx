@@ -301,7 +301,7 @@ export function ShopPage() {
             variant="outline"
             onClick={() => {
               const frame = filteredProducts.find((p) => p.category === "eyeglasses" || p.category === "sunglasses") || productsList[0];
-              setTryOnProduct(frame);
+              setTryOnProduct(frame ?? null);
             }}
             className="rounded-full shrink-0 h-7 text-xs px-3 gap-1.5 border-amber-500/40 text-amber-500 hover:bg-amber-500/10 font-semibold"
             title="Open 3D Virtual Try-On Studio"

@@ -37,8 +37,8 @@ export type LensTint = "clear" | "dark" | "bluelight" | "sunset";
 export interface VirtualTryOnModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  initialProductId?: string;
-  allProducts?: Product[];
+  initialProductId?: string | undefined;
+  allProducts?: Product[] | undefined;
 }
 
 export function mapProductToShape(product: Product): FrameShape {
@@ -114,16 +114,16 @@ export function drawProceduralEyewear(
   ctx: CanvasRenderingContext2D,
   shape: FrameShape,
   options: {
-    x?: number;
-    y?: number;
-    width?: number;
-    roll?: number;
-    yaw?: number;
-    frameColor?: string;
-    tintMode?: LensTint;
-    drawTemples?: boolean;
-    imageElement?: HTMLImageElement | null;
-    mirrored?: boolean;
+    x?: number | undefined;
+    y?: number | undefined;
+    width?: number | undefined;
+    roll?: number | undefined;
+    yaw?: number | undefined;
+    frameColor?: string | undefined;
+    tintMode?: LensTint | undefined;
+    drawTemples?: boolean | undefined;
+    imageElement?: HTMLImageElement | null | undefined;
+    mirrored?: boolean | undefined;
   } = {}
 ) {
   const {
@@ -153,6 +153,79 @@ export function drawProceduralEyewear(
   // 1. Photographic Cutout Rendering (Studio Realism)
   if (imageElement && imageElement.complete && imageElement.naturalWidth > 0) {
     const imgH = (imageElement.naturalHeight / imageElement.naturalWidth) * width;
+
+    // Draw 3D Perspective Temple Arms behind the front frame (extending towards the ears)
+    if (drawTemples) {
+      const hingeY = -imgH * 0.05;
+      const leftHingeX = -width * 0.485;
+      const rightHingeX = width * 0.485;
+      const templeLength = width * 0.32;
+      const templeUp = width * 0.14;
+
+      const leftBackX = leftHingeX - templeLength * 0.12 - yaw * width * 0.22;
+      const leftBackY = hingeY - templeUp;
+      const rightBackX = rightHingeX + templeLength * 0.12 - yaw * width * 0.22;
+      const rightBackY = hingeY - templeUp;
+
+      ctx.save();
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+
+      // Left temple arm (receding towards left ear)
+      if (yaw < 0.5) {
+        ctx.beginPath();
+        ctx.moveTo(leftHingeX, hingeY);
+        ctx.quadraticCurveTo(
+          leftHingeX - 8 - yaw * 12,
+          hingeY - templeUp * 0.5,
+          leftBackX,
+          leftBackY
+        );
+        ctx.strokeStyle = frameColor;
+        ctx.lineWidth = Math.max(3, width * 0.016);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(leftHingeX, hingeY + 1);
+        ctx.quadraticCurveTo(
+          leftHingeX - 8 - yaw * 12,
+          hingeY - templeUp * 0.5 + 1,
+          leftBackX,
+          leftBackY + 1
+        );
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.35)";
+        ctx.lineWidth = Math.max(1.2, width * 0.007);
+        ctx.stroke();
+      }
+
+      // Right temple arm (receding towards right ear)
+      if (yaw > -0.5) {
+        ctx.beginPath();
+        ctx.moveTo(rightHingeX, hingeY);
+        ctx.quadraticCurveTo(
+          rightHingeX + 8 - yaw * 12,
+          hingeY - templeUp * 0.5,
+          rightBackX,
+          rightBackY
+        );
+        ctx.strokeStyle = frameColor;
+        ctx.lineWidth = Math.max(3, width * 0.016);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(rightHingeX, hingeY + 1);
+        ctx.quadraticCurveTo(
+          rightHingeX + 8 - yaw * 12,
+          hingeY - templeUp * 0.5 + 1,
+          rightBackX,
+          rightBackY + 1
+        );
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.35)";
+        ctx.lineWidth = Math.max(1.2, width * 0.007);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
 
     // Use offscreen canvas to isolate glasses pixels so tint only affects the frame, not the video
     const needsTint = tintMode === "bluelight" || tintMode === "sunset";
@@ -261,7 +334,7 @@ export function renderDemoPortrait(
     showMesh: boolean;
     scaleMultiplier: number;
     offsetY: number;
-    imageElement?: HTMLImageElement | null;
+    imageElement?: HTMLImageElement | null | undefined;
   }
 ) {
   ctx.clearRect(0, 0, width, height);
@@ -379,14 +452,15 @@ export function renderDemoPortrait(
   // Mesh Dots Overlay
   if (params.showMesh) {
     ctx.fillStyle = "rgba(217, 119, 6, 0.85)";
-    [
+    const meshPoints: [number, number][] = [
       [featureShiftX, eyeY],
       [-eyeSpacing * 1.35 + featureShiftX, eyeY],
       [eyeSpacing * 1.35 + featureShiftX, eyeY],
       [-headRadiusX * 0.92, eyeY],
       [headRadiusX * 0.92, eyeY],
       [featureShiftX, headRadiusY * 0.22],
-    ].forEach(([px, py]) => {
+    ];
+    meshPoints.forEach(([px, py]) => {
       ctx.beginPath();
       ctx.arc(px, py, 3.2, 0, Math.PI * 2);
       ctx.fill();
@@ -470,11 +544,11 @@ export function VirtualTryOnModal({
   const [selectedProduct, setSelectedProduct] = useState<Product>(() => {
     if (initialProductId) {
       const match = availableFrames.find(
-        (p) => p.id === initialProductId || p.slug === initialProductId || p.name.toLowerCase() === initialProductId.toLowerCase()
+        (p) => p.id === initialProductId || p.name.toLowerCase() === initialProductId.toLowerCase()
       );
       if (match) return match;
     }
-    return availableFrames[0] || PRODUCTS[0];
+    return (availableFrames[0] ?? PRODUCTS[0])!;
   });
 
   // Preload and Cache Photographic Frame Cutouts
@@ -522,7 +596,7 @@ export function VirtualTryOnModal({
   useEffect(() => {
     if (open && initialProductId) {
       const match = availableFrames.find(
-        (p) => p.id === initialProductId || p.slug === initialProductId || p.name.toLowerCase() === initialProductId.toLowerCase()
+        (p) => p.id === initialProductId || p.name.toLowerCase() === initialProductId.toLowerCase()
       );
       if (match) {
         setSelectedProduct(match);
@@ -1057,10 +1131,12 @@ export function VirtualTryOnModal({
             onMouseMove={(e) => handlePointerMove(e.clientX, e.clientY)}
             onMouseUp={handlePointerUp}
             onTouchStart={(e) => {
-              if (e.touches.length === 1) handlePointerDown(e.touches[0].clientX, e.touches[0].clientY);
+              const touch = e.touches[0];
+              if (e.touches.length === 1 && touch) handlePointerDown(touch.clientX, touch.clientY);
             }}
             onTouchMove={(e) => {
-              if (e.touches.length === 1) handlePointerMove(e.touches[0].clientX, e.touches[0].clientY);
+              const touch = e.touches[0];
+              if (e.touches.length === 1 && touch) handlePointerMove(touch.clientX, touch.clientY);
             }}
             onTouchEnd={handlePointerUp}
           >

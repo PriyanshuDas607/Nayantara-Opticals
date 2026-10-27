@@ -4,10 +4,10 @@ import { PRODUCTS, type Product } from "@/data/catalog";
 export interface TryOnDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  productName?: string;
-  initialProductId?: string;
-  product?: Product | null;
-  allProducts?: Product[];
+  productName?: string | undefined;
+  initialProductId?: string | undefined;
+  product?: Product | null | undefined;
+  allProducts?: Product[] | undefined;
 }
 
 export function TryOnDialog({

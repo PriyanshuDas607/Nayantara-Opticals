@@ -40,7 +40,7 @@ export function TryOnPage() {
     if (product) {
       setSelectedProduct(product);
     } else {
-      setSelectedProduct(filteredFrames[0] || frames[0]);
+      setSelectedProduct(filteredFrames[0] ?? frames[0] ?? null);
     }
     setModalOpen(true);
   };
