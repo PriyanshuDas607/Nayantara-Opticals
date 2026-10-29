@@ -124,6 +124,8 @@ export function drawProceduralEyewear(
     drawTemples?: boolean | undefined;
     imageElement?: HTMLImageElement | null | undefined;
     mirrored?: boolean | undefined;
+    earLeft?: { x: number; y: number } | undefined;
+    earRight?: { x: number; y: number } | undefined;
   } = {}
 ) {
   const {
@@ -137,6 +139,8 @@ export function drawProceduralEyewear(
     drawTemples = true,
     imageElement = null,
     mirrored = false,
+    earLeft,
+    earRight,
   } = options;
 
   ctx.save();
@@ -154,76 +158,144 @@ export function drawProceduralEyewear(
   if (imageElement && imageElement.complete && imageElement.naturalWidth > 0) {
     const imgH = (imageElement.naturalHeight / imageElement.naturalWidth) * width;
 
-    // Draw 3D Perspective Temple Arms behind the front frame (extending towards the ears)
+    // Draw 3D Realistic Temple Arms ("Dandi") extending from frame hinges directly to ears
     if (drawTemples) {
-      const hingeY = -imgH * 0.05;
+      const hingeY = -imgH * 0.04;
       const leftHingeX = -width * 0.485;
       const rightHingeX = width * 0.485;
-      const templeLength = width * 0.32;
-      const templeUp = width * 0.14;
 
-      const leftBackX = leftHingeX - templeLength * 0.12 - yaw * width * 0.22;
-      const leftBackY = hingeY - templeUp;
-      const rightBackX = rightHingeX + templeLength * 0.12 - yaw * width * 0.22;
-      const rightBackY = hingeY - templeUp;
+      // Transform world/screen ear coordinates into local frame space
+      // Eyewear temples MUST extend strictly OUTWARD and BACKWARD towards the ears.
+      // They rest over the ear helix at the sides of the head and must NEVER enter the lens area.
+      const minTempleSpan = width * 0.08;
+
+      let leftEarLocalX: number;
+      let leftEarLocalY: number;
+      if (earLeft) {
+        const dx = earLeft.x - x;
+        const dy = earLeft.y - y;
+        const unrotX = dx * Math.cos(-roll) - dy * Math.sin(-roll);
+        const unrotY = dx * Math.sin(-roll) + dy * Math.cos(-roll);
+        const rawLocalX = (unrotX - yawShiftX) / perspectiveScaleX;
+        // The top of the ear sits laterally outside the frame hinge; clamp strictly outside
+        leftEarLocalX = Math.min(leftHingeX - minTempleSpan, rawLocalX - width * 0.04);
+        leftEarLocalY = Math.max(hingeY - width * 0.05, Math.min(hingeY + width * 0.06, unrotY));
+      } else {
+        const reach = width * 0.28;
+        leftEarLocalX = leftHingeX - (yaw > 0 ? reach * 0.35 : reach * 0.85);
+        leftEarLocalY = hingeY + width * 0.02;
+      }
+
+      let rightEarLocalX: number;
+      let rightEarLocalY: number;
+      if (earRight) {
+        const dx = earRight.x - x;
+        const dy = earRight.y - y;
+        const unrotX = dx * Math.cos(-roll) - dy * Math.sin(-roll);
+        const unrotY = dx * Math.sin(-roll) + dy * Math.cos(-roll);
+        const rawLocalX = (unrotX - yawShiftX) / perspectiveScaleX;
+        rightEarLocalX = Math.max(rightHingeX + minTempleSpan, rawLocalX + width * 0.04);
+        rightEarLocalY = Math.max(hingeY - width * 0.05, Math.min(hingeY + width * 0.06, unrotY));
+      } else {
+        const reach = width * 0.28;
+        rightEarLocalX = rightHingeX + (yaw < 0 ? reach * 0.35 : reach * 0.85);
+        rightEarLocalY = hingeY + width * 0.02;
+      }
 
       ctx.save();
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
 
-      // Left temple arm (receding towards left ear)
-      if (yaw < 0.5) {
+      // Left Temple Arm ("Left Dandi") -> goes from left hinge OUTWARD and BACK to left ear
+      if (yaw < 0.45) {
+        const midCtrlX = leftHingeX + (leftEarLocalX - leftHingeX) * 0.45;
+        const midCtrlY = Math.min(hingeY, leftEarLocalY) - 2;
+        const tipX = leftEarLocalX - width * 0.025;
+        const tipY = leftEarLocalY + width * 0.07;
+
+        // Shadow for 3D depth on skin/hair
+        ctx.beginPath();
+        ctx.moveTo(leftHingeX, hingeY + 2);
+        ctx.quadraticCurveTo(midCtrlX, midCtrlY + 2, leftEarLocalX, leftEarLocalY + 2);
+        ctx.quadraticCurveTo(leftEarLocalX - 2, leftEarLocalY + width * 0.035 + 2, tipX, tipY + 2);
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.25)";
+        ctx.lineWidth = Math.max(3.2, width * 0.016);
+        ctx.stroke();
+
+        // Main temple stem (matches frame color)
         ctx.beginPath();
         ctx.moveTo(leftHingeX, hingeY);
-        ctx.quadraticCurveTo(
-          leftHingeX - 8 - yaw * 12,
-          hingeY - templeUp * 0.5,
-          leftBackX,
-          leftBackY
-        );
+        ctx.quadraticCurveTo(midCtrlX, midCtrlY, leftEarLocalX, leftEarLocalY);
         ctx.strokeStyle = frameColor;
-        ctx.lineWidth = Math.max(3, width * 0.016);
+        ctx.lineWidth = Math.max(2.6, width * 0.014);
         ctx.stroke();
 
+        // Metallic top highlight
         ctx.beginPath();
-        ctx.moveTo(leftHingeX, hingeY + 1);
-        ctx.quadraticCurveTo(
-          leftHingeX - 8 - yaw * 12,
-          hingeY - templeUp * 0.5 + 1,
-          leftBackX,
-          leftBackY + 1
-        );
-        ctx.strokeStyle = "rgba(0, 0, 0, 0.35)";
-        ctx.lineWidth = Math.max(1.2, width * 0.007);
+        ctx.moveTo(leftHingeX, hingeY - 1);
+        ctx.quadraticCurveTo(midCtrlX, midCtrlY - 1, leftEarLocalX, leftEarLocalY - 1);
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.60)";
+        ctx.lineWidth = Math.max(1.0, width * 0.005);
         ctx.stroke();
+
+        // Curved Ear Hook / Acetate Temple Tip (curves DOWN behind ear)
+        ctx.beginPath();
+        ctx.moveTo(leftEarLocalX, leftEarLocalY);
+        ctx.quadraticCurveTo(leftEarLocalX - 2, leftEarLocalY + width * 0.035, tipX, tipY);
+        ctx.strokeStyle = frameColor;
+        ctx.lineWidth = Math.max(2.4, width * 0.012);
+        ctx.stroke();
+
+        // Reinforced Hinge Joint at frame connection
+        ctx.fillStyle = frameColor;
+        ctx.fillRect(leftHingeX - 3, hingeY - 3, 5, 6);
       }
 
-      // Right temple arm (receding towards right ear)
-      if (yaw > -0.5) {
+      // Right Temple Arm ("Right Dandi") -> goes from right hinge OUTWARD and BACK to right ear
+      if (yaw > -0.45) {
+        const midCtrlX = rightHingeX + (rightEarLocalX - rightHingeX) * 0.45;
+        const midCtrlY = Math.min(hingeY, rightEarLocalY) - 2;
+        const tipX = rightEarLocalX + width * 0.025;
+        const tipY = rightEarLocalY + width * 0.07;
+
+        // Shadow for 3D depth on skin/hair
+        ctx.beginPath();
+        ctx.moveTo(rightHingeX, hingeY + 2);
+        ctx.quadraticCurveTo(midCtrlX, midCtrlY + 2, rightEarLocalX, rightEarLocalY + 2);
+        ctx.quadraticCurveTo(rightEarLocalX + 2, rightEarLocalY + width * 0.035 + 2, tipX, tipY + 2);
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.25)";
+        ctx.lineWidth = Math.max(3.2, width * 0.016);
+        ctx.stroke();
+
+        // Main temple stem (matches frame color)
         ctx.beginPath();
         ctx.moveTo(rightHingeX, hingeY);
-        ctx.quadraticCurveTo(
-          rightHingeX + 8 - yaw * 12,
-          hingeY - templeUp * 0.5,
-          rightBackX,
-          rightBackY
-        );
+        ctx.quadraticCurveTo(midCtrlX, midCtrlY, rightEarLocalX, rightEarLocalY);
         ctx.strokeStyle = frameColor;
-        ctx.lineWidth = Math.max(3, width * 0.016);
+        ctx.lineWidth = Math.max(2.6, width * 0.014);
         ctx.stroke();
 
+        // Metallic top highlight
         ctx.beginPath();
-        ctx.moveTo(rightHingeX, hingeY + 1);
-        ctx.quadraticCurveTo(
-          rightHingeX + 8 - yaw * 12,
-          hingeY - templeUp * 0.5 + 1,
-          rightBackX,
-          rightBackY + 1
-        );
-        ctx.strokeStyle = "rgba(0, 0, 0, 0.35)";
-        ctx.lineWidth = Math.max(1.2, width * 0.007);
+        ctx.moveTo(rightHingeX, hingeY - 1);
+        ctx.quadraticCurveTo(midCtrlX, midCtrlY - 1, rightEarLocalX, rightEarLocalY - 1);
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.60)";
+        ctx.lineWidth = Math.max(1.0, width * 0.005);
         ctx.stroke();
+
+        // Curved Ear Hook / Acetate Temple Tip (curves DOWN behind ear)
+        ctx.beginPath();
+        ctx.moveTo(rightEarLocalX, rightEarLocalY);
+        ctx.quadraticCurveTo(rightEarLocalX + 2, rightEarLocalY + width * 0.035, tipX, tipY);
+        ctx.strokeStyle = frameColor;
+        ctx.lineWidth = Math.max(2.4, width * 0.012);
+        ctx.stroke();
+
+        // Reinforced Hinge Joint at frame connection
+        ctx.fillStyle = frameColor;
+        ctx.fillRect(rightHingeX - 2, hingeY - 3, 5, 6);
       }
+
       ctx.restore();
     }
 
@@ -471,6 +543,15 @@ export function renderDemoPortrait(
   const bridgeWorldX = cx + Math.cos(params.roll) * featureShiftX - Math.sin(params.roll) * (eyeY + params.offsetY);
   const bridgeWorldY = cy + Math.sin(params.roll) * featureShiftX + Math.cos(params.roll) * (eyeY + params.offsetY);
 
+  const earLeftWorld = {
+    x: cx + Math.cos(params.roll) * (-headRadiusX * 0.98 + featureShiftX * 0.1) - Math.sin(params.roll) * (eyeY + 6),
+    y: cy + Math.sin(params.roll) * (-headRadiusX * 0.98 + featureShiftX * 0.1) + Math.cos(params.roll) * (eyeY + 6),
+  };
+  const earRightWorld = {
+    x: cx + Math.cos(params.roll) * (headRadiusX * 0.98 + featureShiftX * 0.1) - Math.sin(params.roll) * (eyeY + 6),
+    y: cy + Math.sin(params.roll) * (headRadiusX * 0.98 + featureShiftX * 0.1) + Math.cos(params.roll) * (eyeY + 6),
+  };
+
   drawProceduralEyewear(ctx, params.frameShape, {
     x: bridgeWorldX,
     y: bridgeWorldY,
@@ -480,6 +561,8 @@ export function renderDemoPortrait(
     frameColor: params.frameColor,
     tintMode: params.tintMode,
     imageElement: params.imageElement,
+    earLeft: earLeftWorld,
+    earRight: earRightWorld,
   });
 }
 
@@ -855,6 +938,8 @@ export function VirtualTryOnModal({
         tintMode: lensTintRef.current,
         imageElement: activeImageRef.current,
         mirrored: false,
+        earLeft: getPt(454),
+        earRight: getPt(234),
       });
 
       // Update Telemetry
