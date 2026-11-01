@@ -70,6 +70,19 @@ def clean_solstice():
                     t = i / float(end_x - start_x)
                     arr[y, start_x + i] = (1 - t) * c0 + t * c1
 
+    # Vertical pass for upper bar reflections at y=85..145
+    for y in range(85, 145):
+        for x in range(100, 250):
+            if arr[y, x, 0] < 80 and arr[y, x, 1] < 105 and arr[y, x, 3] > 100:
+                c_above = arr[max(0, y-12), x].astype(float)
+                c_below = arr[min(arr.shape[0]-1, y+12), x].astype(float)
+                arr[y, x] = (c_above + c_below) / 2.0
+        for x in range(840, 1065):
+            if arr[y, x, 0] < 80 and arr[y, x, 1] < 105 and arr[y, x, 3] > 100:
+                c_above = arr[max(0, y-12), x].astype(float)
+                c_below = arr[min(arr.shape[0]-1, y+12), x].astype(float)
+                arr[y, x] = (c_above + c_below) / 2.0
+
     out = Image.fromarray(arr)
     out.save('frontend/src/assets/tryon/solstice-aviator-front.png')
     print("Solstice cleaned successfully!")

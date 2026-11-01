@@ -9,11 +9,8 @@ import {
   Download,
   Info,
   Maximize2,
-  Scan,
   Sun,
   Eye,
-  Hand,
-  Layers,
   CheckCircle,
   Calendar,
 } from "lucide-react";
@@ -158,142 +155,164 @@ export function drawProceduralEyewear(
   if (imageElement && imageElement.complete && imageElement.naturalWidth > 0) {
     const imgH = (imageElement.naturalHeight / imageElement.naturalWidth) * width;
 
-    // Draw 3D Realistic Temple Arms ("Dandi") extending from frame hinges directly to ears
+    // Draw Realistic 3D Temple Arms ("Dandi") extending from frame hinges directly to ears
     if (drawTemples) {
-      const hingeY = -imgH * 0.04;
-      const leftHingeX = -width * 0.485;
-      const rightHingeX = width * 0.485;
+      // Hinge positions on front cutout (upper outer corner of frame)
+      const hingeY = -imgH * 0.16;
+      const leftHingeX = -width * 0.472;
+      const rightHingeX = width * 0.472;
 
       // Transform world/screen ear coordinates into local frame space
-      // Eyewear temples MUST extend strictly OUTWARD and BACKWARD towards the ears.
-      // They rest over the ear helix at the sides of the head and must NEVER enter the lens area.
-      const minTempleSpan = width * 0.08;
-
-      let leftEarLocalX: number;
-      let leftEarLocalY: number;
-      if (earLeft) {
-        const dx = earLeft.x - x;
-        const dy = earLeft.y - y;
+      const transformToLocal = (pt: { x: number; y: number } | undefined, defaultLocalX: number) => {
+        if (!pt) {
+          return { x: defaultLocalX, y: hingeY + width * 0.015 };
+        }
+        const dx = pt.x - x;
+        const dy = pt.y - y;
         const unrotX = dx * Math.cos(-roll) - dy * Math.sin(-roll);
         const unrotY = dx * Math.sin(-roll) + dy * Math.cos(-roll);
-        const rawLocalX = (unrotX - yawShiftX) / perspectiveScaleX;
-        // The top of the ear sits laterally outside the frame hinge; clamp strictly outside
-        leftEarLocalX = Math.min(leftHingeX - minTempleSpan, rawLocalX - width * 0.04);
-        leftEarLocalY = Math.max(hingeY - width * 0.05, Math.min(hingeY + width * 0.06, unrotY));
-      } else {
-        const reach = width * 0.28;
-        leftEarLocalX = leftHingeX - (yaw > 0 ? reach * 0.35 : reach * 0.85);
-        leftEarLocalY = hingeY + width * 0.02;
-      }
+        const localX = (unrotX - yawShiftX) / perspectiveScaleX;
+        const localY = unrotY;
+        return { x: localX, y: localY };
+      };
 
-      let rightEarLocalX: number;
-      let rightEarLocalY: number;
-      if (earRight) {
-        const dx = earRight.x - x;
-        const dy = earRight.y - y;
-        const unrotX = dx * Math.cos(-roll) - dy * Math.sin(-roll);
-        const unrotY = dx * Math.sin(-roll) + dy * Math.cos(-roll);
-        const rawLocalX = (unrotX - yawShiftX) / perspectiveScaleX;
-        rightEarLocalX = Math.max(rightHingeX + minTempleSpan, rawLocalX + width * 0.04);
-        rightEarLocalY = Math.max(hingeY - width * 0.05, Math.min(hingeY + width * 0.06, unrotY));
-      } else {
-        const reach = width * 0.28;
-        rightEarLocalX = rightHingeX + (yaw < 0 ? reach * 0.35 : reach * 0.85);
-        rightEarLocalY = hingeY + width * 0.02;
-      }
+      // In real eyewear, from direct front view (yaw ~ 0), temples recede straight back into the screen (z-axis)
+      // and are naturally hidden behind the front frame rims.
+      // As head rotates (yaw), the temple arm on the turning side comes into view with realistic perspective.
+      // yaw > 0: user turned right (facing screen right in mirror), exposing RIGHT temple arm (screen right, x > 0).
+      // yaw < 0: user turned left (facing screen left in mirror), exposing LEFT temple arm (screen left, x < 0).
+      const rightVisibility = Math.max(0, Math.min(1, (yaw - 0.035) / 0.12));
+      const leftVisibility = Math.max(0, Math.min(1, (-yaw - 0.035) / 0.12));
+
+      // Temple reach dynamically expands as head turns towards profile view (as seen in reference image)
+      const dynamicReach = width * (0.18 + Math.min(0.42, absYaw * 0.55));
+      const leftEarLocal = transformToLocal(earLeft, leftHingeX - dynamicReach);
+      const rightEarLocal = transformToLocal(earRight, rightHingeX + dynamicReach);
+
+      // Frame styling attributes
+      const isAcetateOrBold =
+        shape === "square" ||
+        shape === "wayfarer" ||
+        shape === "round" ||
+        shape === "cateye";
+
+      const templeStemWidth = isAcetateOrBold
+        ? Math.max(3.8, width * 0.024)
+        : Math.max(2.4, width * 0.013);
+      const templeHingeWidth = isAcetateOrBold
+        ? Math.max(4.8, width * 0.030)
+        : Math.max(3.0, width * 0.016);
 
       ctx.save();
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
 
-      // Left Temple Arm ("Left Dandi") -> goes from left hinge OUTWARD and BACK to left ear
-      if (yaw < 0.45) {
-        const midCtrlX = leftHingeX + (leftEarLocalX - leftHingeX) * 0.45;
-        const midCtrlY = Math.min(hingeY, leftEarLocalY) - 2;
-        const tipX = leftEarLocalX - width * 0.025;
-        const tipY = leftEarLocalY + width * 0.07;
+      // Left Temple Arm ("Dandi") -> goes from left hinge OUTWARD to left ear
+      if (leftVisibility > 0) {
+        ctx.globalAlpha = leftVisibility;
 
-        // Shadow for 3D depth on skin/hair
+        // STRICT GUARANTEE: targetX is strictly to the LEFT of the hinge (outward towards the ear, NEVER inside the lens)
+        const targetX = Math.min(leftHingeX - width * 0.06, leftEarLocal.x);
+        const targetY = Math.max(hingeY - width * 0.04, Math.min(hingeY + width * 0.05, leftEarLocal.y));
+        const midX = leftHingeX + (targetX - leftHingeX) * 0.5;
+        const midY = hingeY + (targetY - hingeY) * 0.45;
+
+        // Ear curve tip (curves downward behind ear as in reference image)
+        const tipX = targetX - width * 0.028;
+        const tipY = targetY + width * 0.065;
+
+        // 1. Soft skin/hair drop shadow behind temple arm
         ctx.beginPath();
-        ctx.moveTo(leftHingeX, hingeY + 2);
-        ctx.quadraticCurveTo(midCtrlX, midCtrlY + 2, leftEarLocalX, leftEarLocalY + 2);
-        ctx.quadraticCurveTo(leftEarLocalX - 2, leftEarLocalY + width * 0.035 + 2, tipX, tipY + 2);
-        ctx.strokeStyle = "rgba(0, 0, 0, 0.25)";
-        ctx.lineWidth = Math.max(3.2, width * 0.016);
+        ctx.moveTo(leftHingeX, hingeY + 2.5);
+        ctx.quadraticCurveTo(midX, midY + 2.5, targetX, targetY + 2.5);
+        ctx.quadraticCurveTo(targetX - 2, targetY + width * 0.035 + 2.5, tipX, tipY + 2.5);
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.28)";
+        ctx.lineWidth = templeStemWidth + 1.6;
         ctx.stroke();
 
-        // Main temple stem (matches frame color)
+        // 2. Main temple arm stem (from frame hinge straight to top of ear)
         ctx.beginPath();
         ctx.moveTo(leftHingeX, hingeY);
-        ctx.quadraticCurveTo(midCtrlX, midCtrlY, leftEarLocalX, leftEarLocalY);
+        ctx.quadraticCurveTo(midX, midY, targetX, targetY);
         ctx.strokeStyle = frameColor;
-        ctx.lineWidth = Math.max(2.6, width * 0.014);
+        ctx.lineWidth = templeStemWidth;
         ctx.stroke();
 
-        // Metallic top highlight
+        // 3. Ear hook / temple tip curving gently behind the ear
         ctx.beginPath();
-        ctx.moveTo(leftHingeX, hingeY - 1);
-        ctx.quadraticCurveTo(midCtrlX, midCtrlY - 1, leftEarLocalX, leftEarLocalY - 1);
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.60)";
-        ctx.lineWidth = Math.max(1.0, width * 0.005);
-        ctx.stroke();
-
-        // Curved Ear Hook / Acetate Temple Tip (curves DOWN behind ear)
-        ctx.beginPath();
-        ctx.moveTo(leftEarLocalX, leftEarLocalY);
-        ctx.quadraticCurveTo(leftEarLocalX - 2, leftEarLocalY + width * 0.035, tipX, tipY);
+        ctx.moveTo(targetX, targetY);
+        ctx.quadraticCurveTo(targetX - 2, targetY + width * 0.035, tipX, tipY);
         ctx.strokeStyle = frameColor;
-        ctx.lineWidth = Math.max(2.4, width * 0.012);
+        ctx.lineWidth = Math.max(2.0, templeStemWidth * 0.85);
         ctx.stroke();
 
-        // Reinforced Hinge Joint at frame connection
+        // 4. Specular highlight line along upper edge
+        ctx.beginPath();
+        ctx.moveTo(leftHingeX, hingeY - 1.0);
+        ctx.quadraticCurveTo(midX, midY - 1.0, targetX, targetY - 1.0);
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.50)";
+        ctx.lineWidth = Math.max(0.8, width * 0.005);
+        ctx.stroke();
+
+        // 5. Designer metallic hinge bracket / accent rivet (matching reference image)
         ctx.fillStyle = frameColor;
-        ctx.fillRect(leftHingeX - 3, hingeY - 3, 5, 6);
+        ctx.fillRect(leftHingeX - 3.5, hingeY - templeHingeWidth / 2, 4.5, templeHingeWidth);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
+        ctx.fillRect(leftHingeX - 2.5, hingeY - 1.0, 3.0, 2.0);
       }
 
-      // Right Temple Arm ("Right Dandi") -> goes from right hinge OUTWARD and BACK to right ear
-      if (yaw > -0.45) {
-        const midCtrlX = rightHingeX + (rightEarLocalX - rightHingeX) * 0.45;
-        const midCtrlY = Math.min(hingeY, rightEarLocalY) - 2;
-        const tipX = rightEarLocalX + width * 0.025;
-        const tipY = rightEarLocalY + width * 0.07;
+      // Right Temple Arm ("Dandi") -> goes from right hinge OUTWARD to right ear
+      if (rightVisibility > 0) {
+        ctx.globalAlpha = rightVisibility;
 
-        // Shadow for 3D depth on skin/hair
+        // STRICT GUARANTEE: targetX is strictly to the RIGHT of the hinge (outward towards the ear, NEVER inside the lens)
+        const targetX = Math.max(rightHingeX + width * 0.06, rightEarLocal.x);
+        const targetY = Math.max(hingeY - width * 0.04, Math.min(hingeY + width * 0.05, rightEarLocal.y));
+        const midX = rightHingeX + (targetX - rightHingeX) * 0.5;
+        const midY = hingeY + (targetY - hingeY) * 0.45;
+
+        // Ear curve tip (curves downward behind ear as in reference image)
+        const tipX = targetX + width * 0.028;
+        const tipY = targetY + width * 0.065;
+
+        // 1. Soft skin/hair drop shadow behind temple arm
         ctx.beginPath();
-        ctx.moveTo(rightHingeX, hingeY + 2);
-        ctx.quadraticCurveTo(midCtrlX, midCtrlY + 2, rightEarLocalX, rightEarLocalY + 2);
-        ctx.quadraticCurveTo(rightEarLocalX + 2, rightEarLocalY + width * 0.035 + 2, tipX, tipY + 2);
-        ctx.strokeStyle = "rgba(0, 0, 0, 0.25)";
-        ctx.lineWidth = Math.max(3.2, width * 0.016);
+        ctx.moveTo(rightHingeX, hingeY + 2.5);
+        ctx.quadraticCurveTo(midX, midY + 2.5, targetX, targetY + 2.5);
+        ctx.quadraticCurveTo(targetX + 2, targetY + width * 0.035 + 2.5, tipX, tipY + 2.5);
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.28)";
+        ctx.lineWidth = templeStemWidth + 1.6;
         ctx.stroke();
 
-        // Main temple stem (matches frame color)
+        // 2. Main temple arm stem (from frame hinge straight to top of ear)
         ctx.beginPath();
         ctx.moveTo(rightHingeX, hingeY);
-        ctx.quadraticCurveTo(midCtrlX, midCtrlY, rightEarLocalX, rightEarLocalY);
+        ctx.quadraticCurveTo(midX, midY, targetX, targetY);
         ctx.strokeStyle = frameColor;
-        ctx.lineWidth = Math.max(2.6, width * 0.014);
+        ctx.lineWidth = templeStemWidth;
         ctx.stroke();
 
-        // Metallic top highlight
+        // 3. Ear hook / temple tip curving gently behind the ear
         ctx.beginPath();
-        ctx.moveTo(rightHingeX, hingeY - 1);
-        ctx.quadraticCurveTo(midCtrlX, midCtrlY - 1, rightEarLocalX, rightEarLocalY - 1);
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.60)";
-        ctx.lineWidth = Math.max(1.0, width * 0.005);
-        ctx.stroke();
-
-        // Curved Ear Hook / Acetate Temple Tip (curves DOWN behind ear)
-        ctx.beginPath();
-        ctx.moveTo(rightEarLocalX, rightEarLocalY);
-        ctx.quadraticCurveTo(rightEarLocalX + 2, rightEarLocalY + width * 0.035, tipX, tipY);
+        ctx.moveTo(targetX, targetY);
+        ctx.quadraticCurveTo(targetX + 2, targetY + width * 0.035, tipX, tipY);
         ctx.strokeStyle = frameColor;
-        ctx.lineWidth = Math.max(2.4, width * 0.012);
+        ctx.lineWidth = Math.max(2.0, templeStemWidth * 0.85);
         ctx.stroke();
 
-        // Reinforced Hinge Joint at frame connection
+        // 4. Specular highlight line along upper edge
+        ctx.beginPath();
+        ctx.moveTo(rightHingeX, hingeY - 1.0);
+        ctx.quadraticCurveTo(midX, midY - 1.0, targetX, targetY - 1.0);
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.50)";
+        ctx.lineWidth = Math.max(0.8, width * 0.005);
+        ctx.stroke();
+
+        // 5. Designer metallic hinge bracket / accent rivet (matching reference image)
         ctx.fillStyle = frameColor;
-        ctx.fillRect(rightHingeX - 2, hingeY - 3, 5, 6);
+        ctx.fillRect(rightHingeX - 1.0, hingeY - templeHingeWidth / 2, 4.5, templeHingeWidth);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
+        ctx.fillRect(rightHingeX - 0.5, hingeY - 1.0, 3.0, 2.0);
       }
 
       ctx.restore();
@@ -389,181 +408,6 @@ export function drawProceduralEyewear(
   ctx.stroke();
 
   ctx.restore();
-}
-
-// Realistic 3D Interactive Portrait Fallback (Matching Website Theme)
-export function renderDemoPortrait(
-  ctx: CanvasRenderingContext2D,
-  width: number,
-  height: number,
-  params: {
-    yaw: number;
-    pitch: number;
-    roll: number;
-    frameShape: FrameShape;
-    frameColor: string;
-    tintMode: LensTint;
-    showMesh: boolean;
-    scaleMultiplier: number;
-    offsetY: number;
-    imageElement?: HTMLImageElement | null | undefined;
-  }
-) {
-  ctx.clearRect(0, 0, width, height);
-
-  // Warm luxury optical boutique background matching site theme
-  const bgGrad = ctx.createRadialGradient(
-    width / 2,
-    height * 0.42,
-    20,
-    width / 2,
-    height * 0.5,
-    width * 0.75
-  );
-  bgGrad.addColorStop(0, "#F7F4EE");
-  bgGrad.addColorStop(0.5, "#EFEAE0");
-  bgGrad.addColorStop(1, "#E5DFC8");
-  ctx.fillStyle = bgGrad;
-  ctx.fillRect(0, 0, width, height);
-
-  // Soft studio key light
-  const cx = width / 2;
-  const cy = height * 0.46;
-  const headRadiusX = Math.min(width, height) * 0.25;
-  const headRadiusY = headRadiusX * 1.34;
-
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(params.roll);
-
-  const perspectiveScaleX = Math.max(0.78, 1 - Math.abs(params.yaw) * 0.22);
-  ctx.scale(perspectiveScaleX, 1);
-  const featureShiftX = params.yaw * headRadiusX * 0.32;
-
-  // Neck
-  ctx.fillStyle = "#E0C8B1";
-  ctx.beginPath();
-  ctx.moveTo(-headRadiusX * 0.52, headRadiusY * 0.75);
-  ctx.lineTo(-headRadiusX * 0.65, height * 0.6);
-  ctx.lineTo(headRadiusX * 0.65, height * 0.6);
-  ctx.lineTo(headRadiusX * 0.52, headRadiusY * 0.75);
-  ctx.closePath();
-  ctx.fill();
-
-  // Face Silhouette with warm natural skin tones
-  const skinGrad = ctx.createLinearGradient(
-    -headRadiusX + featureShiftX,
-    -headRadiusY,
-    headRadiusX + featureShiftX,
-    headRadiusY
-  );
-  skinGrad.addColorStop(0, "#FAF0E4");
-  skinGrad.addColorStop(0.5, "#EED8C2");
-  skinGrad.addColorStop(1, "#DEC2A4");
-
-  ctx.fillStyle = skinGrad;
-  ctx.beginPath();
-  ctx.ellipse(featureShiftX * 0.2, 0, headRadiusX, headRadiusY, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Hair Volume
-  ctx.fillStyle = "#2D1D16";
-  ctx.beginPath();
-  ctx.ellipse(featureShiftX * 0.1, -headRadiusY * 0.68, headRadiusX * 1.08, headRadiusY * 0.55, 0, Math.PI, Math.PI * 2);
-  ctx.fill();
-
-  // Eyes & Eyebrows
-  const eyeSpacing = headRadiusX * 0.45;
-  const eyeY = -headRadiusY * 0.08 + params.pitch * headRadiusY * 0.3;
-
-  [-eyeSpacing, eyeSpacing].forEach((ex) => {
-    const eyePosX = ex + featureShiftX;
-
-    // Brow
-    ctx.strokeStyle = "#382419";
-    ctx.lineWidth = 3.5;
-    ctx.beginPath();
-    ctx.moveTo(eyePosX - headRadiusX * 0.16, eyeY - 24);
-    ctx.quadraticCurveTo(eyePosX, eyeY - 30, eyePosX + headRadiusX * 0.16, eyeY - 22);
-    ctx.stroke();
-
-    // Eye Sclera
-    ctx.fillStyle = "#FCFAF8";
-    ctx.beginPath();
-    ctx.ellipse(eyePosX, eyeY, headRadiusX * 0.14, headRadiusY * 0.065, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Iris & Pupil
-    ctx.fillStyle = "#3E2718";
-    ctx.beginPath();
-    ctx.arc(eyePosX + params.yaw * 3, eyeY, headRadiusY * 0.048, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#0A0B0E";
-    ctx.beginPath();
-    ctx.arc(eyePosX + params.yaw * 3, eyeY, headRadiusY * 0.024, 0, Math.PI * 2);
-    ctx.fill();
-  });
-
-  // Nose Bridge
-  ctx.strokeStyle = "rgba(145, 98, 68, 0.45)";
-  ctx.lineWidth = 2.4;
-  ctx.beginPath();
-  ctx.moveTo(featureShiftX, eyeY - 4);
-  ctx.lineTo(featureShiftX * 1.15, headRadiusY * 0.22);
-  ctx.quadraticCurveTo(featureShiftX, headRadiusY * 0.27, featureShiftX - 8, headRadiusY * 0.23);
-  ctx.stroke();
-
-  // Lips
-  ctx.strokeStyle = "#B3645B";
-  ctx.lineWidth = 3.8;
-  ctx.beginPath();
-  ctx.moveTo(-headRadiusX * 0.24 + featureShiftX * 0.8, headRadiusY * 0.48);
-  ctx.quadraticCurveTo(featureShiftX * 0.8, headRadiusY * 0.54, headRadiusX * 0.24 + featureShiftX * 0.8, headRadiusY * 0.48);
-  ctx.stroke();
-
-  // Mesh Dots Overlay
-  if (params.showMesh) {
-    ctx.fillStyle = "rgba(217, 119, 6, 0.85)";
-    const meshPoints: [number, number][] = [
-      [featureShiftX, eyeY],
-      [-eyeSpacing * 1.35 + featureShiftX, eyeY],
-      [eyeSpacing * 1.35 + featureShiftX, eyeY],
-      [-headRadiusX * 0.92, eyeY],
-      [headRadiusX * 0.92, eyeY],
-      [featureShiftX, headRadiusY * 0.22],
-    ];
-    meshPoints.forEach(([px, py]) => {
-      ctx.beginPath();
-      ctx.arc(px, py, 3.2, 0, Math.PI * 2);
-      ctx.fill();
-    });
-  }
-  ctx.restore();
-
-  const bridgeWorldX = cx + Math.cos(params.roll) * featureShiftX - Math.sin(params.roll) * (eyeY + params.offsetY);
-  const bridgeWorldY = cy + Math.sin(params.roll) * featureShiftX + Math.cos(params.roll) * (eyeY + params.offsetY);
-
-  const earLeftWorld = {
-    x: cx + Math.cos(params.roll) * (-headRadiusX * 0.98 + featureShiftX * 0.1) - Math.sin(params.roll) * (eyeY + 6),
-    y: cy + Math.sin(params.roll) * (-headRadiusX * 0.98 + featureShiftX * 0.1) + Math.cos(params.roll) * (eyeY + 6),
-  };
-  const earRightWorld = {
-    x: cx + Math.cos(params.roll) * (headRadiusX * 0.98 + featureShiftX * 0.1) - Math.sin(params.roll) * (eyeY + 6),
-    y: cy + Math.sin(params.roll) * (headRadiusX * 0.98 + featureShiftX * 0.1) + Math.cos(params.roll) * (eyeY + 6),
-  };
-
-  drawProceduralEyewear(ctx, params.frameShape, {
-    x: bridgeWorldX,
-    y: bridgeWorldY,
-    width: headRadiusX * 2.1 * params.scaleMultiplier,
-    roll: params.roll,
-    yaw: params.yaw,
-    frameColor: params.frameColor,
-    tintMode: params.tintMode,
-    imageElement: params.imageElement,
-    earLeft: earLeftWorld,
-    earRight: earRightWorld,
-  });
 }
 
 // MediaPipe Script Loader
@@ -696,8 +540,7 @@ export function VirtualTryOnModal({
   // Camera & Tracking State
   const [cameraActive, setCameraActive] = useState(false);
   const [isCameraLoading, setIsCameraLoading] = useState(false);
-  const [isDemoMode, setIsDemoMode] = useState(false);
-  const [showMeshOverlay, setShowMeshOverlay] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
   const [telemetry, setTelemetry] = useState({ pd: "63.0 mm", tilt: "0.0°", yaw: "0.0°" });
 
   // Refs for tracking pipeline (Mutable to eliminate stale closures)
@@ -713,7 +556,6 @@ export function VirtualTryOnModal({
   const lensTintRef = useRef(lensTint);
   const scaleMultiplierRef = useRef(scaleMultiplier);
   const offsetYRef = useRef(offsetY);
-  const showMeshOverlayRef = useRef(showMeshOverlay);
 
   // EMA smoothing state for jitter-free tracking (like competitors)
   const smoothedRef = useRef<{
@@ -727,32 +569,6 @@ export function VirtualTryOnModal({
   lensTintRef.current = lensTint;
   scaleMultiplierRef.current = scaleMultiplier;
   offsetYRef.current = offsetY;
-  showMeshOverlayRef.current = showMeshOverlay;
-
-  // Demo Portrait Pointer Interaction
-  const demoPoseRef = useRef({ yaw: 0, pitch: 0, roll: 0 });
-  const isDraggingRef = useRef(false);
-  const dragStartRef = useRef({ x: 0, y: 0 });
-
-  const handlePointerDown = (clientX: number, clientY: number) => {
-    if (!isDemoMode) return;
-    isDraggingRef.current = true;
-    dragStartRef.current = { x: clientX, y: clientY };
-  };
-
-  const handlePointerMove = (clientX: number, clientY: number) => {
-    if (!isDemoMode || !isDraggingRef.current) return;
-    const dx = clientX - dragStartRef.current.x;
-    const dy = clientY - dragStartRef.current.y;
-    dragStartRef.current = { x: clientX, y: clientY };
-
-    demoPoseRef.current.yaw = Math.max(-0.6, Math.min(0.6, demoPoseRef.current.yaw + dx * 0.005));
-    demoPoseRef.current.pitch = Math.max(-0.4, Math.min(0.4, demoPoseRef.current.pitch + dy * 0.005));
-  };
-
-  const handlePointerUp = () => {
-    isDraggingRef.current = false;
-  };
 
   // Select frame handler
   const handleSelectFrame = (product: Product) => {
@@ -774,57 +590,6 @@ export function VirtualTryOnModal({
     setFlashMessage(`Active: ${product.name} (${product.style})`);
     setTimeout(() => setFlashMessage(null), 2500);
   };
-
-  // Demo Loop Animation
-  const startDemoPortraitLoop = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    let startTime = performance.now();
-
-    const loop = () => {
-      const now = performance.now();
-      const elapsed = (now - startTime) / 1000;
-
-      if (!isDraggingRef.current) {
-        demoPoseRef.current.yaw = Math.sin(elapsed * 0.8) * 0.22;
-        demoPoseRef.current.pitch = Math.cos(elapsed * 0.6) * 0.08;
-        demoPoseRef.current.roll = Math.sin(elapsed * 0.4) * 0.04;
-      }
-
-      if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) {
-        canvas.width = canvas.clientWidth || 640;
-        canvas.height = canvas.clientHeight || 480;
-      }
-
-      const currentProd = selectedProductRef.current;
-      const activeShape = mapProductToShape(currentProd);
-
-      renderDemoPortrait(ctx, canvas.width, canvas.height, {
-        yaw: demoPoseRef.current.yaw,
-        pitch: demoPoseRef.current.pitch,
-        roll: demoPoseRef.current.roll,
-        frameShape: activeShape,
-        frameColor: frameColorRef.current,
-        tintMode: lensTintRef.current,
-        showMesh: showMeshOverlayRef.current,
-        scaleMultiplier: scaleMultiplierRef.current,
-        offsetY: offsetYRef.current,
-        imageElement: activeImageRef.current,
-      });
-
-      const pd = (62 + demoPoseRef.current.yaw * 3).toFixed(1);
-      const tilt = (demoPoseRef.current.roll * (180 / Math.PI)).toFixed(1);
-      const yawDeg = (demoPoseRef.current.yaw * (180 / Math.PI)).toFixed(1);
-      setTelemetry({ pd: `${pd} mm`, tilt: `${tilt}°`, yaw: `${yawDeg}°` });
-
-      animFrameRef.current = requestAnimationFrame(loop);
-    };
-
-    animFrameRef.current = requestAnimationFrame(loop);
-  }, []);
 
   // MediaPipe Results Processing
   const onMediaPipeResults = (results: any) => {
@@ -856,12 +621,14 @@ export function VirtualTryOnModal({
       // Mirror X coordinates for screen positioning on mirrored video
       const getPt = (idx: number) => {
         const pt = landmarks[idx];
+        if (!pt) return { x: w / 2, y: h / 2, z: 0 };
         return { x: (1 - pt.x) * w, y: pt.y * h, z: pt.z };
       };
 
       // Get RAW (un-mirrored) landmark coordinates for roll/yaw computation
       const getRawPt = (idx: number) => {
         const pt = landmarks[idx];
+        if (!pt) return { x: w / 2, y: h / 2, z: 0 };
         return { x: pt.x * w, y: pt.y * h, z: pt.z };
       };
 
@@ -872,19 +639,15 @@ export function VirtualTryOnModal({
       const eyeRightScreen = getPt(33);   // anatomical right → screen right in mirror
 
       // Use RAW coordinates for roll angle — this avoids ALL mirror confusion
-      // In raw coords, landmark 33 is always left-of 263 (subject's right eye is on camera's left)
       const raw33 = getRawPt(33);   // subject's right eye outer, camera-left
       const raw263 = getRawPt(263); // subject's left eye outer, camera-right
-      // Vector from raw33 to raw263 always points rightward (positive dx)
       const rawDx = raw263.x - raw33.x;
       const rawDy = raw263.y - raw33.y;
       const outerEyeDist = Math.sqrt(rawDx * rawDx + rawDy * rawDy);
 
-      // Roll angle from raw coordinates — guaranteed in [-pi/2, pi/2] range for normal head positions
+      // Roll angle from raw coordinates
       let rollAngle = Math.atan2(rawDy, rawDx);
-      // In mirrored display, left-right is flipped, so negate the roll
       rollAngle = -rollAngle;
-      // Safety clamp: head tilt beyond ±45° is extremely unlikely
       const MAX_ROLL = Math.PI / 4;
       rollAngle = Math.max(-MAX_ROLL, Math.min(MAX_ROLL, rollAngle));
 
@@ -913,21 +676,11 @@ export function VirtualTryOnModal({
       } : rawBridge;
       smoothedRef.current = bridgeCenter;
 
-      // Draw Landmark Mesh if toggled
-      if (showMeshOverlayRef.current) {
-        ctx.fillStyle = "rgba(217, 119, 6, 0.85)";
-        [33, 133, 168, 263, 362, 1, 195, 4, 152, 234, 454].forEach((idx) => {
-          const p = getPt(idx);
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, 2.8, 0, Math.PI * 2);
-          ctx.fill();
-        });
-      }
-
       // Draw Eyewear with Real Photographic Cutout & 3D Pose
       const currentProd = selectedProductRef.current;
       const activeShape = mapProductToShape(currentProd);
 
+      // Ears: Landmark 356 is left ear root (screen left in mirror), 127 is right ear root (screen right)
       drawProceduralEyewear(ctx, activeShape, {
         x: bridgeCenter.x,
         y: bridgeCenter.y + offsetYRef.current + bridgeCenter.eyeDist * 0.02,
@@ -938,8 +691,8 @@ export function VirtualTryOnModal({
         tintMode: lensTintRef.current,
         imageElement: activeImageRef.current,
         mirrored: false,
-        earLeft: getPt(454),
-        earRight: getPt(234),
+        earLeft: getPt(356),
+        earRight: getPt(127),
       });
 
       // Update Telemetry
@@ -976,16 +729,12 @@ export function VirtualTryOnModal({
 
   // AR Pipeline Initializer
   const startARPipeline = useCallback(async () => {
-    if (isDemoMode) {
-      startDemoPortraitLoop();
-      return;
-    }
-
+    setCameraError(null);
     setIsCameraLoading(true);
 
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error("Webcam not available");
+        throw new Error("Webcam not available on this device or browser");
       }
 
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -1049,15 +798,15 @@ export function VirtualTryOnModal({
         };
         animFrameRef.current = requestAnimationFrame(fallbackLoop);
       }
-    } catch {
+    } catch (err: any) {
       setIsCameraLoading(false);
-      setIsDemoMode(true);
-      toast.info("Switching to 3D Portrait Studio", {
-        description: "Camera unavailable. You can rotate and preview frames on our 3D model.",
+      setCameraActive(false);
+      setCameraError(err?.message || "Camera access was denied or is unavailable.");
+      toast.error("Camera unavailable", {
+        description: "Please enable camera permissions to use the Live AR Mirror.",
       });
-      startDemoPortraitLoop();
     }
-  }, [isDemoMode, startDemoPortraitLoop]);
+  }, []);
 
   // Lifecycle Management
   useEffect(() => {
@@ -1083,7 +832,7 @@ export function VirtualTryOnModal({
         cancelAnimationFrame(animFrameRef.current);
       }
     };
-  }, [open, isDemoMode, startARPipeline]);
+  }, [open, startARPipeline]);
 
   // Snapshot Capture
   const captureSnapshot = () => {
@@ -1151,53 +900,22 @@ export function VirtualTryOnModal({
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-display font-bold text-stone-900 text-xs sm:text-sm tracking-wide">
-                    NAYANTARA 3D VIRTUAL MIRROR
+                    NAYANTARA LIVE AR MIRROR
                   </span>
                   <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-300">
-                    {cameraActive ? "468-Pt Live AR" : isDemoMode ? "Interactive 3D Demo" : "Connecting..."}
+                    {cameraActive ? "Live AR Mirror" : isCameraLoading ? "Starting Camera..." : "Webcam Required"}
                   </span>
                 </div>
                 <p className="text-[10.5px] text-stone-500 hidden sm:block">
                   {cameraActive
                     ? `Live Real-Frame Fitting: ${selectedProduct.name} (${selectedProduct.style})`
-                    : "Drag portrait to turn head & inspect frame angles"}
+                    : "Live optical fitting directly on your face"}
                 </p>
               </div>
             </div>
 
             {/* Quick Actions */}
             <div className="flex items-center gap-1.5 sm:gap-2">
-              <button
-                type="button"
-                onClick={() => setShowMeshOverlay(!showMeshOverlay)}
-                className={cn(
-                  "px-3 py-1.5 rounded-full text-xs font-medium border transition-all flex items-center gap-1.5 cursor-pointer shadow-xs",
-                  showMeshOverlay
-                    ? "bg-amber-500 text-white border-amber-600 font-semibold"
-                    : "bg-white hover:bg-stone-50 text-stone-700 border-stone-200"
-                )}
-                title="Toggle 468 facial mesh landmarks"
-              >
-                <Layers className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Mesh</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setIsDemoMode(!isDemoMode);
-                  if (!isDemoMode && streamRef.current) {
-                    streamRef.current.getTracks().forEach((t) => t.stop());
-                    streamRef.current = null;
-                    setCameraActive(false);
-                  }
-                }}
-                className="px-3 py-1.5 rounded-full text-xs font-medium bg-white hover:bg-stone-50 text-stone-700 border border-stone-200 shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
-              >
-                <Scan className="h-3.5 w-3.5 text-stone-600" />
-                <span>{isDemoMode ? "Use Camera" : "3D Portrait"}</span>
-              </button>
-
               <button
                 type="button"
                 onClick={() => onOpenChange(false)}
@@ -1210,32 +928,50 @@ export function VirtualTryOnModal({
           </div>
 
           {/* Canvas Viewport Frame */}
-          <div
-            className="relative flex-1 flex items-center justify-center overflow-hidden bg-stone-100 m-2 sm:m-3 rounded-2xl border border-stone-300 shadow-inner select-none cursor-grab active:cursor-grabbing"
-            onMouseDown={(e) => handlePointerDown(e.clientX, e.clientY)}
-            onMouseMove={(e) => handlePointerMove(e.clientX, e.clientY)}
-            onMouseUp={handlePointerUp}
-            onTouchStart={(e) => {
-              const touch = e.touches[0];
-              if (e.touches.length === 1 && touch) handlePointerDown(touch.clientX, touch.clientY);
-            }}
-            onTouchMove={(e) => {
-              const touch = e.touches[0];
-              if (e.touches.length === 1 && touch) handlePointerMove(touch.clientX, touch.clientY);
-            }}
-            onTouchEnd={handlePointerUp}
-          >
+          <div className="relative flex-1 flex items-center justify-center overflow-hidden bg-stone-100 m-2 sm:m-3 rounded-2xl border border-stone-300 shadow-inner select-none">
             <video ref={videoRef} className="hidden" playsInline muted />
             <canvas ref={canvasRef} className="w-full h-full object-contain" />
 
             {/* Connecting Spinner / Initial Loader */}
-            {isCameraLoading && !isDemoMode && (
+            {isCameraLoading && (
               <div className="absolute inset-0 z-30 bg-stone-900/60 backdrop-blur-xs flex flex-col items-center justify-center gap-3">
                 <div className="w-10 h-10 rounded-full border-2 border-amber-400 border-t-transparent animate-spin" />
                 <p className="text-sm font-semibold text-white">
                   Loading AR Mirror for <span className="text-amber-300">{selectedProduct.name}</span>...
                 </p>
-                <p className="text-xs text-stone-200">Aligning precision facial landmarks</p>
+                <p className="text-xs text-stone-200">Aligning precision facial tracking</p>
+              </div>
+            )}
+
+            {/* Camera Permission / Error Banner */}
+            {cameraError && !isCameraLoading && (
+              <div className="absolute inset-0 z-30 bg-stone-900/85 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center text-white">
+                <div className="w-14 h-14 rounded-full bg-stone-800 border border-stone-700 flex items-center justify-center mb-4 text-amber-400 shadow-lg">
+                  <Camera className="h-7 w-7" />
+                </div>
+                <h4 className="font-display text-lg font-semibold mb-1 text-white">
+                  Camera Access Required
+                </h4>
+                <p className="text-xs text-stone-300 max-w-sm mb-5 leading-relaxed">
+                  Please enable camera permissions in your browser to try on frames live on your face in real-time.
+                </p>
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => startARPipeline()}
+                    className="px-5 py-2.5 rounded-full bg-amber-500 hover:bg-amber-400 text-black font-semibold text-xs transition-all shadow-md cursor-pointer flex items-center gap-2"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    Retry Camera
+                  </button>
+                  <a
+                    href="/book"
+                    onClick={() => onOpenChange(false)}
+                    className="px-5 py-2.5 rounded-full bg-stone-800 hover:bg-stone-700 text-stone-200 font-medium text-xs border border-stone-600 transition-all cursor-pointer"
+                  >
+                    Book In-Store Eye Test
+                  </a>
+                </div>
               </div>
             )}
 
@@ -1272,14 +1008,6 @@ export function VirtualTryOnModal({
                 </span>
               </div>
             </div>
-
-            {/* Interactive Demo Mode Hint */}
-            {isDemoMode && (
-              <div className="absolute top-3 right-3 z-20 bg-amber-50 border border-amber-300 text-amber-900 px-3 py-1.5 rounded-xl text-xs flex items-center gap-2 shadow-xs">
-                <Hand className="h-3.5 w-3.5 text-amber-700" />
-                <span>Drag to rotate head in 3D</span>
-              </div>
-            )}
           </div>
 
           {/* Bottom Frame Carousel & Filter Tabs */}

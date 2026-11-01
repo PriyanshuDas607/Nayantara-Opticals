@@ -69,7 +69,7 @@ export function TryOnPage() {
             </h1>
 
             <p className="text-sm sm:text-base text-muted-foreground leading-relaxed max-w-2xl">
-              Preview our collection of precision-crafted eyeglasses and UV400 sunglasses directly on your webcam or interactive 3D model. Experience true-to-life frame proportions, finishes, and lens tints before visiting our Uttam Nagar showroom.
+              Preview our collection of precision-crafted eyeglasses and UV400 sunglasses directly on your face with our real-time AI virtual mirror. Experience true-to-life frame proportions, finishes, and lens tints before visiting our Uttam Nagar showroom.
             </p>
 
             <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
@@ -80,7 +80,7 @@ export function TryOnPage() {
                 onClick={() => handleLaunchStudio()}
               >
                 <Camera className="h-5 w-5" />
-                Launch 3D AR Studio
+                Launch Live AR Mirror
               </Button>
 
               <Button size="lg" variant="outline" asChild className="rounded-full px-6 gap-2">
@@ -103,7 +103,7 @@ export function TryOnPage() {
               </div>
               <div className="p-3 rounded-2xl bg-card border border-border">
                 <div className="text-xl sm:text-2xl font-bold text-amber-500">468</div>
-                <div className="text-[11px] text-muted-foreground">3D Landmark Points</div>
+                <div className="text-[11px] text-muted-foreground">AI Tracking Points</div>
               </div>
             </div>
           </div>
@@ -117,7 +117,7 @@ export function TryOnPage() {
           <div>
             <h2 className="text-2xl font-bold text-foreground">Select a Frame to Try On</h2>
             <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-              Click any frame below to open the real-time webcam mirror or 3D rotating portrait.
+              Click any frame below to launch the live webcam virtual try-on mirror.
             </p>
           </div>
 
