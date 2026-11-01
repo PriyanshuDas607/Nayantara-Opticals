@@ -197,37 +197,38 @@ export function drawProceduralEyewear(
       //   running from the hinge horizontally across the temple to the top of the ear (with gentle downward ear curve).
       //   The far side temple arm is occluded behind the head/frame and remains hidden.
 
-      // Mirrored webcam coordinates:
-      // When user turns head to their right, in mirror their nose shifts RIGHT (yaw > 0).
-      // This exposes the LEFT side of their face (screen left).
-      // So when yaw > 0.06: left arm is visible!
-      // When user turns head to their left, in mirror their nose shifts LEFT (yaw < 0).
-      // This exposes the RIGHT side of their face (screen right).
-      // So when yaw < -0.06: right arm is visible!
+      // In real eyewear (as shown in reference images 1 & 3):
+      // - FRONT-FACING (|yaw| < 0.25):
+      //   Temple arms go backwards in Z-axis (into head depth).
+      //   They DO NOT stick out sideways into thin air!
+      //   The glasses sit cleanly on the face with only the hinge brackets at the corners.
+      // - SIGNIFICANT HEAD TURN (|yaw| >= 0.25):
+      //   Only when the user actually turns their head in profile (Image 2 & 4),
+      //   a sleek temple arm extends smoothly along the side of the head, never exceeding head width.
 
-      // Left Temple Arm (Visible when head turns right / yaw > 0.06)
-      if (yaw > 0.06) {
-        const turnIntensity = Math.min(1.0, (yaw - 0.06) / 0.18);
-        const armLength = width * (0.16 + turnIntensity * 0.44);
+      // Left Temple Arm (Only visible on deliberate right turn / yaw > 0.25)
+      if (yaw > 0.25) {
+        const turnIntensity = Math.min(1.0, (yaw - 0.25) / 0.25);
+        const armLength = width * (0.04 + turnIntensity * 0.16);
         const startX = leftHingeX;
         const startY = hingeY;
         const targetX = startX - armLength;
         const targetY = startY + armLength * 0.04;
-        const tipX = targetX - width * 0.035;
-        const tipY = targetY + width * 0.075;
+        const tipX = targetX - width * 0.02;
+        const tipY = targetY + width * 0.04;
 
         ctx.globalAlpha = turnIntensity;
 
-        // Drop shadow behind temple arm on face
+        // Drop shadow behind temple arm on head
         ctx.beginPath();
-        ctx.moveTo(startX, startY + 2.0);
-        ctx.lineTo(targetX, targetY + 2.0);
-        ctx.quadraticCurveTo(targetX - 2, targetY + width * 0.035 + 2.0, tipX, tipY + 2.0);
-        ctx.strokeStyle = "rgba(0, 0, 0, 0.32)";
-        ctx.lineWidth = templeStemWidth + 2.0;
+        ctx.moveTo(startX, startY + 1.5);
+        ctx.lineTo(targetX, targetY + 1.5);
+        ctx.quadraticCurveTo(targetX - 1, targetY + width * 0.02 + 1.5, tipX, tipY + 1.5);
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.30)";
+        ctx.lineWidth = templeStemWidth + 1.5;
         ctx.stroke();
 
-        // Main temple arm stem (sleek straight tapering bar from hinge to ear)
+        // Main temple arm stem
         ctx.beginPath();
         ctx.moveTo(startX, startY);
         ctx.lineTo(targetX, targetY);
@@ -235,46 +236,38 @@ export function drawProceduralEyewear(
         ctx.lineWidth = templeStemWidth;
         ctx.stroke();
 
-        // Ear hook curving gently behind the ear (Image 2)
+        // Ear hook curving gently
         ctx.beginPath();
         ctx.moveTo(targetX, targetY);
-        ctx.quadraticCurveTo(targetX - 2, targetY + width * 0.035, tipX, tipY);
+        ctx.quadraticCurveTo(targetX - 1, targetY + width * 0.02, tipX, tipY);
         ctx.strokeStyle = frameColor;
-        ctx.lineWidth = Math.max(2.0, templeStemWidth * 0.85);
-        ctx.stroke();
-
-        // Top specular highlight
-        ctx.beginPath();
-        ctx.moveTo(startX, startY - 0.8);
-        ctx.lineTo(targetX, targetY - 0.8);
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.55)";
-        ctx.lineWidth = Math.max(0.8, width * 0.005);
+        ctx.lineWidth = Math.max(1.8, templeStemWidth * 0.85);
         ctx.stroke();
       }
 
-      // Right Temple Arm (Visible when head turns left / yaw < -0.06)
-      if (yaw < -0.06) {
-        const turnIntensity = Math.min(1.0, (-yaw - 0.06) / 0.18);
-        const armLength = width * (0.16 + turnIntensity * 0.44);
+      // Right Temple Arm (Only visible on deliberate left turn / yaw < -0.25)
+      if (yaw < -0.25) {
+        const turnIntensity = Math.min(1.0, (-yaw - 0.25) / 0.25);
+        const armLength = width * (0.04 + turnIntensity * 0.16);
         const startX = rightHingeX;
         const startY = hingeY;
         const targetX = startX + armLength;
         const targetY = startY + armLength * 0.04;
-        const tipX = targetX + width * 0.035;
-        const tipY = targetY + width * 0.075;
+        const tipX = targetX + width * 0.02;
+        const tipY = targetY + width * 0.04;
 
         ctx.globalAlpha = turnIntensity;
 
-        // Drop shadow behind temple arm on face
+        // Drop shadow behind temple arm on head
         ctx.beginPath();
-        ctx.moveTo(startX, startY + 2.0);
-        ctx.lineTo(targetX, targetY + 2.0);
-        ctx.quadraticCurveTo(targetX + 2, targetY + width * 0.035 + 2.0, tipX, tipY + 2.0);
-        ctx.strokeStyle = "rgba(0, 0, 0, 0.32)";
-        ctx.lineWidth = templeStemWidth + 2.0;
+        ctx.moveTo(startX, startY + 1.5);
+        ctx.lineTo(targetX, targetY + 1.5);
+        ctx.quadraticCurveTo(targetX + 1, targetY + width * 0.02 + 1.5, tipX, tipY + 1.5);
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.30)";
+        ctx.lineWidth = templeStemWidth + 1.5;
         ctx.stroke();
 
-        // Main temple arm stem (sleek straight tapering bar from hinge to ear)
+        // Main temple arm stem
         ctx.beginPath();
         ctx.moveTo(startX, startY);
         ctx.lineTo(targetX, targetY);
@@ -282,20 +275,12 @@ export function drawProceduralEyewear(
         ctx.lineWidth = templeStemWidth;
         ctx.stroke();
 
-        // Ear hook curving gently behind the ear (Image 2)
+        // Ear hook curving gently
         ctx.beginPath();
         ctx.moveTo(targetX, targetY);
-        ctx.quadraticCurveTo(targetX + 2, targetY + width * 0.035, tipX, tipY);
+        ctx.quadraticCurveTo(targetX + 1, targetY + width * 0.02, tipX, tipY);
         ctx.strokeStyle = frameColor;
-        ctx.lineWidth = Math.max(2.0, templeStemWidth * 0.85);
-        ctx.stroke();
-
-        // Top specular highlight
-        ctx.beginPath();
-        ctx.moveTo(startX, startY - 0.8);
-        ctx.lineTo(targetX, targetY - 0.8);
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.55)";
-        ctx.lineWidth = Math.max(0.8, width * 0.005);
+        ctx.lineWidth = Math.max(1.8, templeStemWidth * 0.85);
         ctx.stroke();
       }
 
