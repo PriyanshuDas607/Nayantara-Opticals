@@ -47,3 +47,4 @@ dist-ssr/
 uploads/
 
 .vercel
+.env*

@@ -7,7 +7,6 @@ import {
   Sliders,
   Check,
   Download,
-  CheckCircle,
   Calendar,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -94,15 +93,14 @@ export function getDefaultColorForProduct(product: Product): { hex: string; name
   const colName = firstCol?.name || "24K Royal Gold";
   const lower = colName.toLowerCase();
 
-  if (lower.includes("gold")) return { hex: "#d4af37", name: colName };
-  if (lower.includes("tortoise") || lower.includes("amber")) return { hex: "#6f3d1e", name: colName };
-  if (lower.includes("matte black") || lower.includes("black") || lower.includes("ink")) return { hex: "#1c1d21", name: colName };
-  if (lower.includes("silver") || lower.includes("gunmetal") || lower.includes("titanium")) return { hex: "#cbd5e1", name: colName };
-  if (lower.includes("rose") || lower.includes("champagne")) return { hex: "#e6a89c", name: colName };
-  return { hex: "#d4af37", name: colName };
+  if (lower.includes("gold")) return { hex: "#d4af37", name: "24K Royal Gold" };
+  if (lower.includes("tortoise") || lower.includes("amber")) return { hex: "#6f3d1e", name: "Italian Tortoise" };
+  if (lower.includes("matte black") || lower.includes("black") || lower.includes("ink")) return { hex: "#1c1d21", name: "Matte Black Titanium" };
+  if (lower.includes("silver") || lower.includes("gunmetal") || lower.includes("titanium")) return { hex: "#cbd5e1", name: "Platinum Silver" };
+  return { hex: "#d4af37", name: "24K Royal Gold" };
 }
 
-// Draw Eyewear on Canvas with 100% physically accurate temple arms
+// Draw Eyewear on Canvas with 100% physically accurate temple arms & dynamic finish tinting
 export function drawProceduralEyewear(
   ctx: CanvasRenderingContext2D,
   shape: FrameShape,
@@ -113,6 +111,7 @@ export function drawProceduralEyewear(
     roll?: number | undefined;
     yaw?: number | undefined;
     frameColor?: string | undefined;
+    frameColorName?: string | undefined;
     tintMode?: LensTint | undefined;
     drawTemples?: boolean | undefined;
     imageElement?: HTMLImageElement | null | undefined;
@@ -128,6 +127,7 @@ export function drawProceduralEyewear(
     roll = 0,
     yaw = 0,
     frameColor = "#d4af37",
+    frameColorName = "24K Royal Gold",
     tintMode = "clear",
     drawTemples = true,
     imageElement = null,
@@ -155,8 +155,8 @@ export function drawProceduralEyewear(
     if (drawTemples) {
       // Hinge positions on front cutout (upper outer corner of frame)
       const hingeY = -imgH * 0.16;
-      const leftHingeX = -width * 0.475;
-      const rightHingeX = width * 0.475;
+      const leftHingeX = -width * 0.472;
+      const rightHingeX = width * 0.472;
 
       // Transform world/screen ear coordinates into local frame space
       const transformToLocal = (pt: { x: number; y: number } | undefined, defaultLocalX: number) => {
@@ -172,19 +172,18 @@ export function drawProceduralEyewear(
         return { x: localX, y: localY };
       };
 
-      // In real eyewear, from direct front view (yaw ~ 0), temples recede straight back into the screen (z-axis)
-      // and are naturally hidden behind the front frame rims.
-      // They are NEVER drawn inside the lenses!
-      // As head rotates (yaw), the temple arm on the turning side comes into view with realistic perspective.
-      // yaw > 0.08: user turned right (facing screen right in mirror), exposing RIGHT temple arm (screen right, x > 0).
-      // yaw < -0.08: user turned left (facing screen left in mirror), exposing LEFT temple arm (screen left, x < 0).
-      const rightVisibility = Math.max(0, Math.min(1, (yaw - 0.08) / 0.14));
-      const leftVisibility = Math.max(0, Math.min(1, (-yaw - 0.08) / 0.14));
+      // In real eyewear (as shown in reference images 2, 3, 4):
+      // Both temple arms extend backwards from the frame hinges towards the ears.
+      // In front view (Image 3), both are visible extending back past the hinges along the sides of the head.
+      // When turning head (Image 2 & 4):
+      // The near temple arm extends all the way across the side of the head to the ear.
+      // The far temple arm naturally foreshortens.
+      const leftVisibility = yaw > 0.32 ? Math.max(0.2, 1 - (yaw - 0.32) / 0.25) : 1.0;
+      const rightVisibility = yaw < -0.32 ? Math.max(0.2, 1 - (-yaw - 0.32) / 0.25) : 1.0;
 
-      // Dynamic reach expands naturally as head turns towards profile view (matching reference image)
-      const dynamicReach = width * (0.20 + Math.min(0.40, absYaw * 0.5));
-      const leftEarLocal = transformToLocal(earLeft, leftHingeX - dynamicReach);
-      const rightEarLocal = transformToLocal(earRight, rightHingeX + dynamicReach);
+      // Natural reach to the ears:
+      const leftEarLocal = transformToLocal(earLeft, leftHingeX - width * (0.24 + Math.max(0, -yaw) * 0.45));
+      const rightEarLocal = transformToLocal(earRight, rightHingeX + width * (0.24 + Math.max(0, yaw) * 0.45));
 
       // Frame styling attributes
       const isAcetateOrBold =
@@ -194,42 +193,42 @@ export function drawProceduralEyewear(
         shape === "cateye";
 
       const templeStemWidth = isAcetateOrBold
-        ? Math.max(3.8, width * 0.024)
-        : Math.max(2.4, width * 0.013);
+        ? Math.max(4.2, width * 0.026)
+        : Math.max(2.6, width * 0.014);
       const templeHingeWidth = isAcetateOrBold
-        ? Math.max(4.8, width * 0.030)
-        : Math.max(3.0, width * 0.016);
+        ? Math.max(5.2, width * 0.032)
+        : Math.max(3.2, width * 0.017);
 
       ctx.save();
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
 
       // -------------------------------------------------------------
-      // Left Temple Arm ("Dandi") -> goes from left hinge OUTWARD to left ear
+      // Left Temple Arm ("Left Dandi") -> goes from left hinge to left ear
       // -------------------------------------------------------------
       if (leftVisibility > 0) {
         ctx.globalAlpha = leftVisibility;
 
-        // STRICT GUARANTEE: targetX is strictly to the LEFT of the hinge (outward towards the ear, NEVER inside the lens)
-        const targetX = Math.min(leftHingeX - width * 0.06, leftEarLocal.x);
-        const targetY = Math.max(hingeY - width * 0.04, Math.min(hingeY + width * 0.05, leftEarLocal.y));
-        const midX = leftHingeX + (targetX - leftHingeX) * 0.5;
-        const midY = hingeY + (targetY - hingeY) * 0.45;
+        // targetX extends out towards ear (strictly outside leftHingeX, never inside lens)
+        const targetX = Math.min(leftHingeX - width * 0.16, leftEarLocal.x);
+        const targetY = Math.max(hingeY - width * 0.05, Math.min(hingeY + width * 0.06, leftEarLocal.y));
+        const midX = leftHingeX + (targetX - leftHingeX) * 0.45;
+        const midY = Math.min(hingeY, targetY) - 1.5;
 
         // Ear curve tip (curves downward behind ear as in reference image)
-        const tipX = targetX - width * 0.028;
-        const tipY = targetY + width * 0.065;
+        const tipX = targetX - width * 0.03;
+        const tipY = targetY + width * 0.07;
 
         // 1. Soft skin/hair drop shadow behind temple arm
         ctx.beginPath();
         ctx.moveTo(leftHingeX, hingeY + 2.5);
         ctx.quadraticCurveTo(midX, midY + 2.5, targetX, targetY + 2.5);
         ctx.quadraticCurveTo(targetX - 2, targetY + width * 0.035 + 2.5, tipX, tipY + 2.5);
-        ctx.strokeStyle = "rgba(0, 0, 0, 0.28)";
-        ctx.lineWidth = templeStemWidth + 1.6;
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.32)";
+        ctx.lineWidth = templeStemWidth + 2.0;
         ctx.stroke();
 
-        // 2. Main temple arm stem (from frame hinge straight to top of ear)
+        // 2. Main temple arm stem (from frame hinge straight across to ear)
         ctx.beginPath();
         ctx.moveTo(leftHingeX, hingeY);
         ctx.quadraticCurveTo(midX, midY, targetX, targetY);
@@ -242,50 +241,50 @@ export function drawProceduralEyewear(
         ctx.moveTo(targetX, targetY);
         ctx.quadraticCurveTo(targetX - 2, targetY + width * 0.035, tipX, tipY);
         ctx.strokeStyle = frameColor;
-        ctx.lineWidth = Math.max(2.0, templeStemWidth * 0.85);
+        ctx.lineWidth = Math.max(2.2, templeStemWidth * 0.85);
         ctx.stroke();
 
         // 4. Specular highlight line along upper edge
         ctx.beginPath();
         ctx.moveTo(leftHingeX, hingeY - 1.0);
         ctx.quadraticCurveTo(midX, midY - 1.0, targetX, targetY - 1.0);
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.50)";
-        ctx.lineWidth = Math.max(0.8, width * 0.005);
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.55)";
+        ctx.lineWidth = Math.max(0.9, width * 0.005);
         ctx.stroke();
 
-        // 5. Designer metallic hinge bracket / accent rivet (matching reference image)
+        // 5. Designer metallic hinge bracket / horizontal rivet pin (matching reference image)
         ctx.fillStyle = frameColor;
-        ctx.fillRect(leftHingeX - 3.5, hingeY - templeHingeWidth / 2, 4.5, templeHingeWidth);
-        ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
-        ctx.fillRect(leftHingeX - 2.5, hingeY - 1.0, 3.0, 2.0);
+        ctx.fillRect(leftHingeX - 4.0, hingeY - templeHingeWidth / 2, 5.0, templeHingeWidth);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+        ctx.fillRect(leftHingeX - 3.0, hingeY - 1.0, 4.0, 2.0);
       }
 
       // -------------------------------------------------------------
-      // Right Temple Arm ("Dandi") -> goes from right hinge OUTWARD to right ear
+      // Right Temple Arm ("Right Dandi") -> goes from right hinge to right ear
       // -------------------------------------------------------------
       if (rightVisibility > 0) {
         ctx.globalAlpha = rightVisibility;
 
-        // STRICT GUARANTEE: targetX is strictly to the RIGHT of the hinge (outward towards the ear, NEVER inside the lens)
-        const targetX = Math.max(rightHingeX + width * 0.06, rightEarLocal.x);
-        const targetY = Math.max(hingeY - width * 0.04, Math.min(hingeY + width * 0.05, rightEarLocal.y));
-        const midX = rightHingeX + (targetX - rightHingeX) * 0.5;
-        const midY = hingeY + (targetY - hingeY) * 0.45;
+        // targetX extends out towards ear (strictly outside rightHingeX, never inside lens)
+        const targetX = Math.max(rightHingeX + width * 0.16, rightEarLocal.x);
+        const targetY = Math.max(hingeY - width * 0.05, Math.min(hingeY + width * 0.06, rightEarLocal.y));
+        const midX = rightHingeX + (targetX - rightHingeX) * 0.45;
+        const midY = Math.min(hingeY, targetY) - 1.5;
 
         // Ear curve tip (curves downward behind ear as in reference image)
-        const tipX = targetX + width * 0.028;
-        const tipY = targetY + width * 0.065;
+        const tipX = targetX + width * 0.03;
+        const tipY = targetY + width * 0.07;
 
         // 1. Soft skin/hair drop shadow behind temple arm
         ctx.beginPath();
         ctx.moveTo(rightHingeX, hingeY + 2.5);
         ctx.quadraticCurveTo(midX, midY + 2.5, targetX, targetY + 2.5);
         ctx.quadraticCurveTo(targetX + 2, targetY + width * 0.035 + 2.5, tipX, tipY + 2.5);
-        ctx.strokeStyle = "rgba(0, 0, 0, 0.28)";
-        ctx.lineWidth = templeStemWidth + 1.6;
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.32)";
+        ctx.lineWidth = templeStemWidth + 2.0;
         ctx.stroke();
 
-        // 2. Main temple arm stem (from frame hinge straight to top of ear)
+        // 2. Main temple arm stem (from frame hinge straight across to ear)
         ctx.beginPath();
         ctx.moveTo(rightHingeX, hingeY);
         ctx.quadraticCurveTo(midX, midY, targetX, targetY);
@@ -298,68 +297,109 @@ export function drawProceduralEyewear(
         ctx.moveTo(targetX, targetY);
         ctx.quadraticCurveTo(targetX + 2, targetY + width * 0.035, tipX, tipY);
         ctx.strokeStyle = frameColor;
-        ctx.lineWidth = Math.max(2.0, templeStemWidth * 0.85);
+        ctx.lineWidth = Math.max(2.2, templeStemWidth * 0.85);
         ctx.stroke();
 
         // 4. Specular highlight line along upper edge
         ctx.beginPath();
         ctx.moveTo(rightHingeX, hingeY - 1.0);
         ctx.quadraticCurveTo(midX, midY - 1.0, targetX, targetY - 1.0);
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.50)";
-        ctx.lineWidth = Math.max(0.8, width * 0.005);
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.55)";
+        ctx.lineWidth = Math.max(0.9, width * 0.005);
         ctx.stroke();
 
-        // 5. Designer metallic hinge bracket / accent rivet (matching reference image)
+        // 5. Designer metallic hinge bracket / horizontal rivet pin (matching reference image)
         ctx.fillStyle = frameColor;
-        ctx.fillRect(rightHingeX - 1.0, hingeY - templeHingeWidth / 2, 4.5, templeHingeWidth);
-        ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
-        ctx.fillRect(rightHingeX - 0.5, hingeY - 1.0, 3.0, 2.0);
+        ctx.fillRect(rightHingeX - 1.0, hingeY - templeHingeWidth / 2, 5.0, templeHingeWidth);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+        ctx.fillRect(rightHingeX - 1.0, hingeY - 1.0, 4.0, 2.0);
       }
 
       ctx.restore();
     }
 
-    // Use offscreen canvas to isolate glasses pixels so tint only affects the frame, not the video
-    const needsTint = tintMode === "bluelight" || tintMode === "sunset";
+    // Colorize the frame and apply lens tint on isolated offscreen canvas
+    const offW = Math.ceil(width);
+    const offH = Math.ceil(imgH);
+    const offscreen = document.createElement("canvas");
+    offscreen.width = offW;
+    offscreen.height = offH;
+    const offCtx = offscreen.getContext("2d")!;
 
-    if (needsTint) {
-      const offW = Math.ceil(width);
-      const offH = Math.ceil(imgH);
-      const offscreen = document.createElement("canvas");
-      offscreen.width = offW;
-      offscreen.height = offH;
-      const offCtx = offscreen.getContext("2d")!;
+    // 1. Draw original photographic frame cutout
+    offCtx.drawImage(imageElement, 0, 0, offW, offH);
 
-      offCtx.drawImage(imageElement, 0, 0, offW, offH);
+    // 2. Dynamic Frame Finish Color Tinting:
+    const lowerName = (frameColorName || "").toLowerCase();
+    const lowerHex = (frameColor || "").toLowerCase();
 
-      // Apply tint ONLY on glasses pixels using source-atop
-      offCtx.globalCompositeOperation = "source-atop";
-      if (tintMode === "bluelight") {
-        offCtx.fillStyle = "rgba(100, 180, 255, 0.18)";
-      } else {
-        offCtx.fillStyle = "rgba(245, 158, 11, 0.22)";
-      }
+    const isBlack = lowerName.includes("black") || lowerHex.includes("1c") || lowerHex === "#000000";
+    const isSilver = lowerName.includes("silver") || lowerHex.includes("cbd") || lowerHex === "#ffffff";
+    const isTortoise = lowerName.includes("tortoise") || lowerHex.includes("6f3d");
+    const isGold = lowerName.includes("gold") || lowerHex.includes("d4af");
+
+    if (isBlack) {
+      offCtx.globalCompositeOperation = "color";
+      offCtx.fillStyle = "#666666";
       offCtx.fillRect(0, 0, offW, offH);
-
-      // Draw the tinted result onto main canvas
-      ctx.save();
-      if (mirrored) ctx.scale(-1, 1);
-      ctx.shadowColor = "rgba(0, 0, 0, 0.22)";
-      ctx.shadowBlur = 8;
-      ctx.shadowOffsetY = 3;
-      ctx.shadowOffsetX = yaw * 2;
-      ctx.drawImage(offscreen, -width / 2, -imgH * 0.48, width, imgH);
-      ctx.restore();
-    } else {
-      ctx.save();
-      if (mirrored) ctx.scale(-1, 1);
-      ctx.shadowColor = "rgba(0, 0, 0, 0.22)";
-      ctx.shadowBlur = 8;
-      ctx.shadowOffsetY = 3;
-      ctx.shadowOffsetX = yaw * 2;
-      ctx.drawImage(imageElement, -width / 2, -imgH * 0.48, width, imgH);
-      ctx.restore();
+      offCtx.globalCompositeOperation = "multiply";
+      offCtx.fillStyle = "rgba(24, 25, 28, 0.90)";
+      offCtx.fillRect(0, 0, offW, offH);
+    } else if (isSilver) {
+      offCtx.globalCompositeOperation = "color";
+      offCtx.fillStyle = "#cbd5e1";
+      offCtx.fillRect(0, 0, offW, offH);
+      offCtx.globalCompositeOperation = "screen";
+      offCtx.fillStyle = "rgba(255, 255, 255, 0.28)";
+      offCtx.fillRect(0, 0, offW, offH);
+    } else if (isTortoise) {
+      offCtx.globalCompositeOperation = "color";
+      offCtx.fillStyle = "#92400e";
+      offCtx.fillRect(0, 0, offW, offH);
+      offCtx.globalCompositeOperation = "color-burn";
+      offCtx.fillStyle = "rgba(120, 53, 15, 0.40)";
+      offCtx.fillRect(0, 0, offW, offH);
+    } else if (isGold) {
+      offCtx.globalCompositeOperation = "color";
+      offCtx.fillStyle = "#f59e0b";
+      offCtx.fillRect(0, 0, offW, offH);
+      offCtx.globalCompositeOperation = "color-burn";
+      offCtx.fillStyle = "rgba(217, 119, 6, 0.35)";
+      offCtx.fillRect(0, 0, offW, offH);
+    } else if (frameColor) {
+      offCtx.globalCompositeOperation = "color";
+      offCtx.fillStyle = frameColor;
+      offCtx.fillRect(0, 0, offW, offH);
     }
+
+    // 3. Re-mask with destination-in so transparent lenses and outer edges stay 100% clean
+    offCtx.globalCompositeOperation = "destination-in";
+    offCtx.drawImage(imageElement, 0, 0, offW, offH);
+
+    // 4. Lens optical coating tint
+    if (tintMode === "bluelight") {
+      offCtx.globalCompositeOperation = "source-atop";
+      offCtx.fillStyle = "rgba(100, 180, 255, 0.20)";
+      offCtx.fillRect(0, 0, offW, offH);
+    } else if (tintMode === "sunset") {
+      offCtx.globalCompositeOperation = "source-atop";
+      offCtx.fillStyle = "rgba(245, 158, 11, 0.24)";
+      offCtx.fillRect(0, 0, offW, offH);
+    } else if (tintMode === "dark") {
+      offCtx.globalCompositeOperation = "source-atop";
+      offCtx.fillStyle = "rgba(20, 35, 25, 0.55)";
+      offCtx.fillRect(0, 0, offW, offH);
+    }
+
+    // Draw final tinted frame onto main canvas with 3D drop shadow
+    ctx.save();
+    if (mirrored) ctx.scale(-1, 1);
+    ctx.shadowColor = "rgba(0, 0, 0, 0.25)";
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetY = 3;
+    ctx.shadowOffsetX = yaw * 2;
+    ctx.drawImage(offscreen, -width / 2, -imgH * 0.48, width, imgH);
+    ctx.restore();
 
     ctx.restore();
     return;
@@ -528,6 +568,7 @@ export function VirtualTryOnModal({
 
   const selectedProductRef = useRef(selectedProduct);
   const frameColorRef = useRef(frameColor);
+  const frameColorNameRef = useRef(frameColorName);
   const lensTintRef = useRef(lensTint);
   const scaleMultiplierRef = useRef(scaleMultiplier);
   const offsetYRef = useRef(offsetY);
@@ -541,6 +582,7 @@ export function VirtualTryOnModal({
   // Synchronize refs on every render
   selectedProductRef.current = selectedProduct;
   frameColorRef.current = frameColor;
+  frameColorNameRef.current = frameColorName;
   lensTintRef.current = lensTint;
   scaleMultiplierRef.current = scaleMultiplier;
   offsetYRef.current = offsetY;
@@ -636,6 +678,7 @@ export function VirtualTryOnModal({
         roll: bridgeCenter.roll,
         yaw: bridgeCenter.yaw,
         frameColor: frameColorRef.current,
+        frameColorName: frameColorNameRef.current,
         tintMode: lensTintRef.current,
         imageElement: activeImageRef.current,
         mirrored: false,
@@ -793,6 +836,13 @@ export function VirtualTryOnModal({
     onOpenChange(false);
   };
 
+  const handleSelectColor = (hex: string, name: string) => {
+    setFrameColor(hex);
+    setFrameColorName(name);
+    frameColorRef.current = hex;
+    frameColorNameRef.current = name;
+  };
+
   if (!open) return null;
 
   return (
@@ -881,23 +931,79 @@ export function VirtualTryOnModal({
               </div>
             )}
 
+            {/* Floating Available Colors Swatch Bar (Matching Reference Image 4) */}
+            <div className="absolute top-3 left-3 z-20 flex flex-col gap-1.5 bg-black/60 backdrop-blur-md p-2 rounded-2xl border border-white/10 shadow-lg">
+              <span className="text-[9.5px] font-semibold text-stone-300 uppercase tracking-wider px-1">
+                Colors
+              </span>
+              <div className="flex flex-col gap-1.5">
+                <button
+                  type="button"
+                  title="24K Royal Gold"
+                  onClick={() => handleSelectColor("#d4af37", "24K Royal Gold")}
+                  className={cn(
+                    "w-6 h-6 rounded-full border transition-all flex items-center justify-center cursor-pointer shadow-xs",
+                    frameColorName === "24K Royal Gold" ? "border-white ring-2 ring-amber-400 scale-110" : "border-white/20 opacity-80 hover:opacity-100"
+                  )}
+                  style={{ backgroundColor: "#d4af37" }}
+                >
+                  {frameColorName === "24K Royal Gold" && <Check className="h-3 w-3 text-black stroke-[3]" />}
+                </button>
+
+                <button
+                  type="button"
+                  title="Italian Tortoise"
+                  onClick={() => handleSelectColor("#6f3d1e", "Italian Tortoise")}
+                  className={cn(
+                    "w-6 h-6 rounded-full border transition-all flex items-center justify-center cursor-pointer shadow-xs",
+                    frameColorName === "Italian Tortoise" ? "border-white ring-2 ring-amber-400 scale-110" : "border-white/20 opacity-80 hover:opacity-100"
+                  )}
+                  style={{ backgroundColor: "#6f3d1e" }}
+                >
+                  {frameColorName === "Italian Tortoise" && <Check className="h-3 w-3 text-white stroke-[3]" />}
+                </button>
+
+                <button
+                  type="button"
+                  title="Matte Black Titanium"
+                  onClick={() => handleSelectColor("#1c1d21", "Matte Black Titanium")}
+                  className={cn(
+                    "w-6 h-6 rounded-full border transition-all flex items-center justify-center cursor-pointer shadow-xs",
+                    frameColorName === "Matte Black Titanium" ? "border-white ring-2 ring-amber-400 scale-110" : "border-white/20 opacity-80 hover:opacity-100"
+                  )}
+                  style={{ backgroundColor: "#1c1d21" }}
+                >
+                  {frameColorName === "Matte Black Titanium" && <Check className="h-3 w-3 text-white stroke-[3]" />}
+                </button>
+
+                <button
+                  type="button"
+                  title="Platinum Silver"
+                  onClick={() => handleSelectColor("#cbd5e1", "Platinum Silver")}
+                  className={cn(
+                    "w-6 h-6 rounded-full border transition-all flex items-center justify-center cursor-pointer shadow-xs",
+                    frameColorName === "Platinum Silver" ? "border-white ring-2 ring-amber-400 scale-110" : "border-white/20 opacity-80 hover:opacity-100"
+                  )}
+                  style={{ backgroundColor: "#cbd5e1" }}
+                >
+                  {frameColorName === "Platinum Silver" && <Check className="h-3 w-3 text-black stroke-[3]" />}
+                </button>
+              </div>
+            </div>
+
             {/* Telemetry HUD Pill (Frosted Luxury Theme) */}
-            <div className="absolute top-3 left-3 z-20 hidden sm:flex flex-col gap-1 bg-black/60 backdrop-blur-md px-3.5 py-2.5 rounded-xl border border-white/10 text-[11px] font-mono text-stone-200 shadow-sm">
+            <div className="absolute top-3 right-3 z-20 hidden sm:flex flex-col gap-1 bg-black/60 backdrop-blur-md px-3.5 py-2.5 rounded-xl border border-white/10 text-[11px] font-mono text-stone-200 shadow-sm text-right">
               <div className="flex items-center justify-between gap-4">
                 <span className="text-stone-400">FRAME:</span>
                 <span className="text-white font-bold truncate max-w-[130px]">{selectedProduct.name}</span>
               </div>
               <div className="flex items-center justify-between gap-4">
-                <span className="text-stone-400">SHAPE:</span>
-                <span className="text-amber-300 uppercase font-medium">{mapProductToShape(selectedProduct)}</span>
+                <span className="text-stone-400">FINISH:</span>
+                <span className="text-amber-300 font-semibold">{frameColorName}</span>
               </div>
               <div className="flex items-center justify-between gap-4">
                 <span className="text-stone-400">EST. PD:</span>
                 <span className="text-white font-semibold">{telemetry.pd}</span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-stone-400">HEAD TILT:</span>
-                <span className="text-white font-semibold">{telemetry.tilt}</span>
               </div>
             </div>
 
@@ -958,71 +1064,59 @@ export function VirtualTryOnModal({
             {/* 1. Frame Finish Swatches */}
             <div>
               <label className="text-xs font-semibold uppercase tracking-wider text-stone-500 block mb-2">
-                1. Frame Finish: <span className="text-stone-900 font-medium">{frameColorName}</span>
+                1. Frame Finish: <span className="text-stone-900 font-bold">{frameColorName}</span>
               </label>
               <div className="flex items-center gap-2.5">
                 <button
                   type="button"
                   title="24K Royal Gold"
-                  onClick={() => {
-                    setFrameColor("#d4af37");
-                    setFrameColorName("24K Royal Gold");
-                  }}
+                  onClick={() => handleSelectColor("#d4af37", "24K Royal Gold")}
                   className={cn(
-                    "w-8 h-8 rounded-full border-2 transition-all flex items-center justify-center cursor-pointer shadow-xs",
-                    frameColor === "#d4af37" ? "border-stone-900 ring-2 ring-amber-400" : "border-stone-200"
+                    "w-9 h-9 rounded-full border-2 transition-all flex items-center justify-center cursor-pointer shadow-xs",
+                    frameColorName === "24K Royal Gold" ? "border-stone-900 ring-2 ring-amber-400 scale-105" : "border-stone-200 hover:border-stone-400"
                   )}
                   style={{ backgroundColor: "#d4af37" }}
                 >
-                  {frameColor === "#d4af37" && <Check className="h-3.5 w-3.5 text-black stroke-[3]" />}
+                  {frameColorName === "24K Royal Gold" && <Check className="h-4 w-4 text-black stroke-[3]" />}
                 </button>
 
                 <button
                   type="button"
                   title="Italian Tortoise"
-                  onClick={() => {
-                    setFrameColor("#6f3d1e");
-                    setFrameColorName("Italian Tortoise");
-                  }}
+                  onClick={() => handleSelectColor("#6f3d1e", "Italian Tortoise")}
                   className={cn(
-                    "w-8 h-8 rounded-full border-2 transition-all flex items-center justify-center cursor-pointer shadow-xs",
-                    frameColor === "#6f3d1e" ? "border-stone-900 ring-2 ring-amber-400" : "border-stone-200"
+                    "w-9 h-9 rounded-full border-2 transition-all flex items-center justify-center cursor-pointer shadow-xs",
+                    frameColorName === "Italian Tortoise" ? "border-stone-900 ring-2 ring-amber-400 scale-105" : "border-stone-200 hover:border-stone-400"
                   )}
                   style={{ backgroundColor: "#6f3d1e" }}
                 >
-                  {frameColor === "#6f3d1e" && <Check className="h-3.5 w-3.5 text-white stroke-[3]" />}
+                  {frameColorName === "Italian Tortoise" && <Check className="h-4 w-4 text-white stroke-[3]" />}
                 </button>
 
                 <button
                   type="button"
                   title="Matte Black Titanium"
-                  onClick={() => {
-                    setFrameColor("#1c1d21");
-                    setFrameColorName("Matte Black Titanium");
-                  }}
+                  onClick={() => handleSelectColor("#1c1d21", "Matte Black Titanium")}
                   className={cn(
-                    "w-8 h-8 rounded-full border-2 transition-all flex items-center justify-center cursor-pointer shadow-xs",
-                    frameColor === "#1c1d21" ? "border-stone-900 ring-2 ring-amber-400" : "border-stone-200"
+                    "w-9 h-9 rounded-full border-2 transition-all flex items-center justify-center cursor-pointer shadow-xs",
+                    frameColorName === "Matte Black Titanium" ? "border-stone-900 ring-2 ring-amber-400 scale-105" : "border-stone-200 hover:border-stone-400"
                   )}
                   style={{ backgroundColor: "#1c1d21" }}
                 >
-                  {frameColor === "#1c1d21" && <Check className="h-3.5 w-3.5 text-white stroke-[3]" />}
+                  {frameColorName === "Matte Black Titanium" && <Check className="h-4 w-4 text-white stroke-[3]" />}
                 </button>
 
                 <button
                   type="button"
                   title="Platinum Silver"
-                  onClick={() => {
-                    setFrameColor("#cbd5e1");
-                    setFrameColorName("Platinum Silver");
-                  }}
+                  onClick={() => handleSelectColor("#cbd5e1", "Platinum Silver")}
                   className={cn(
-                    "w-8 h-8 rounded-full border-2 transition-all flex items-center justify-center cursor-pointer shadow-xs",
-                    frameColor === "#cbd5e1" ? "border-stone-900 ring-2 ring-amber-400" : "border-stone-200"
+                    "w-9 h-9 rounded-full border-2 transition-all flex items-center justify-center cursor-pointer shadow-xs",
+                    frameColorName === "Platinum Silver" ? "border-stone-900 ring-2 ring-amber-400 scale-105" : "border-stone-200 hover:border-stone-400"
                   )}
                   style={{ backgroundColor: "#cbd5e1" }}
                 >
-                  {frameColor === "#cbd5e1" && <Check className="h-3.5 w-3.5 text-black stroke-[3]" />}
+                  {frameColorName === "Platinum Silver" && <Check className="h-4 w-4 text-black stroke-[3]" />}
                 </button>
               </div>
             </div>
