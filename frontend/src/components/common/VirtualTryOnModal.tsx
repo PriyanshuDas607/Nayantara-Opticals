@@ -7,10 +7,6 @@ import {
   Sliders,
   Check,
   Download,
-  Info,
-  Maximize2,
-  Sun,
-  Eye,
   CheckCircle,
   Calendar,
 } from "lucide-react";
@@ -20,7 +16,7 @@ import { inr } from "@/lib/site";
 import { useShop } from "@/store/shop";
 import { cn } from "@/lib/utils";
 
-// Real High-Definition Front-Facing Cutout Assets
+// Real High-Definition Front-Facing Cutout Assets (100% clean, no inner temple artifacts)
 import meridianGoldCutout from "@/assets/tryon/meridian-gold-front.png";
 import aureliaRoundCutout from "@/assets/tryon/aurelia-round-front.png";
 import graphiteSquarelineCutout from "@/assets/tryon/graphite-squareline-front.png";
@@ -106,7 +102,7 @@ export function getDefaultColorForProduct(product: Product): { hex: string; name
   return { hex: "#d4af37", name: colName };
 }
 
-// Draw Eyewear on Canvas (uses Real Photographic Cutouts for photorealism)
+// Draw Eyewear on Canvas with 100% physically accurate temple arms
 export function drawProceduralEyewear(
   ctx: CanvasRenderingContext2D,
   shape: FrameShape,
@@ -159,8 +155,8 @@ export function drawProceduralEyewear(
     if (drawTemples) {
       // Hinge positions on front cutout (upper outer corner of frame)
       const hingeY = -imgH * 0.16;
-      const leftHingeX = -width * 0.472;
-      const rightHingeX = width * 0.472;
+      const leftHingeX = -width * 0.475;
+      const rightHingeX = width * 0.475;
 
       // Transform world/screen ear coordinates into local frame space
       const transformToLocal = (pt: { x: number; y: number } | undefined, defaultLocalX: number) => {
@@ -178,14 +174,15 @@ export function drawProceduralEyewear(
 
       // In real eyewear, from direct front view (yaw ~ 0), temples recede straight back into the screen (z-axis)
       // and are naturally hidden behind the front frame rims.
+      // They are NEVER drawn inside the lenses!
       // As head rotates (yaw), the temple arm on the turning side comes into view with realistic perspective.
-      // yaw > 0: user turned right (facing screen right in mirror), exposing RIGHT temple arm (screen right, x > 0).
-      // yaw < 0: user turned left (facing screen left in mirror), exposing LEFT temple arm (screen left, x < 0).
-      const rightVisibility = Math.max(0, Math.min(1, (yaw - 0.035) / 0.12));
-      const leftVisibility = Math.max(0, Math.min(1, (-yaw - 0.035) / 0.12));
+      // yaw > 0.08: user turned right (facing screen right in mirror), exposing RIGHT temple arm (screen right, x > 0).
+      // yaw < -0.08: user turned left (facing screen left in mirror), exposing LEFT temple arm (screen left, x < 0).
+      const rightVisibility = Math.max(0, Math.min(1, (yaw - 0.08) / 0.14));
+      const leftVisibility = Math.max(0, Math.min(1, (-yaw - 0.08) / 0.14));
 
-      // Temple reach dynamically expands as head turns towards profile view (as seen in reference image)
-      const dynamicReach = width * (0.18 + Math.min(0.42, absYaw * 0.55));
+      // Dynamic reach expands naturally as head turns towards profile view (matching reference image)
+      const dynamicReach = width * (0.20 + Math.min(0.40, absYaw * 0.5));
       const leftEarLocal = transformToLocal(earLeft, leftHingeX - dynamicReach);
       const rightEarLocal = transformToLocal(earRight, rightHingeX + dynamicReach);
 
@@ -207,7 +204,9 @@ export function drawProceduralEyewear(
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
 
+      // -------------------------------------------------------------
       // Left Temple Arm ("Dandi") -> goes from left hinge OUTWARD to left ear
+      // -------------------------------------------------------------
       if (leftVisibility > 0) {
         ctx.globalAlpha = leftVisibility;
 
@@ -261,7 +260,9 @@ export function drawProceduralEyewear(
         ctx.fillRect(leftHingeX - 2.5, hingeY - 1.0, 3.0, 2.0);
       }
 
+      // -------------------------------------------------------------
       // Right Temple Arm ("Dandi") -> goes from right hinge OUTWARD to right ear
+      // -------------------------------------------------------------
       if (rightVisibility > 0) {
         ctx.globalAlpha = rightVisibility;
 
@@ -322,7 +323,6 @@ export function drawProceduralEyewear(
     const needsTint = tintMode === "bluelight" || tintMode === "sunset";
 
     if (needsTint) {
-      // Render glasses + tint on an isolated offscreen canvas
       const offW = Math.ceil(width);
       const offH = Math.ceil(imgH);
       const offscreen = document.createElement("canvas");
@@ -330,7 +330,6 @@ export function drawProceduralEyewear(
       offscreen.height = offH;
       const offCtx = offscreen.getContext("2d")!;
 
-      // Draw glasses image on offscreen canvas (centered)
       offCtx.drawImage(imageElement, 0, 0, offW, offH);
 
       // Apply tint ONLY on glasses pixels using source-atop
@@ -352,7 +351,6 @@ export function drawProceduralEyewear(
       ctx.drawImage(offscreen, -width / 2, -imgH * 0.48, width, imgH);
       ctx.restore();
     } else {
-      // No tint — draw glasses directly with shadow
       ctx.save();
       if (mirrored) ctx.scale(-1, 1);
       ctx.shadowColor = "rgba(0, 0, 0, 0.22)";
@@ -367,7 +365,7 @@ export function drawProceduralEyewear(
     return;
   }
 
-  // Fallback vector outline if image still loading
+  // Fallback vector outline if image still loading (clean ellipses, no interior sticks)
   const lensW =
     shape === "rectangle" ? width * 0.43 :
     shape === "aviator" ? width * 0.42 :
@@ -386,7 +384,7 @@ export function drawProceduralEyewear(
   const leftCenterX = -(bridgeW / 2 + lensW / 2);
   const rightCenterX = bridgeW / 2 + lensW / 2;
 
-  // Lenses with specular glare
+  // Lenses with subtle specular glare
   [ { cx: leftCenterX, isRight: false }, { cx: rightCenterX, isRight: true } ].forEach((lens) => {
     ctx.save();
     ctx.beginPath();
@@ -452,31 +450,17 @@ export function VirtualTryOnModal({
 }: VirtualTryOnModalProps) {
   const { addToCart } = useShop();
 
-  // Filter only wearable eyewear (eyeglasses and sunglasses) from the shop catalog
-  const availableFrames = useMemo(() => {
-    return allProducts.filter(
-      (p) => p.category === "eyeglasses" || p.category === "sunglasses"
-    );
-  }, [allProducts]);
-
-  // Active Category Filter inside AR Studio
-  const [categoryFilter, setCategoryFilter] = useState<"all" | "eyeglasses" | "sunglasses">("all");
-
-  const filteredFrames = useMemo(() => {
-    if (categoryFilter === "all") return availableFrames;
-    return availableFrames.filter((f) => f.category === categoryFilter);
-  }, [availableFrames, categoryFilter]);
-
-  // Selected frame
-  const [selectedProduct, setSelectedProduct] = useState<Product>(() => {
+  // Find the selected product
+  const selectedProduct = useMemo<Product>(() => {
     if (initialProductId) {
-      const match = availableFrames.find(
+      const match = allProducts.find(
         (p) => p.id === initialProductId || p.name.toLowerCase() === initialProductId.toLowerCase()
       );
       if (match) return match;
     }
-    return (availableFrames[0] ?? PRODUCTS[0])!;
-  });
+    const wearable = allProducts.find((p) => p.category === "eyeglasses" || p.category === "sunglasses");
+    return (wearable ?? allProducts[0] ?? PRODUCTS[0])!;
+  }, [initialProductId, allProducts]);
 
   // Preload and Cache Photographic Frame Cutouts
   const imageCacheRef = useRef<Record<string, HTMLImageElement>>({});
@@ -512,30 +496,22 @@ export function VirtualTryOnModal({
   }, [selectedProduct]);
 
   // Frame Customization State
-  const [frameColor, setFrameColor] = useState<string>("#d4af37");
-  const [frameColorName, setFrameColorName] = useState<string>("24K Royal Gold");
-  const [lensTint, setLensTint] = useState<LensTint>("clear");
+  const defaultCol = getDefaultColorForProduct(selectedProduct);
+  const [frameColor, setFrameColor] = useState<string>(defaultCol.hex);
+  const [frameColorName, setFrameColorName] = useState<string>(defaultCol.name);
+  const [lensTint, setLensTint] = useState<LensTint>(getDefaultTintForProduct(selectedProduct));
   const [scaleMultiplier, setScaleMultiplier] = useState<number>(1.0);
   const [offsetY, setOffsetY] = useState<number>(0);
-  const [flashMessage, setFlashMessage] = useState<string | null>(null);
 
-  // Sync selected frame & default styling
+  // Sync frame defaults on product switch
   useEffect(() => {
-    if (open && initialProductId) {
-      const match = availableFrames.find(
-        (p) => p.id === initialProductId || p.name.toLowerCase() === initialProductId.toLowerCase()
-      );
-      if (match) {
-        setSelectedProduct(match);
-        const col = getDefaultColorForProduct(match);
-        setFrameColor(col.hex);
-        setFrameColorName(col.name);
-        setLensTint(getDefaultTintForProduct(match));
-        setFlashMessage(`Loaded: ${match.name} (${match.style})`);
-        setTimeout(() => setFlashMessage(null), 2500);
-      }
-    }
-  }, [initialProductId, open, availableFrames]);
+    const col = getDefaultColorForProduct(selectedProduct);
+    setFrameColor(col.hex);
+    setFrameColorName(col.name);
+    setLensTint(getDefaultTintForProduct(selectedProduct));
+    setScaleMultiplier(1.0);
+    setOffsetY(0);
+  }, [selectedProduct]);
 
   // Camera & Tracking State
   const [cameraActive, setCameraActive] = useState(false);
@@ -549,7 +525,6 @@ export function VirtualTryOnModal({
   const streamRef = useRef<MediaStream | null>(null);
   const cameraInstanceRef = useRef<any>(null);
   const faceMeshInstanceRef = useRef<any>(null);
-  const animFrameRef = useRef<number | null>(null);
 
   const selectedProductRef = useRef(selectedProduct);
   const frameColorRef = useRef(frameColor);
@@ -557,11 +532,11 @@ export function VirtualTryOnModal({
   const scaleMultiplierRef = useRef(scaleMultiplier);
   const offsetYRef = useRef(offsetY);
 
-  // EMA smoothing state for jitter-free tracking (like competitors)
+  // EMA smoothing state for jitter-free tracking
   const smoothedRef = useRef<{
     x: number; y: number; roll: number; yaw: number; eyeDist: number;
   } | null>(null);
-  const EMA_ALPHA = 0.35; // Higher = more responsive, lower = smoother
+  const EMA_ALPHA = 0.35;
 
   // Synchronize refs on every render
   selectedProductRef.current = selectedProduct;
@@ -569,27 +544,6 @@ export function VirtualTryOnModal({
   lensTintRef.current = lensTint;
   scaleMultiplierRef.current = scaleMultiplier;
   offsetYRef.current = offsetY;
-
-  // Select frame handler
-  const handleSelectFrame = (product: Product) => {
-    setSelectedProduct(product);
-    const col = getDefaultColorForProduct(product);
-    setFrameColor(col.hex);
-    setFrameColorName(col.name);
-    setLensTint(getDefaultTintForProduct(product));
-
-    const url = getProductCutoutUrl(product);
-    let img = imageCacheRef.current[url];
-    if (!img) {
-      img = new Image();
-      img.src = url;
-      imageCacheRef.current[url] = img;
-    }
-    activeImageRef.current = img;
-
-    setFlashMessage(`Active: ${product.name} (${product.style})`);
-    setTimeout(() => setFlashMessage(null), 2500);
-  };
 
   // MediaPipe Results Processing
   const onMediaPipeResults = (results: any) => {
@@ -625,7 +579,7 @@ export function VirtualTryOnModal({
         return { x: (1 - pt.x) * w, y: pt.y * h, z: pt.z };
       };
 
-      // Get RAW (un-mirrored) landmark coordinates for roll/yaw computation
+      // Get RAW coordinates for roll angle
       const getRawPt = (idx: number) => {
         const pt = landmarks[idx];
         if (!pt) return { x: w / 2, y: h / 2, z: 0 };
@@ -638,24 +592,20 @@ export function VirtualTryOnModal({
       const eyeLeftScreen = getPt(263);   // anatomical left → screen left in mirror
       const eyeRightScreen = getPt(33);   // anatomical right → screen right in mirror
 
-      // Use RAW coordinates for roll angle — this avoids ALL mirror confusion
-      const raw33 = getRawPt(33);   // subject's right eye outer, camera-left
-      const raw263 = getRawPt(263); // subject's left eye outer, camera-right
+      const raw33 = getRawPt(33);
+      const raw263 = getRawPt(263);
       const rawDx = raw263.x - raw33.x;
       const rawDy = raw263.y - raw33.y;
       const outerEyeDist = Math.sqrt(rawDx * rawDx + rawDy * rawDy);
 
-      // Roll angle from raw coordinates
       let rollAngle = Math.atan2(rawDy, rawDx);
       rollAngle = -rollAngle;
       const MAX_ROLL = Math.PI / 4;
       rollAngle = Math.max(-MAX_ROLL, Math.min(MAX_ROLL, rollAngle));
 
-      // Yaw from nose-tip offset relative to eye center (in screen space)
       const eyeCenterMidX = (eyeLeftScreen.x + eyeRightScreen.x) / 2;
       const yawRatio = Math.max(-0.6, Math.min(0.6, (noseTipScreen.x - eyeCenterMidX) / (outerEyeDist * 0.4)));
 
-      // Raw tracking values
       const rawBridge = {
         x: noseBridgeScreen.x,
         y: noseBridgeScreen.y,
@@ -664,7 +614,6 @@ export function VirtualTryOnModal({
         eyeDist: outerEyeDist * 1.82,
       };
 
-      // Apply EMA smoothing for jitter-free, silky tracking
       const prev = smoothedRef.current;
       const a = EMA_ALPHA;
       const bridgeCenter = prev ? {
@@ -676,11 +625,10 @@ export function VirtualTryOnModal({
       } : rawBridge;
       smoothedRef.current = bridgeCenter;
 
-      // Draw Eyewear with Real Photographic Cutout & 3D Pose
       const currentProd = selectedProductRef.current;
       const activeShape = mapProductToShape(currentProd);
 
-      // Ears: Landmark 356 is left ear root (screen left in mirror), 127 is right ear root (screen right)
+      // Draw Eyewear with photographic cutout & 3D pose
       drawProceduralEyewear(ctx, activeShape, {
         x: bridgeCenter.x,
         y: bridgeCenter.y + offsetYRef.current + bridgeCenter.eyeDist * 0.02,
@@ -701,30 +649,6 @@ export function VirtualTryOnModal({
       const yawDeg = (bridgeCenter.yaw * (180 / Math.PI)).toFixed(1);
       setTelemetry({ pd: `${estPD} mm`, tilt: `${tiltDeg}°`, yaw: `${yawDeg}°` });
     }
-  };
-
-  // Fallback when landmarks aren't detected
-  const renderWebcamFallback = (video: HTMLVideoElement, canvas: HTMLCanvasElement) => {
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.save();
-    ctx.translate(canvas.width, 0);
-    ctx.scale(-1, 1);
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    ctx.restore();
-
-    const currentProd = selectedProductRef.current;
-    const activeShape = mapProductToShape(currentProd);
-    drawProceduralEyewear(ctx, activeShape, {
-      x: canvas.width / 2,
-      y: canvas.height * 0.45 + offsetYRef.current,
-      width: 260 * scaleMultiplierRef.current,
-      roll: 0,
-      yaw: 0,
-      frameColor: frameColorRef.current,
-      tintMode: lensTintRef.current,
-      imageElement: activeImageRef.current,
-    });
   };
 
   // AR Pipeline Initializer
@@ -787,16 +711,8 @@ export function VirtualTryOnModal({
         setCameraActive(true);
         setIsCameraLoading(false);
       } else {
-        // Fallback animation loop
         setCameraActive(true);
         setIsCameraLoading(false);
-        const fallbackLoop = () => {
-          if (videoRef.current && canvasRef.current) {
-            renderWebcamFallback(videoRef.current, canvasRef.current);
-          }
-          animFrameRef.current = requestAnimationFrame(fallbackLoop);
-        };
-        animFrameRef.current = requestAnimationFrame(fallbackLoop);
       }
     } catch (err: any) {
       setIsCameraLoading(false);
@@ -808,7 +724,7 @@ export function VirtualTryOnModal({
     }
   }, []);
 
-  // Lifecycle Management
+  // Lifecycle Management - Start Camera immediately when modal opens
   useEffect(() => {
     if (open) {
       startARPipeline();
@@ -817,19 +733,12 @@ export function VirtualTryOnModal({
         streamRef.current.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
       }
-      if (animFrameRef.current) {
-        cancelAnimationFrame(animFrameRef.current);
-        animFrameRef.current = null;
-      }
       setCameraActive(false);
     }
 
     return () => {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
-      }
-      if (animFrameRef.current) {
-        cancelAnimationFrame(animFrameRef.current);
       }
     };
   }, [open, startARPipeline]);
@@ -888,64 +797,61 @@ export function VirtualTryOnModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/60 backdrop-blur-md p-2 sm:p-4 overflow-y-auto animate-in fade-in duration-200">
-      <div className="relative w-full max-w-6xl bg-[#FCFAF7] rounded-2xl sm:rounded-3xl border border-stone-200 shadow-2xl overflow-hidden flex flex-col lg:flex-row min-h-[92vh] sm:min-h-[85vh] max-h-[96vh]">
+      <div className="relative w-full max-w-5xl bg-[#FCFAF7] rounded-2xl sm:rounded-3xl border border-stone-200 shadow-2xl overflow-hidden flex flex-col lg:flex-row h-[94vh] max-h-[850px]">
         
-        {/* Left / Center AR Studio Viewport */}
-        <div className="relative flex-1 bg-[#F5F2EB] flex flex-col justify-between overflow-hidden min-h-[460px] border-b lg:border-b-0 lg:border-r border-stone-200">
+        {/* Left: Dedicated Full-Height Camera AR Mirror */}
+        <div className="relative flex-1 bg-stone-900 flex flex-col justify-between overflow-hidden min-h-[420px] border-b lg:border-b-0 lg:border-r border-stone-200">
           
-          {/* Top Brand & Controls Header */}
-          <div className="relative z-20 flex flex-wrap items-center justify-between gap-2 p-3 sm:p-4 bg-[#FCFAF7]/95 backdrop-blur-md border-b border-stone-200">
+          {/* Top Brand Header */}
+          <div className="relative z-20 flex items-center justify-between gap-2 p-3 sm:p-4 bg-stone-900/75 backdrop-blur-md border-b border-white/10 text-white">
             <div className="flex items-center gap-2.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-display font-bold text-stone-900 text-xs sm:text-sm tracking-wide">
+                  <span className="font-display font-bold text-white text-xs sm:text-sm tracking-wide">
                     NAYANTARA LIVE AR MIRROR
                   </span>
-                  <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-300">
-                    {cameraActive ? "Live AR Mirror" : isCameraLoading ? "Starting Camera..." : "Webcam Required"}
+                  <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30">
+                    {cameraActive ? "Live AR Active" : isCameraLoading ? "Starting Camera..." : "Camera Mode"}
                   </span>
                 </div>
-                <p className="text-[10.5px] text-stone-500 hidden sm:block">
+                <p className="text-[10.5px] text-stone-300">
                   {cameraActive
-                    ? `Live Real-Frame Fitting: ${selectedProduct.name} (${selectedProduct.style})`
-                    : "Live optical fitting directly on your face"}
+                    ? `Live Fitting: ${selectedProduct.name} (${selectedProduct.style})`
+                    : "Precision optical try-on directly on your face"}
                 </p>
               </div>
             </div>
 
-            {/* Quick Actions */}
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              <button
-                type="button"
-                onClick={() => onOpenChange(false)}
-                className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-700 flex items-center justify-center transition-colors cursor-pointer"
-                title="Close Mirror"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
+              title="Close Mirror"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
 
           {/* Canvas Viewport Frame */}
-          <div className="relative flex-1 flex items-center justify-center overflow-hidden bg-stone-100 m-2 sm:m-3 rounded-2xl border border-stone-300 shadow-inner select-none">
+          <div className="relative flex-1 flex items-center justify-center overflow-hidden bg-black select-none">
             <video ref={videoRef} className="hidden" playsInline muted />
             <canvas ref={canvasRef} className="w-full h-full object-contain" />
 
             {/* Connecting Spinner / Initial Loader */}
             {isCameraLoading && (
-              <div className="absolute inset-0 z-30 bg-stone-900/60 backdrop-blur-xs flex flex-col items-center justify-center gap-3">
+              <div className="absolute inset-0 z-30 bg-stone-950/80 backdrop-blur-xs flex flex-col items-center justify-center gap-3">
                 <div className="w-10 h-10 rounded-full border-2 border-amber-400 border-t-transparent animate-spin" />
                 <p className="text-sm font-semibold text-white">
-                  Loading AR Mirror for <span className="text-amber-300">{selectedProduct.name}</span>...
+                  Starting Live Camera for <span className="text-amber-300">{selectedProduct.name}</span>...
                 </p>
-                <p className="text-xs text-stone-200">Aligning precision facial tracking</p>
+                <p className="text-xs text-stone-300">Please allow camera access and look directly at your screen</p>
               </div>
             )}
 
             {/* Camera Permission / Error Banner */}
             {cameraError && !isCameraLoading && (
-              <div className="absolute inset-0 z-30 bg-stone-900/85 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center text-white">
+              <div className="absolute inset-0 z-30 bg-stone-950/90 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center text-white">
                 <div className="w-14 h-14 rounded-full bg-stone-800 border border-stone-700 flex items-center justify-center mb-4 text-amber-400 shadow-lg">
                   <Camera className="h-7 w-7" />
                 </div>
@@ -953,7 +859,7 @@ export function VirtualTryOnModal({
                   Camera Access Required
                 </h4>
                 <p className="text-xs text-stone-300 max-w-sm mb-5 leading-relaxed">
-                  Please enable camera permissions in your browser to try on frames live on your face in real-time.
+                  Please grant camera permission in your browser to try on this frame live on your face in real-time.
                 </p>
                 <div className="flex flex-wrap items-center justify-center gap-3">
                   <button
@@ -975,141 +881,44 @@ export function VirtualTryOnModal({
               </div>
             )}
 
-            {/* Instant Flash Notification when switching frames */}
-            {flashMessage && (
-              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 bg-stone-900 text-white px-4 py-1.5 rounded-full text-xs font-semibold shadow-lg flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-200">
-                <CheckCircle className="h-3.5 w-3.5 text-emerald-400" />
-                <span>{flashMessage}</span>
-              </div>
-            )}
-
             {/* Telemetry HUD Pill (Frosted Luxury Theme) */}
-            <div className="absolute top-3 left-3 z-20 hidden sm:flex flex-col gap-1 bg-white/95 backdrop-blur-md px-3.5 py-2.5 rounded-xl border border-stone-200 text-[11px] font-mono text-stone-700 shadow-sm">
+            <div className="absolute top-3 left-3 z-20 hidden sm:flex flex-col gap-1 bg-black/60 backdrop-blur-md px-3.5 py-2.5 rounded-xl border border-white/10 text-[11px] font-mono text-stone-200 shadow-sm">
               <div className="flex items-center justify-between gap-4">
                 <span className="text-stone-400">FRAME:</span>
-                <span className="text-stone-900 font-bold truncate max-w-[130px]">{selectedProduct.name}</span>
+                <span className="text-white font-bold truncate max-w-[130px]">{selectedProduct.name}</span>
               </div>
               <div className="flex items-center justify-between gap-4">
                 <span className="text-stone-400">SHAPE:</span>
-                <span className="text-stone-800 uppercase font-medium">{mapProductToShape(selectedProduct)}</span>
+                <span className="text-amber-300 uppercase font-medium">{mapProductToShape(selectedProduct)}</span>
               </div>
               <div className="flex items-center justify-between gap-4">
                 <span className="text-stone-400">EST. PD:</span>
-                <span className="text-stone-900 font-semibold">{telemetry.pd}</span>
+                <span className="text-white font-semibold">{telemetry.pd}</span>
               </div>
               <div className="flex items-center justify-between gap-4">
                 <span className="text-stone-400">HEAD TILT:</span>
-                <span className="text-stone-900 font-semibold">{telemetry.tilt}</span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-stone-400">SHOWROOM:</span>
-                <span className={cn("font-medium", selectedProduct.inStock ? "text-emerald-700" : "text-amber-700")}>
-                  {selectedProduct.inStock ? "In Stock (Uttam Nagar)" : "Waitlist"}
-                </span>
+                <span className="text-white font-semibold">{telemetry.tilt}</span>
               </div>
             </div>
-          </div>
 
-          {/* Bottom Frame Carousel & Filter Tabs */}
-          <div className="relative z-20 p-3 sm:p-4 bg-[#FCFAF7]/95 backdrop-blur-md border-t border-stone-200 space-y-2.5">
-            {/* Category Filter Tabs */}
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setCategoryFilter("all")}
-                  className={cn(
-                    "px-3 py-1 rounded-full text-xs font-medium transition-all cursor-pointer",
-                    categoryFilter === "all"
-                      ? "bg-stone-900 text-white font-semibold shadow-xs"
-                      : "bg-stone-100 text-stone-600 hover:bg-stone-200"
-                  )}
-                >
-                  All In-Stock ({availableFrames.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCategoryFilter("eyeglasses")}
-                  className={cn(
-                    "px-3 py-1 rounded-full text-xs font-medium transition-all cursor-pointer",
-                    categoryFilter === "eyeglasses"
-                      ? "bg-stone-900 text-white font-semibold shadow-xs"
-                      : "bg-stone-100 text-stone-600 hover:bg-stone-200"
-                  )}
-                >
-                  Eyeglasses
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCategoryFilter("sunglasses")}
-                  className={cn(
-                    "px-3 py-1 rounded-full text-xs font-medium transition-all cursor-pointer",
-                    categoryFilter === "sunglasses"
-                      ? "bg-stone-900 text-white font-semibold shadow-xs"
-                      : "bg-stone-100 text-stone-600 hover:bg-stone-200"
-                  )}
-                >
-                  Sunglasses
-                </button>
-              </div>
-              <span className="text-[11px] font-medium text-emerald-700 hidden sm:inline">
-                Click any frame to try on your face
-              </span>
-            </div>
-
-            {/* In-Stock Frames Carousel */}
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2 overflow-x-auto pb-1 pr-2 flex-1 scrollbar-none">
-                {filteredFrames.map((frame) => {
-                  const isSelected = frame.id === selectedProduct.id;
-                  return (
-                    <button
-                      key={frame.id}
-                      type="button"
-                      onClick={() => handleSelectFrame(frame)}
-                      className={cn(
-                        "shrink-0 px-2.5 py-2 rounded-xl border text-left transition-all flex items-center gap-2.5 cursor-pointer",
-                        isSelected
-                          ? "bg-amber-500/10 border-2 border-amber-600 text-stone-900 shadow-sm ring-2 ring-amber-400/30 scale-[1.02]"
-                          : "bg-white border-stone-200 text-stone-700 hover:border-stone-300 shadow-xs"
-                      )}
-                    >
-                      <div className="w-10 h-10 rounded-lg overflow-hidden bg-stone-100 border border-stone-200 shrink-0">
-                        <img
-                          src={frame.image}
-                          alt={frame.name}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="min-w-0 pr-1">
-                        <div className="text-xs font-semibold whitespace-nowrap truncate max-w-[120px]">
-                          {frame.name}
-                        </div>
-                        <div className="text-[10.5px] text-stone-500 font-mono">
-                          {inr(frame.price)} · {frame.style}
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Snapshot Button */}
+            {/* Quick Floating Save Photo Action */}
+            {cameraActive && (
               <button
                 type="button"
                 onClick={captureSnapshot}
-                className="shrink-0 inline-flex items-center gap-1.5 bg-stone-900 hover:bg-stone-800 text-white font-medium px-4 py-2.5 rounded-xl shadow-xs transition-all active:scale-95 text-xs sm:text-sm cursor-pointer"
+                className="absolute bottom-4 right-4 z-20 inline-flex items-center gap-2 bg-white/90 hover:bg-white text-stone-900 font-medium px-4 py-2 rounded-full shadow-lg backdrop-blur-md transition-all active:scale-95 text-xs cursor-pointer"
+                title="Save photo snapshot"
               >
-                <Download className="h-4 w-4" />
-                <span className="hidden sm:inline">Save Photo</span>
+                <Download className="h-3.5 w-3.5" />
+                <span>Save Photo</span>
               </button>
-            </div>
+            )}
           </div>
         </div>
 
-        {/* Right Sidebar: Frame Details, Color Finish, Lens Tint, Fit Sliders */}
-        <div className="w-full lg:w-96 bg-white text-stone-900 border-t lg:border-t-0 lg:border-l border-stone-200 flex flex-col justify-between overflow-y-auto max-h-[48vh] lg:max-h-none p-5 lg:p-6 space-y-5">
-          <div className="space-y-4">
+        {/* Right Sidebar: Dedicated Filters, Fit Calibration & Lens Options */}
+        <div className="w-full lg:w-96 bg-white text-stone-900 border-t lg:border-t-0 lg:border-l border-stone-200 flex flex-col justify-between overflow-y-auto max-h-[50vh] lg:max-h-none p-5 lg:p-6 space-y-5">
+          <div className="space-y-5">
             {/* Active Frame Header */}
             <div className="border-b border-stone-200 pb-4">
               <div className="flex items-center justify-between">
@@ -1218,7 +1027,7 @@ export function VirtualTryOnModal({
               </div>
             </div>
 
-            {/* 2. Lens Options */}
+            {/* 2. Lens Optical Coating */}
             <div>
               <label className="text-xs font-semibold uppercase tracking-wider text-stone-500 block mb-2">
                 2. Lens Optical Coating
@@ -1317,7 +1126,7 @@ export function VirtualTryOnModal({
                   max="25"
                   step="1"
                   value={offsetY}
-                  onChange={(e) => setOffsetY(parseInt(e.target.value))}
+                  onChange={(e) => setOffsetY(parseInt(e.target.value, 10))}
                   className="w-full accent-stone-900 cursor-pointer"
                 />
               </div>
