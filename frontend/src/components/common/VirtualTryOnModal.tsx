@@ -158,33 +158,6 @@ export function drawProceduralEyewear(
       const leftHingeX = -width * 0.472;
       const rightHingeX = width * 0.472;
 
-      // Transform world/screen ear coordinates into local frame space
-      const transformToLocal = (pt: { x: number; y: number } | undefined, defaultLocalX: number) => {
-        if (!pt) {
-          return { x: defaultLocalX, y: hingeY + width * 0.015 };
-        }
-        const dx = pt.x - x;
-        const dy = pt.y - y;
-        const unrotX = dx * Math.cos(-roll) - dy * Math.sin(-roll);
-        const unrotY = dx * Math.sin(-roll) + dy * Math.cos(-roll);
-        const localX = (unrotX - yawShiftX) / perspectiveScaleX;
-        const localY = unrotY;
-        return { x: localX, y: localY };
-      };
-
-      // In real eyewear (as shown in reference images 2, 3, 4):
-      // Both temple arms extend backwards from the frame hinges towards the ears.
-      // In front view (Image 3), both are visible extending back past the hinges along the sides of the head.
-      // When turning head (Image 2 & 4):
-      // The near temple arm extends all the way across the side of the head to the ear.
-      // The far temple arm naturally foreshortens.
-      const leftVisibility = yaw > 0.32 ? Math.max(0.2, 1 - (yaw - 0.32) / 0.25) : 1.0;
-      const rightVisibility = yaw < -0.32 ? Math.max(0.2, 1 - (-yaw - 0.32) / 0.25) : 1.0;
-
-      // Natural reach to the ears:
-      const leftEarLocal = transformToLocal(earLeft, leftHingeX - width * (0.24 + Math.max(0, -yaw) * 0.45));
-      const rightEarLocal = transformToLocal(earRight, rightHingeX + width * (0.24 + Math.max(0, yaw) * 0.45));
-
       // Frame styling attributes
       const isAcetateOrBold =
         shape === "square" ||
@@ -193,143 +166,143 @@ export function drawProceduralEyewear(
         shape === "cateye";
 
       const templeStemWidth = isAcetateOrBold
-        ? Math.max(4.2, width * 0.026)
-        : Math.max(2.6, width * 0.014);
+        ? Math.max(3.8, width * 0.024)
+        : Math.max(2.4, width * 0.012);
       const templeHingeWidth = isAcetateOrBold
-        ? Math.max(5.2, width * 0.032)
-        : Math.max(3.2, width * 0.017);
+        ? Math.max(5.0, width * 0.030)
+        : Math.max(3.0, width * 0.016);
 
       ctx.save();
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
 
-      // -------------------------------------------------------------
-      // Left Temple Arm ("Left Dandi") -> goes from left hinge to left ear
-      // -------------------------------------------------------------
-      if (leftVisibility > 0) {
-        ctx.globalAlpha = leftVisibility;
+      // ALWAYS draw the neat metallic designer hinge brackets / rivet pins on frame corners (Image 3)
+      // Left Hinge endpiece:
+      ctx.fillStyle = frameColor;
+      ctx.fillRect(leftHingeX - 4.0, hingeY - templeHingeWidth / 2, 4.5, templeHingeWidth);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+      ctx.fillRect(leftHingeX - 3.5, hingeY - 1.0, 3.5, 2.0);
 
-        // targetX extends out towards ear (strictly outside leftHingeX, never inside lens)
-        const targetX = Math.min(leftHingeX - width * 0.16, leftEarLocal.x);
-        const targetY = Math.max(hingeY - width * 0.05, Math.min(hingeY + width * 0.06, leftEarLocal.y));
-        const midX = leftHingeX + (targetX - leftHingeX) * 0.45;
-        const midY = Math.min(hingeY, targetY) - 1.5;
+      // Right Hinge endpiece:
+      ctx.fillStyle = frameColor;
+      ctx.fillRect(rightHingeX - 0.5, hingeY - templeHingeWidth / 2, 4.5, templeHingeWidth);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+      ctx.fillRect(rightHingeX, hingeY - 1.0, 3.5, 2.0);
 
-        // Ear curve tip (curves downward behind ear as in reference image)
-        const tipX = targetX - width * 0.03;
-        const tipY = targetY + width * 0.07;
+      // In real eyewear (as shown in reference images 2, 3, 4):
+      // - FRONT-FACING (|yaw| < 0.07):
+      //   Temple arms go backwards in Z-axis (into depth). They DO NOT stick out sideways into thin air!
+      // - HEAD TURNED (|yaw| >= 0.07):
+      //   The side of the head facing the camera shows a sleek, straight tapering temple arm
+      //   running from the hinge horizontally across the temple to the top of the ear (with gentle downward ear curve).
+      //   The far side temple arm is occluded behind the head/frame and remains hidden.
 
-        // 1. Soft skin/hair drop shadow behind temple arm
+      // Mirrored webcam coordinates:
+      // When user turns head to their right, in mirror their nose shifts RIGHT (yaw > 0).
+      // This exposes the LEFT side of their face (screen left).
+      // So when yaw > 0.06: left arm is visible!
+      // When user turns head to their left, in mirror their nose shifts LEFT (yaw < 0).
+      // This exposes the RIGHT side of their face (screen right).
+      // So when yaw < -0.06: right arm is visible!
+
+      // Left Temple Arm (Visible when head turns right / yaw > 0.06)
+      if (yaw > 0.06) {
+        const turnIntensity = Math.min(1.0, (yaw - 0.06) / 0.18);
+        const armLength = width * (0.16 + turnIntensity * 0.44);
+        const startX = leftHingeX;
+        const startY = hingeY;
+        const targetX = startX - armLength;
+        const targetY = startY + armLength * 0.04;
+        const tipX = targetX - width * 0.035;
+        const tipY = targetY + width * 0.075;
+
+        ctx.globalAlpha = turnIntensity;
+
+        // Drop shadow behind temple arm on face
         ctx.beginPath();
-        ctx.moveTo(leftHingeX, hingeY + 2.5);
-        ctx.quadraticCurveTo(midX, midY + 2.5, targetX, targetY + 2.5);
-        ctx.quadraticCurveTo(targetX - 2, targetY + width * 0.035 + 2.5, tipX, tipY + 2.5);
+        ctx.moveTo(startX, startY + 2.0);
+        ctx.lineTo(targetX, targetY + 2.0);
+        ctx.quadraticCurveTo(targetX - 2, targetY + width * 0.035 + 2.0, tipX, tipY + 2.0);
         ctx.strokeStyle = "rgba(0, 0, 0, 0.32)";
         ctx.lineWidth = templeStemWidth + 2.0;
         ctx.stroke();
 
-        // 2. Main temple arm stem (from frame hinge straight across to ear)
+        // Main temple arm stem (sleek straight tapering bar from hinge to ear)
         ctx.beginPath();
-        ctx.moveTo(leftHingeX, hingeY);
-        ctx.quadraticCurveTo(midX, midY, targetX, targetY);
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(targetX, targetY);
         ctx.strokeStyle = frameColor;
         ctx.lineWidth = templeStemWidth;
         ctx.stroke();
 
-        // 3. Ear hook / temple tip curving gently behind the ear
+        // Ear hook curving gently behind the ear (Image 2)
         ctx.beginPath();
         ctx.moveTo(targetX, targetY);
         ctx.quadraticCurveTo(targetX - 2, targetY + width * 0.035, tipX, tipY);
         ctx.strokeStyle = frameColor;
-        ctx.lineWidth = Math.max(2.2, templeStemWidth * 0.85);
+        ctx.lineWidth = Math.max(2.0, templeStemWidth * 0.85);
         ctx.stroke();
 
-        // 4. Specular highlight line along upper edge
+        // Top specular highlight
         ctx.beginPath();
-        ctx.moveTo(leftHingeX, hingeY - 1.0);
-        ctx.quadraticCurveTo(midX, midY - 1.0, targetX, targetY - 1.0);
+        ctx.moveTo(startX, startY - 0.8);
+        ctx.lineTo(targetX, targetY - 0.8);
         ctx.strokeStyle = "rgba(255, 255, 255, 0.55)";
-        ctx.lineWidth = Math.max(0.9, width * 0.005);
+        ctx.lineWidth = Math.max(0.8, width * 0.005);
         ctx.stroke();
-
-        // 5. Designer metallic hinge bracket / horizontal rivet pin (matching reference image)
-        ctx.fillStyle = frameColor;
-        ctx.fillRect(leftHingeX - 4.0, hingeY - templeHingeWidth / 2, 5.0, templeHingeWidth);
-        ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
-        ctx.fillRect(leftHingeX - 3.0, hingeY - 1.0, 4.0, 2.0);
       }
 
-      // -------------------------------------------------------------
-      // Right Temple Arm ("Right Dandi") -> goes from right hinge to right ear
-      // -------------------------------------------------------------
-      if (rightVisibility > 0) {
-        ctx.globalAlpha = rightVisibility;
+      // Right Temple Arm (Visible when head turns left / yaw < -0.06)
+      if (yaw < -0.06) {
+        const turnIntensity = Math.min(1.0, (-yaw - 0.06) / 0.18);
+        const armLength = width * (0.16 + turnIntensity * 0.44);
+        const startX = rightHingeX;
+        const startY = hingeY;
+        const targetX = startX + armLength;
+        const targetY = startY + armLength * 0.04;
+        const tipX = targetX + width * 0.035;
+        const tipY = targetY + width * 0.075;
 
-        // targetX extends out towards ear (strictly outside rightHingeX, never inside lens)
-        const targetX = Math.max(rightHingeX + width * 0.16, rightEarLocal.x);
-        const targetY = Math.max(hingeY - width * 0.05, Math.min(hingeY + width * 0.06, rightEarLocal.y));
-        const midX = rightHingeX + (targetX - rightHingeX) * 0.45;
-        const midY = Math.min(hingeY, targetY) - 1.5;
+        ctx.globalAlpha = turnIntensity;
 
-        // Ear curve tip (curves downward behind ear as in reference image)
-        const tipX = targetX + width * 0.03;
-        const tipY = targetY + width * 0.07;
-
-        // 1. Soft skin/hair drop shadow behind temple arm
+        // Drop shadow behind temple arm on face
         ctx.beginPath();
-        ctx.moveTo(rightHingeX, hingeY + 2.5);
-        ctx.quadraticCurveTo(midX, midY + 2.5, targetX, targetY + 2.5);
-        ctx.quadraticCurveTo(targetX + 2, targetY + width * 0.035 + 2.5, tipX, tipY + 2.5);
+        ctx.moveTo(startX, startY + 2.0);
+        ctx.lineTo(targetX, targetY + 2.0);
+        ctx.quadraticCurveTo(targetX + 2, targetY + width * 0.035 + 2.0, tipX, tipY + 2.0);
         ctx.strokeStyle = "rgba(0, 0, 0, 0.32)";
         ctx.lineWidth = templeStemWidth + 2.0;
         ctx.stroke();
 
-        // 2. Main temple arm stem (from frame hinge straight across to ear)
+        // Main temple arm stem (sleek straight tapering bar from hinge to ear)
         ctx.beginPath();
-        ctx.moveTo(rightHingeX, hingeY);
-        ctx.quadraticCurveTo(midX, midY, targetX, targetY);
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(targetX, targetY);
         ctx.strokeStyle = frameColor;
         ctx.lineWidth = templeStemWidth;
         ctx.stroke();
 
-        // 3. Ear hook / temple tip curving gently behind the ear
+        // Ear hook curving gently behind the ear (Image 2)
         ctx.beginPath();
         ctx.moveTo(targetX, targetY);
         ctx.quadraticCurveTo(targetX + 2, targetY + width * 0.035, tipX, tipY);
         ctx.strokeStyle = frameColor;
-        ctx.lineWidth = Math.max(2.2, templeStemWidth * 0.85);
+        ctx.lineWidth = Math.max(2.0, templeStemWidth * 0.85);
         ctx.stroke();
 
-        // 4. Specular highlight line along upper edge
+        // Top specular highlight
         ctx.beginPath();
-        ctx.moveTo(rightHingeX, hingeY - 1.0);
-        ctx.quadraticCurveTo(midX, midY - 1.0, targetX, targetY - 1.0);
+        ctx.moveTo(startX, startY - 0.8);
+        ctx.lineTo(targetX, targetY - 0.8);
         ctx.strokeStyle = "rgba(255, 255, 255, 0.55)";
-        ctx.lineWidth = Math.max(0.9, width * 0.005);
+        ctx.lineWidth = Math.max(0.8, width * 0.005);
         ctx.stroke();
-
-        // 5. Designer metallic hinge bracket / horizontal rivet pin (matching reference image)
-        ctx.fillStyle = frameColor;
-        ctx.fillRect(rightHingeX - 1.0, hingeY - templeHingeWidth / 2, 5.0, templeHingeWidth);
-        ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
-        ctx.fillRect(rightHingeX - 1.0, hingeY - 1.0, 4.0, 2.0);
       }
 
       ctx.restore();
     }
 
-    // Colorize the frame and apply lens tint on isolated offscreen canvas
-    const offW = Math.ceil(width);
-    const offH = Math.ceil(imgH);
-    const offscreen = document.createElement("canvas");
-    offscreen.width = offW;
-    offscreen.height = offH;
-    const offCtx = offscreen.getContext("2d")!;
-
-    // 1. Draw original photographic frame cutout
-    offCtx.drawImage(imageElement, 0, 0, offW, offH);
-
-    // 2. Dynamic Frame Finish Color Tinting:
+    // Dynamic Frame Finish Color Tinting (Hardware-Accelerated CSS Canvas Filters)
     const lowerName = (frameColorName || "").toLowerCase();
     const lowerHex = (frameColor || "").toLowerCase();
 
@@ -338,68 +311,69 @@ export function drawProceduralEyewear(
     const isTortoise = lowerName.includes("tortoise") || lowerHex.includes("6f3d");
     const isGold = lowerName.includes("gold") || lowerHex.includes("d4af");
 
-    if (isBlack) {
-      offCtx.globalCompositeOperation = "color";
-      offCtx.fillStyle = "#666666";
-      offCtx.fillRect(0, 0, offW, offH);
-      offCtx.globalCompositeOperation = "multiply";
-      offCtx.fillStyle = "rgba(24, 25, 28, 0.90)";
-      offCtx.fillRect(0, 0, offW, offH);
-    } else if (isSilver) {
-      offCtx.globalCompositeOperation = "color";
-      offCtx.fillStyle = "#cbd5e1";
-      offCtx.fillRect(0, 0, offW, offH);
-      offCtx.globalCompositeOperation = "screen";
-      offCtx.fillStyle = "rgba(255, 255, 255, 0.28)";
-      offCtx.fillRect(0, 0, offW, offH);
-    } else if (isTortoise) {
-      offCtx.globalCompositeOperation = "color";
-      offCtx.fillStyle = "#92400e";
-      offCtx.fillRect(0, 0, offW, offH);
-      offCtx.globalCompositeOperation = "color-burn";
-      offCtx.fillStyle = "rgba(120, 53, 15, 0.40)";
-      offCtx.fillRect(0, 0, offW, offH);
-    } else if (isGold) {
-      offCtx.globalCompositeOperation = "color";
-      offCtx.fillStyle = "#f59e0b";
-      offCtx.fillRect(0, 0, offW, offH);
-      offCtx.globalCompositeOperation = "color-burn";
-      offCtx.fillStyle = "rgba(217, 119, 6, 0.35)";
-      offCtx.fillRect(0, 0, offW, offH);
-    } else if (frameColor) {
-      offCtx.globalCompositeOperation = "color";
-      offCtx.fillStyle = frameColor;
-      offCtx.fillRect(0, 0, offW, offH);
-    }
-
-    // 3. Re-mask with destination-in so transparent lenses and outer edges stay 100% clean
-    offCtx.globalCompositeOperation = "destination-in";
-    offCtx.drawImage(imageElement, 0, 0, offW, offH);
-
-    // 4. Lens optical coating tint
-    if (tintMode === "bluelight") {
-      offCtx.globalCompositeOperation = "source-atop";
-      offCtx.fillStyle = "rgba(100, 180, 255, 0.20)";
-      offCtx.fillRect(0, 0, offW, offH);
-    } else if (tintMode === "sunset") {
-      offCtx.globalCompositeOperation = "source-atop";
-      offCtx.fillStyle = "rgba(245, 158, 11, 0.24)";
-      offCtx.fillRect(0, 0, offW, offH);
-    } else if (tintMode === "dark") {
-      offCtx.globalCompositeOperation = "source-atop";
-      offCtx.fillStyle = "rgba(20, 35, 25, 0.55)";
-      offCtx.fillRect(0, 0, offW, offH);
-    }
-
-    // Draw final tinted frame onto main canvas with 3D drop shadow
     ctx.save();
     if (mirrored) ctx.scale(-1, 1);
     ctx.shadowColor = "rgba(0, 0, 0, 0.25)";
     ctx.shadowBlur = 8;
     ctx.shadowOffsetY = 3;
     ctx.shadowOffsetX = yaw * 2;
-    ctx.drawImage(offscreen, -width / 2, -imgH * 0.48, width, imgH);
+
+    // Apply color filter directly so thin wires and bold acetate both change color vibrantly!
+    if (isBlack) {
+      ctx.filter = "grayscale(100%) brightness(30%) contrast(140%)";
+    } else if (isSilver) {
+      ctx.filter = "grayscale(100%) brightness(135%) contrast(115%)";
+    } else if (isTortoise) {
+      ctx.filter = "sepia(95%) hue-rotate(330deg) saturate(190%) brightness(65%) contrast(130%)";
+    } else if (isGold) {
+      ctx.filter = "sepia(100%) hue-rotate(10deg) saturate(240%) brightness(105%)";
+    } else {
+      ctx.filter = "none";
+    }
+
+    ctx.drawImage(imageElement, -width / 2, -imgH * 0.48, width, imgH);
+    ctx.filter = "none";
     ctx.restore();
+
+    // Lens optical coating tint overlay (Clear / Blue Light Screen Guard / Amber Tint)
+    if (tintMode === "bluelight") {
+      ctx.save();
+      ctx.fillStyle = "rgba(96, 165, 250, 0.16)";
+      const lensApertureW = width * 0.36;
+      const lensApertureH = imgH * 0.72;
+      const lensLeftX = -width * 0.24 - lensApertureW / 2;
+      const lensRightX = width * 0.24 - lensApertureW / 2;
+      const lensApertureY = -imgH * 0.12 - lensApertureH / 2;
+
+      ctx.beginPath();
+      ctx.ellipse(lensLeftX + lensApertureW / 2, lensApertureY + lensApertureH / 2, lensApertureW / 2, lensApertureH / 2, 0, 0, Math.PI * 2);
+      ctx.ellipse(lensRightX + lensApertureW / 2, lensApertureY + lensApertureH / 2, lensApertureW / 2, lensApertureH / 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Specular anti-reflective glare diagonal
+      const grad = ctx.createLinearGradient(lensLeftX, lensApertureY, lensRightX + lensApertureW, lensApertureY + lensApertureH);
+      grad.addColorStop(0, "rgba(255, 255, 255, 0.22)");
+      grad.addColorStop(0.35, "rgba(255, 255, 255, 0.0)");
+      grad.addColorStop(0.65, "rgba(96, 165, 250, 0.18)");
+      grad.addColorStop(1, "rgba(255, 255, 255, 0.0)");
+      ctx.fillStyle = grad;
+      ctx.fill();
+      ctx.restore();
+    } else if (tintMode === "sunset") {
+      ctx.save();
+      ctx.fillStyle = "rgba(245, 158, 11, 0.20)";
+      const lensApertureW = width * 0.36;
+      const lensApertureH = imgH * 0.72;
+      const lensLeftX = -width * 0.24 - lensApertureW / 2;
+      const lensRightX = width * 0.24 - lensApertureW / 2;
+      const lensApertureY = -imgH * 0.12 - lensApertureH / 2;
+
+      ctx.beginPath();
+      ctx.ellipse(lensLeftX + lensApertureW / 2, lensApertureY + lensApertureH / 2, lensApertureW / 2, lensApertureH / 2, 0, 0, Math.PI * 2);
+      ctx.ellipse(lensRightX + lensApertureW / 2, lensApertureY + lensApertureH / 2, lensApertureW / 2, lensApertureH / 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
 
     ctx.restore();
     return;
