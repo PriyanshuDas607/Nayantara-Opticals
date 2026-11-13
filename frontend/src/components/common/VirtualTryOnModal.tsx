@@ -189,98 +189,125 @@ export function drawProceduralEyewear(
       ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
       ctx.fillRect(rightHingeX, hingeY - 1.0, 3.5, 2.0);
 
-      // In real eyewear (as shown in reference images 2, 3, 4):
-      // - FRONT-FACING (|yaw| < 0.07):
-      //   Temple arms go backwards in Z-axis (into depth). They DO NOT stick out sideways into thin air!
-      // - HEAD TURNED (|yaw| >= 0.07):
-      //   The side of the head facing the camera shows a sleek, straight tapering temple arm
-      //   running from the hinge horizontally across the temple to the top of the ear (with gentle downward ear curve).
+      // In real eyewear (as shown in reference Image 2):
+      // - FRONT-FACING (|yaw| <= 0.05):
+      //   Temple arms recede straight back into Z-depth behind the front frame rims.
+      //   They DO NOT stick out sideways or cross into the lenses.
+      // - HEAD TURNED (|yaw| > 0.05):
+      //   The side of the head facing the camera reveals the temple arm connecting
+      //   the frame hinge directly across the temple to the user's ear (MediaPipe ear tragus).
       //   The far side temple arm is occluded behind the head/frame and remains hidden.
+      //   Under NO condition does any temple arm ever cross inside the lens aperture.
 
-      // In real eyewear (as shown in reference images 1 & 3):
-      // - FRONT-FACING (|yaw| < 0.25):
-      //   Temple arms go backwards in Z-axis (into head depth).
-      //   They DO NOT stick out sideways into thin air!
-      //   The glasses sit cleanly on the face with only the hinge brackets at the corners.
-      // - SIGNIFICANT HEAD TURN (|yaw| >= 0.25):
-      //   Only when the user actually turns their head in profile (Image 2 & 4),
-      //   a sleek temple arm extends smoothly along the side of the head, never exceeding head width.
+      // Transform world/screen ear coordinates into local frame space
+      const transformToLocal = (pt: { x: number; y: number } | undefined, defaultLocalX: number) => {
+        if (!pt) {
+          return { x: defaultLocalX, y: hingeY + width * 0.015 };
+        }
+        const dx = pt.x - x;
+        const dy = pt.y - y;
+        const cosR = Math.cos(-roll);
+        const sinR = Math.sin(-roll);
+        const unrotX = dx * cosR - dy * sinR;
+        const unrotY = dx * sinR + dy * cosR;
+        const localX = (unrotX - yawShiftX) / perspectiveScaleX;
+        const localY = unrotY;
+        return { x: localX, y: localY };
+      };
 
-      // Left Temple Arm (Only visible on deliberate right turn / yaw > 0.25)
-      if (yaw > 0.25) {
-        const turnIntensity = Math.min(1.0, (yaw - 0.25) / 0.25);
-        const armLength = width * (0.04 + turnIntensity * 0.16);
+      // Left Temple Arm (Visible when head turns right / yaw > 0.05, placing temple arm over the screen-left ear)
+      const leftVisibility = Math.max(0, Math.min(1.0, (yaw - 0.05) / 0.14));
+      if (leftVisibility > 0) {
+        const leftEarLocal = transformToLocal(earLeft, leftHingeX - width * 0.38);
         const startX = leftHingeX;
         const startY = hingeY;
-        const targetX = startX - armLength;
-        const targetY = startY + armLength * 0.04;
-        const tipX = targetX - width * 0.02;
-        const tipY = targetY + width * 0.04;
 
-        ctx.globalAlpha = turnIntensity;
+        // Target at ear: strictly clamped OUTWARD to the left (targetX <= leftHingeX - margin)
+        // so it NEVER enters the lens area and smoothly reaches the ear
+        const targetX = Math.min(leftHingeX - width * 0.06, leftEarLocal.x);
+        const targetY = Math.max(hingeY - width * 0.08, Math.min(hingeY + width * 0.08, leftEarLocal.y));
 
-        // Drop shadow behind temple arm on head
+        const midX = startX + (targetX - startX) * 0.5;
+        const midY = startY + (targetY - startY) * 0.45;
+
+        // Realistic downward ear hook curve (as shown in reference Image 2)
+        const tipX = targetX - width * 0.035;
+        const tipY = targetY + width * 0.065;
+
+        ctx.globalAlpha = leftVisibility;
+
+        // 1. Soft skin/hair shadow behind the temple arm on the skull
         ctx.beginPath();
-        ctx.moveTo(startX, startY + 1.5);
-        ctx.lineTo(targetX, targetY + 1.5);
-        ctx.quadraticCurveTo(targetX - 1, targetY + width * 0.02 + 1.5, tipX, tipY + 1.5);
-        ctx.strokeStyle = "rgba(0, 0, 0, 0.30)";
-        ctx.lineWidth = templeStemWidth + 1.5;
+        ctx.moveTo(startX, startY + 2.0);
+        ctx.quadraticCurveTo(midX, midY + 2.0, targetX, targetY + 2.0);
+        ctx.quadraticCurveTo(targetX - 2.0, targetY + width * 0.025 + 2.0, tipX, tipY + 2.0);
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.28)";
+        ctx.lineWidth = templeStemWidth + 1.8;
         ctx.stroke();
 
-        // Main temple arm stem
+        // 2. Main temple arm stem (matches selected frame finish color)
         ctx.beginPath();
         ctx.moveTo(startX, startY);
-        ctx.lineTo(targetX, targetY);
+        ctx.quadraticCurveTo(midX, midY, targetX, targetY);
+        ctx.quadraticCurveTo(targetX - 2.0, targetY + width * 0.025, tipX, tipY);
         ctx.strokeStyle = frameColor;
         ctx.lineWidth = templeStemWidth;
         ctx.stroke();
 
-        // Ear hook curving gently
+        // 3. Specular top highlight for metallic/acetate luster
         ctx.beginPath();
-        ctx.moveTo(targetX, targetY);
-        ctx.quadraticCurveTo(targetX - 1, targetY + width * 0.02, tipX, tipY);
-        ctx.strokeStyle = frameColor;
-        ctx.lineWidth = Math.max(1.8, templeStemWidth * 0.85);
+        ctx.moveTo(startX, startY - 0.8);
+        ctx.quadraticCurveTo(midX, midY - 0.8, targetX, targetY - 0.8);
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.45)";
+        ctx.lineWidth = Math.max(0.8, templeStemWidth * 0.25);
         ctx.stroke();
       }
 
-      // Right Temple Arm (Only visible on deliberate left turn / yaw < -0.25)
-      if (yaw < -0.25) {
-        const turnIntensity = Math.min(1.0, (-yaw - 0.25) / 0.25);
-        const armLength = width * (0.04 + turnIntensity * 0.16);
+      // Right Temple Arm (Visible when head turns left / yaw < -0.05, placing temple arm over the screen-right ear)
+      const rightVisibility = Math.max(0, Math.min(1.0, (-yaw - 0.05) / 0.14));
+      if (rightVisibility > 0) {
+        const rightEarLocal = transformToLocal(earRight, rightHingeX + width * 0.38);
         const startX = rightHingeX;
         const startY = hingeY;
-        const targetX = startX + armLength;
-        const targetY = startY + armLength * 0.04;
-        const tipX = targetX + width * 0.02;
-        const tipY = targetY + width * 0.04;
 
-        ctx.globalAlpha = turnIntensity;
+        // Target at ear: strictly clamped OUTWARD to the right (targetX >= rightHingeX + margin)
+        // so it NEVER enters the lens area and smoothly reaches the ear
+        const targetX = Math.max(rightHingeX + width * 0.06, rightEarLocal.x);
+        const targetY = Math.max(hingeY - width * 0.08, Math.min(hingeY + width * 0.08, rightEarLocal.y));
 
-        // Drop shadow behind temple arm on head
+        const midX = startX + (targetX - startX) * 0.5;
+        const midY = startY + (targetY - startY) * 0.45;
+
+        // Realistic downward ear hook curve (as shown in reference Image 2)
+        const tipX = targetX + width * 0.035;
+        const tipY = targetY + width * 0.065;
+
+        ctx.globalAlpha = rightVisibility;
+
+        // 1. Soft skin/hair shadow behind the temple arm on the skull
         ctx.beginPath();
-        ctx.moveTo(startX, startY + 1.5);
-        ctx.lineTo(targetX, targetY + 1.5);
-        ctx.quadraticCurveTo(targetX + 1, targetY + width * 0.02 + 1.5, tipX, tipY + 1.5);
-        ctx.strokeStyle = "rgba(0, 0, 0, 0.30)";
-        ctx.lineWidth = templeStemWidth + 1.5;
+        ctx.moveTo(startX, startY + 2.0);
+        ctx.quadraticCurveTo(midX, midY + 2.0, targetX, targetY + 2.0);
+        ctx.quadraticCurveTo(targetX + 2.0, targetY + width * 0.025 + 2.0, tipX, tipY + 2.0);
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.28)";
+        ctx.lineWidth = templeStemWidth + 1.8;
         ctx.stroke();
 
-        // Main temple arm stem
+        // 2. Main temple arm stem (matches selected frame finish color)
         ctx.beginPath();
         ctx.moveTo(startX, startY);
-        ctx.lineTo(targetX, targetY);
+        ctx.quadraticCurveTo(midX, midY, targetX, targetY);
+        ctx.quadraticCurveTo(targetX + 2.0, targetY + width * 0.025, tipX, tipY);
         ctx.strokeStyle = frameColor;
         ctx.lineWidth = templeStemWidth;
         ctx.stroke();
 
-        // Ear hook curving gently
+        // 3. Specular top highlight for metallic/acetate luster
         ctx.beginPath();
-        ctx.moveTo(targetX, targetY);
-        ctx.quadraticCurveTo(targetX + 1, targetY + width * 0.02, tipX, tipY);
-        ctx.strokeStyle = frameColor;
-        ctx.lineWidth = Math.max(1.8, templeStemWidth * 0.85);
+        ctx.moveTo(startX, startY - 0.8);
+        ctx.quadraticCurveTo(midX, midY - 0.8, targetX, targetY - 0.8);
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.45)";
+        ctx.lineWidth = Math.max(0.8, templeStemWidth * 0.25);
         ctx.stroke();
       }
 
@@ -641,8 +668,8 @@ export function VirtualTryOnModal({
         tintMode: lensTintRef.current,
         imageElement: activeImageRef.current,
         mirrored: false,
-        earLeft: getPt(356),
-        earRight: getPt(127),
+        earLeft: getPt(454),
+        earRight: getPt(234),
       });
 
       // Update Telemetry

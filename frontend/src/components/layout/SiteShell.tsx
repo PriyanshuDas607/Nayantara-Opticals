@@ -157,7 +157,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
               <img
                 src="/logo.png"
                 alt="Nayantara Opticals"
-                className="h-10 sm:h-11 md:h-12 w-auto max-w-[13.5rem] sm:max-w-[16rem] object-contain object-left"
+                className="h-11 sm:h-12 md:h-14 w-auto max-w-[14rem] sm:max-w-[17rem] object-contain object-left transition-transform group-hover:scale-[1.02]"
               />
             </div>
           </Link>
@@ -412,7 +412,17 @@ export function SiteShell({ children }: { children: ReactNode }) {
       <footer className="border-t border-border bg-ink text-background">
         <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr] lg:gap-10 lg:px-8">
           <div>
-            <p className="font-display text-2xl font-semibold">Nayantara Opticals</p>
+            <div className="flex items-center gap-3 mb-3.5">
+              <img
+                src="/logo.png"
+                alt="Nayantara Opticals Logo"
+                className="h-12 sm:h-14 w-auto object-contain rounded-lg bg-white/95 p-1 shadow-sm"
+              />
+              <div>
+                <p className="font-display text-2xl font-semibold leading-tight text-white">Nayantara Opticals</p>
+                <p className="text-[11px] text-champagne font-mono tracking-wider uppercase">Est. 1990 • Uttam Nagar</p>
+              </div>
+            </div>
             <p className="mt-3 max-w-sm text-sm leading-relaxed text-background/80">
               Independent optical care, considered eyewear and patient fitting in Uttam Nagar since
               1990. Certified optometrists & precision lens laboratory.

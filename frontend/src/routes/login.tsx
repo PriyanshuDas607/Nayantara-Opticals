@@ -343,6 +343,13 @@ export function LoginPage() {
       <div className="mx-auto max-w-md">
         {/* Brand Banner */}
         <div className="text-center">
+          <Link to="/" className="inline-block mb-3 transition-transform hover:scale-105">
+            <img
+              src="/logo.png"
+              alt="Nayantara Opticals"
+              className="h-14 sm:h-16 w-auto mx-auto object-contain"
+            />
+          </Link>
           <h1 className="font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
             {requires2FA ? "Security Verification" : "Sign In to Your Account"}
           </h1>
