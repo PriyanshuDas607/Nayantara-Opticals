@@ -7,17 +7,6 @@ import { TokenService } from "./token.service.js";
 import { AuditService, AuditAction } from "./audit.service.js";
 import { Logger } from "../utils/logger.js";
 import { Role as AppRole } from "../constants/index.js";
-import { devStore } from "../utils/devStore.js";
-
-// In-memory dev OTP store for testing when DB is offline
-const devOtpStore = new Map<string, { otp: string; expiresAt: Date; attempts: number }>();
-
-function withDbTimeout<T>(promise: Promise<T>, ms = 10000): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Database connection timeout")), ms)),
-  ]);
-}
 
 /**
  * Validates high-entropy enterprise password policy for Super Admin accounts (18-24+ characters)
@@ -83,184 +72,102 @@ export class AuthService {
       }
     }
 
-    const existingDev = devStore.findUserByIdentifier(email);
-    if (existingDev) {
+    const passwordHash = await CryptoUtil.hashPassword(data.password);
+
+    const existing = await prisma.user.findUnique({
+      where: { email },
+    });
+    if (existing) {
       throw new Error("An account with this email address already exists.");
     }
+
     if (normalizedPhone) {
-      const existingDevPhone = devStore.findUserByIdentifier(normalizedPhone);
-      if (existingDevPhone) {
+      const existingPhone = await prisma.user.findUnique({
+        where: { phone: normalizedPhone },
+      });
+      if (existingPhone) {
         throw new Error("An account with this phone number already exists.");
       }
     }
 
-    const passwordHash = await CryptoUtil.hashPassword(data.password);
-
-    try {
-      const existing = await withDbTimeout(
-        prisma.user.findUnique({
-          where: { email },
-        }),
-        1000
-      );
-      if (existing) {
-        throw new Error("An account with this email address already exists.");
-      }
-
-      if (normalizedPhone) {
-        const existingPhone = await withDbTimeout(
-          prisma.user.findUnique({
-            where: { phone: normalizedPhone },
-          }),
-          1000
-        );
-        if (existingPhone) {
-          throw new Error("An account with this phone number already exists.");
-        }
-      }
-
-      const user = await withDbTimeout(
-        prisma.$transaction(async (tx) => {
-          const newUser = await tx.user.create({
-            data: {
-              email,
-              phone: normalizedPhone,
-              passwordHash,
-              role: Role.CUSTOMER,
-              status: AccountStatus.ACTIVE,
-              isEmailVerified: false,
-              isPhoneVerified: false,
-              customerProfile: {
-                create: {
-                  fullName: data.fullName,
-                  whatsappOptIn: data.whatsappOptIn || false,
-                },
-              },
-              cart: {
-                create: {},
-              },
-              notificationPreferences: {
-                create: {
-                  emailOrders: true,
-                  smsOrders: true,
-                  whatsappOrders: data.whatsappOptIn || false,
-                },
-              },
-              consents: {
-                create: {
-                  policyType: "TERMS_AND_PRIVACY",
-                  policyVersion: "1.0",
-                  ipAddress: data.ipAddress,
-                  userAgent: data.userAgent,
-                },
-              },
-            },
-            include: {
-              customerProfile: true,
-            },
-          });
-
-          return newUser;
-        }),
-        1500
-      );
-
-      devStore.addUser({
-        id: user.id,
-        email,
-        phone: normalizedPhone,
-        passwordHash,
-        plainPassword: data.password,
-        role: AppRole.CUSTOMER,
-        fullName: data.fullName,
-      });
-
-      const accessToken = TokenService.generateAccessToken({
-        userId: user.id,
-        role: AppRole.CUSTOMER,
-      });
-
-      const refreshToken = await TokenService.createRefreshTokenSession(
-        user.id,
-        undefined,
-        data.ipAddress,
-        data.userAgent,
-        { role: AppRole.CUSTOMER, email: user.email }
-      );
-
-      await AuditService.log({
-        userId: user.id,
-        action: AuditAction.CUSTOMER_REGISTERED,
-        resource: `User:${user.id}`,
-        ipAddress: data.ipAddress,
-        userAgent: data.userAgent,
-        details: { email, phone: normalizedPhone, fullName: data.fullName },
-      });
-
-      return {
-        user: {
-          id: user.id,
-          email: user.email,
-          phone: user.phone,
-          role: user.role,
-          fullName: user.customerProfile?.fullName,
-        },
-        tokens: {
-          accessToken,
-          refreshToken,
-        },
-      };
-    } catch (dbErr: any) {
-      if (dbErr.message && (dbErr.message.includes("already exists") || dbErr.message.includes("disposable"))) {
-        throw dbErr;
-      }
-      Logger.warn("Database registration fallback; registering user into devStore");
-
-      const devUser = devStore.addUser({
-        email,
-        phone: normalizedPhone,
-        passwordHash,
-        plainPassword: data.password,
-        role: AppRole.CUSTOMER,
-        fullName: data.fullName,
-      });
-
-      const accessToken = TokenService.generateAccessToken({
-        userId: devUser.id,
-        role: AppRole.CUSTOMER,
-      });
-
-      const refreshToken = await TokenService.createRefreshTokenSession(
-        devUser.id,
-        undefined,
-        data.ipAddress,
-        data.userAgent,
-        { role: AppRole.CUSTOMER, email }
-      );
-
-      await AuditService.log({
-        userId: devUser.id,
-        action: AuditAction.CUSTOMER_REGISTERED,
-        resource: `User:${devUser.id}`,
-        ipAddress: data.ipAddress,
-        userAgent: data.userAgent,
-        details: { email, phone: normalizedPhone, fullName: data.fullName, fallback: true },
-      });
-
-      return {
-        user: {
-          id: devUser.id,
+    const user = await prisma.$transaction(async (tx) => {
+      const newUser = await tx.user.create({
+        data: {
           email,
           phone: normalizedPhone,
-          role: AppRole.CUSTOMER,
-          fullName: data.fullName,
+          passwordHash,
+          role: Role.CUSTOMER,
+          status: AccountStatus.ACTIVE,
+          isEmailVerified: false,
+          isPhoneVerified: false,
+          customerProfile: {
+            create: {
+              fullName: data.fullName,
+              whatsappOptIn: data.whatsappOptIn || false,
+            },
+          },
+          cart: {
+            create: {},
+          },
+          notificationPreferences: {
+            create: {
+              emailOrders: true,
+              smsOrders: true,
+              whatsappOrders: data.whatsappOptIn || false,
+            },
+          },
+          consents: {
+            create: {
+              policyType: "TERMS_AND_PRIVACY",
+              policyVersion: "1.0",
+              ipAddress: data.ipAddress,
+              userAgent: data.userAgent,
+            },
+          },
         },
-        tokens: {
-          accessToken,
-          refreshToken,
+        include: {
+          customerProfile: true,
         },
-      };
-    }
+      });
+
+      return newUser;
+    });
+
+    const accessToken = TokenService.generateAccessToken({
+      userId: user.id,
+      role: AppRole.CUSTOMER,
+    });
+
+    const refreshToken = await TokenService.createRefreshTokenSession(
+      user.id,
+      undefined,
+      data.ipAddress,
+      data.userAgent,
+      { role: AppRole.CUSTOMER, email: user.email }
+    );
+
+    await AuditService.log({
+      userId: user.id,
+      action: AuditAction.CUSTOMER_REGISTERED,
+      resource: `User:${user.id}`,
+      ipAddress: data.ipAddress,
+      userAgent: data.userAgent,
+      details: { email, phone: normalizedPhone, fullName: data.fullName },
+    });
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        fullName: user.customerProfile?.fullName,
+      },
+      tokens: {
+        accessToken,
+        refreshToken,
+      },
+    };
   }
 
   /**
@@ -279,209 +186,116 @@ export class AuthService {
     const normalizedEmail = isEmail ? rawIdentifier.toLowerCase() : "";
     const normalizedPhone = !isEmail ? normalizePhone(rawIdentifier) : "";
 
-    // 1. Check if database is accessible and has user
-    try {
-      const user = await withDbTimeout(
-        prisma.user.findFirst({
-          where: isEmail
-            ? { email: normalizedEmail }
-            : { phone: normalizedPhone },
-          include: {
-            customerProfile: true,
-            ownerProfile: { include: { store: true } },
-          },
-        }),
-        1000
-      );
+    const user = await prisma.user.findFirst({
+      where: isEmail
+        ? { email: normalizedEmail }
+        : { phone: normalizedPhone },
+      include: {
+        customerProfile: true,
+        ownerProfile: { include: { store: true } },
+      },
+    });
 
-      if (user && user.passwordHash) {
-        if (user.status !== AccountStatus.ACTIVE) {
-          await AuditService.log({
-            userId: user.id,
-            action: AuditAction.AUTH_LOGIN_FAILURE,
-            resource: `User:${user.id}`,
-            ipAddress: data.ipAddress,
-            userAgent: data.userAgent,
-            details: { reason: "Account inactive or suspended", identifier: rawIdentifier },
-          });
-          throw new Error("Your account is currently inactive or suspended. Please contact support.");
-        }
-
-        const isValidPassword = await CryptoUtil.comparePassword(data.password, user.passwordHash);
-        if (!isValidPassword) {
-          await AuditService.log({
-            userId: user.id,
-            action: AuditAction.AUTH_LOGIN_FAILURE,
-            resource: `User:${user.id}`,
-            ipAddress: data.ipAddress,
-            userAgent: data.userAgent,
-            details: { reason: "Invalid password", identifier: rawIdentifier },
-          });
-          throw new Error("Invalid email/phone or password.");
-        }
-
-        const role = user.role as unknown as AppRole;
-        const storeId = user.ownerProfile?.storeId || null;
-
-        // SUPER ADMIN: Enforce 2FA Step
-        if (role === AppRole.SUPER_ADMIN) {
-          const twoFactorToken = TokenService.generateTwoFactorToken({
-            userId: user.id,
-            role: AppRole.SUPER_ADMIN,
-            storeId: null,
-          });
-
-          await AuditService.log({
-            userId: user.id,
-            action: AuditAction.AUTH_2FA_CHALLENGE_ISSUED,
-            resource: `User:${user.id}`,
-            ipAddress: data.ipAddress,
-            userAgent: data.userAgent,
-            details: { email: user.email, role: AppRole.SUPER_ADMIN },
-          });
-
-          return {
-            requires2FA: true,
-            twoFactorToken,
-            message: "Super Admin credentials verified. Enter your 2FA security code to continue.",
-            user: {
-              id: user.id,
-              email: user.email,
-              phone: user.phone,
-              role: user.role,
-              fullName: "Super Admin",
-            },
-          };
-        }
-
-        // STANDARD LOGIN (Owner, Customer)
-        const accessToken = TokenService.generateAccessToken({
-          userId: user.id,
-          role,
-          storeId,
-        });
-
-        const refreshToken = await TokenService.createRefreshTokenSession(
-          user.id,
-          undefined,
-          data.ipAddress,
-          data.userAgent,
-          { role, email: user.email, storeId }
-        );
-
+    if (user && user.passwordHash) {
+      if (user.status !== AccountStatus.ACTIVE) {
         await AuditService.log({
           userId: user.id,
-          action: AuditAction.AUTH_LOGIN_SUCCESS,
+          action: AuditAction.AUTH_LOGIN_FAILURE,
           resource: `User:${user.id}`,
           ipAddress: data.ipAddress,
           userAgent: data.userAgent,
-          details: { role, email: user.email, storeId },
+          details: { reason: "Account inactive or suspended", identifier: rawIdentifier },
+        });
+        throw new Error("Your account is currently inactive or suspended. Please contact support.");
+      }
+
+      const isValidPassword = await CryptoUtil.comparePassword(data.password, user.passwordHash);
+      if (!isValidPassword) {
+        await AuditService.log({
+          userId: user.id,
+          action: AuditAction.AUTH_LOGIN_FAILURE,
+          resource: `User:${user.id}`,
+          ipAddress: data.ipAddress,
+          userAgent: data.userAgent,
+          details: { reason: "Invalid password", identifier: rawIdentifier },
+        });
+        throw new Error("Invalid email/phone or password.");
+      }
+
+      const role = user.role as unknown as AppRole;
+      const storeId = user.ownerProfile?.storeId || null;
+
+      // SUPER ADMIN: Enforce 2FA Step
+      if (role === AppRole.SUPER_ADMIN) {
+        const twoFactorToken = TokenService.generateTwoFactorToken({
+          userId: user.id,
+          role: AppRole.SUPER_ADMIN,
+          storeId: null,
+        });
+
+        await AuditService.log({
+          userId: user.id,
+          action: AuditAction.AUTH_2FA_CHALLENGE_ISSUED,
+          resource: `User:${user.id}`,
+          ipAddress: data.ipAddress,
+          userAgent: data.userAgent,
+          details: { email: user.email, role: AppRole.SUPER_ADMIN },
         });
 
         return {
-          requires2FA: false,
+          requires2FA: true,
+          twoFactorToken,
+          message: "Super Admin credentials verified. Enter your 2FA security code to continue.",
           user: {
             id: user.id,
             email: user.email,
             phone: user.phone,
             role: user.role,
-            fullName: user.customerProfile?.fullName || user.ownerProfile?.fullName || "User",
-            storeId,
-            store: user.ownerProfile?.store || undefined,
-          },
-          tokens: {
-            accessToken,
-            refreshToken,
+            fullName: "Super Admin",
           },
         };
       }
-    } catch (err: any) {
-      if (
-        err.message &&
-        (err.message === "Invalid email/phone or password." ||
-          err.message.includes("suspended") ||
-          err.message.includes("inactive"))
-      ) {
-        throw err;
-      }
-      Logger.warn("Database unavailable during login; checking devStore fallback");
-    }
 
-    // 2. DevStore fallback
-    const matchedDevUser = devStore.findUserByIdentifier(rawIdentifier);
-    if (matchedDevUser) {
-      const isValid = await devStore.verifyPassword(matchedDevUser, data.password);
-      if (isValid) {
-        // Super Admin 2FA in Dev mode
-        if (matchedDevUser.role === AppRole.SUPER_ADMIN) {
-          const twoFactorToken = TokenService.generateTwoFactorToken({
-            userId: matchedDevUser.id,
-            role: AppRole.SUPER_ADMIN,
-            storeId: null,
-          });
+      // STANDARD LOGIN (Owner, Customer)
+      const accessToken = TokenService.generateAccessToken({
+        userId: user.id,
+        role,
+        storeId,
+      });
 
-          await AuditService.log({
-            userId: matchedDevUser.id,
-            action: AuditAction.AUTH_2FA_CHALLENGE_ISSUED,
-            resource: `User:${matchedDevUser.id}`,
-            ipAddress: data.ipAddress,
-            userAgent: data.userAgent,
-            details: { email: matchedDevUser.email, role: AppRole.SUPER_ADMIN, dev: true },
-          });
+      const refreshToken = await TokenService.createRefreshTokenSession(
+        user.id,
+        undefined,
+        data.ipAddress,
+        data.userAgent,
+        { role, email: user.email, storeId }
+      );
 
-          return {
-            requires2FA: true,
-            twoFactorToken,
-            message: "Super Admin credentials verified. Enter 2FA code (Use 999222 for Dev Testing).",
-            user: {
-              id: matchedDevUser.id,
-              email: matchedDevUser.email,
-              phone: matchedDevUser.phone,
-              role: matchedDevUser.role,
-              fullName: matchedDevUser.fullName,
-            },
-          };
-        }
+      await AuditService.log({
+        userId: user.id,
+        action: AuditAction.AUTH_LOGIN_SUCCESS,
+        resource: `User:${user.id}`,
+        ipAddress: data.ipAddress,
+        userAgent: data.userAgent,
+        details: { role, email: user.email, storeId },
+      });
 
-        const accessToken = TokenService.generateAccessToken({
-          userId: matchedDevUser.id,
-          role: matchedDevUser.role,
-          storeId: matchedDevUser.storeId,
-        });
-
-        const refreshToken = await TokenService.createRefreshTokenSession(
-          matchedDevUser.id,
-          undefined,
-          data.ipAddress,
-          data.userAgent,
-          { role: matchedDevUser.role, email: matchedDevUser.email, storeId: matchedDevUser.storeId }
-        );
-
-        await AuditService.log({
-          userId: matchedDevUser.id,
-          action: AuditAction.AUTH_LOGIN_SUCCESS,
-          resource: `User:${matchedDevUser.id}`,
-          ipAddress: data.ipAddress,
-          userAgent: data.userAgent,
-          details: { role: matchedDevUser.role, email: matchedDevUser.email, dev: true },
-        });
-
-        return {
-          requires2FA: false,
-          user: {
-            id: matchedDevUser.id,
-            email: matchedDevUser.email,
-            phone: matchedDevUser.phone,
-            role: matchedDevUser.role,
-            fullName: matchedDevUser.fullName,
-            storeId: matchedDevUser.storeId,
-          },
-          tokens: {
-            accessToken,
-            refreshToken,
-          },
-        };
-      }
+      return {
+        requires2FA: false,
+        user: {
+          id: user.id,
+          email: user.email,
+          phone: user.phone,
+          role: user.role,
+          fullName: user.customerProfile?.fullName || user.ownerProfile?.fullName || "User",
+          storeId,
+          store: user.ownerProfile?.store || undefined,
+        },
+        tokens: {
+          accessToken,
+          refreshToken,
+        },
+      };
     }
 
     await AuditService.log({
@@ -578,37 +392,21 @@ export class AuthService {
     const otpHash = CryptoUtil.hashToken(otp);
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-    devOtpStore.set(`${normalized}_${purpose}`, {
-      otp,
-      expiresAt,
-      attempts: 0,
+    await prisma.otpVerification.updateMany({
+      where: { identifier: normalized, purpose, isConsumed: false },
+      data: { isConsumed: true },
     });
 
-    try {
-      await withDbTimeout(
-        prisma.otpVerification.updateMany({
-          where: { identifier: normalized, purpose, isConsumed: false },
-          data: { isConsumed: true },
-        }),
-        1000
-      );
+    await prisma.otpVerification.create({
+      data: {
+        identifier: normalized,
+        otpHash,
+        purpose,
+        expiresAt,
+      },
+    });
 
-      await withDbTimeout(
-        prisma.otpVerification.create({
-          data: {
-            identifier: normalized,
-            otpHash,
-            purpose,
-            expiresAt,
-          },
-        }),
-        1000
-      );
-    } catch {
-      Logger.info(`Dev Mode OTP for ${normalized}: ${otp}`);
-    }
-
-    return { message: `OTP sent successfully to your mobile number. (Dev test OTP: ${otp})` };
+    return { message: "OTP sent successfully to your mobile number." };
   }
 
   /**
@@ -618,64 +416,77 @@ export class AuthService {
     const normalized = normalizePhone(phone);
     const trimmedOtp = otp.trim();
 
-    const storedDevOtp = devOtpStore.get(`${normalized}_${purpose}`);
-    const isUniversalTestOtp = trimmedOtp === "123456";
-    const isDevMatch = storedDevOtp && storedDevOtp.otp === trimmedOtp && storedDevOtp.expiresAt > new Date();
+    const otpRecord = await prisma.otpVerification.findFirst({
+      where: {
+        identifier: normalized,
+        purpose,
+        isConsumed: false,
+      },
+      orderBy: { createdAt: "desc" },
+    });
 
-    if (!isUniversalTestOtp && !isDevMatch) {
-      try {
-        const otpRecord = await withDbTimeout(
-          prisma.otpVerification.findFirst({
-            where: {
-              identifier: normalized,
-              purpose,
-              isConsumed: false,
-            },
-            orderBy: { createdAt: "desc" },
-          }),
-          1000
-        );
-
-        if (!otpRecord || otpRecord.expiresAt < new Date()) {
-          throw new Error("Invalid or expired OTP. Please request a new one.");
-        }
-
-        const expectedHash = CryptoUtil.hashToken(trimmedOtp);
-        if (otpRecord.otpHash !== expectedHash) {
-          throw new Error("Incorrect OTP. Please check and try again.");
-        }
-
-        await withDbTimeout(
-          prisma.otpVerification.update({
-            where: { id: otpRecord.id },
-            data: { isConsumed: true },
-          }),
-          1000
-        );
-      } catch (err: any) {
-        if (err.message && err.message.includes("OTP")) throw err;
-        throw new Error("Invalid or expired OTP. Use test OTP 123456 for instant testing.");
-      }
+    if (!otpRecord || otpRecord.expiresAt < new Date()) {
+      throw new Error("Invalid or expired OTP. Please request a new one.");
     }
 
-    const devUserId = `user-phone-${normalized.replace(/\D/g, "")}`;
+    const expectedHash = CryptoUtil.hashToken(trimmedOtp);
+    if (otpRecord.otpHash !== expectedHash) {
+      throw new Error("Incorrect OTP. Please check and try again.");
+    }
+
+    await prisma.otpVerification.update({
+      where: { id: otpRecord.id },
+      data: { isConsumed: true },
+    });
+
+    let user = await prisma.user.findFirst({
+      where: { phone: normalized },
+      include: { customerProfile: true },
+    });
+
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          phone: normalized,
+          role: Role.CUSTOMER,
+          status: AccountStatus.ACTIVE,
+          isPhoneVerified: true,
+          customerProfile: {
+            create: {
+              fullName: "Valued Customer",
+              whatsappOptIn: true,
+            },
+          },
+          cart: {
+            create: {},
+          },
+        },
+        include: { customerProfile: true },
+      });
+    } else if (!user.isPhoneVerified) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { isPhoneVerified: true },
+      });
+    }
+
     const accessToken = TokenService.generateAccessToken({
-      userId: devUserId,
-      role: AppRole.CUSTOMER,
+      userId: user.id,
+      role: user.role as any,
     });
 
     const refreshToken = await TokenService.createRefreshTokenSession(
-      devUserId,
+      user.id,
       undefined,
       ipAddress,
       userAgent,
-      { role: AppRole.CUSTOMER, email: null }
+      { role: user.role as any, email: user.email }
     );
 
     await AuditService.log({
-      userId: devUserId,
+      userId: user.id,
       action: AuditAction.AUTH_LOGIN_SUCCESS,
-      resource: `User:${devUserId}`,
+      resource: `User:${user.id}`,
       ipAddress,
       userAgent,
       details: { phone: normalized, method: "PHONE_OTP" },
@@ -683,11 +494,11 @@ export class AuthService {
 
     return {
       user: {
-        id: devUserId,
-        email: null,
-        phone: normalized,
-        role: AppRole.CUSTOMER,
-        fullName: "Valued Customer",
+        id: user.id,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        fullName: user.customerProfile?.fullName || "Valued Customer",
       },
       tokens: {
         accessToken,
@@ -703,40 +514,30 @@ export class AuthService {
     const isEmail = identifier.includes("@");
     const otp = CryptoUtil.generateOtp();
 
-    try {
-      const user = await withDbTimeout(
-        prisma.user.findFirst({
-          where: isEmail
-            ? { email: identifier.toLowerCase().trim() }
-            : { phone: normalizePhone(identifier) },
-        }),
-        1000
-      );
+    const user = await prisma.user.findFirst({
+      where: isEmail
+        ? { email: identifier.toLowerCase().trim() }
+        : { phone: normalizePhone(identifier) },
+    });
 
-      if (!user) {
-        return { message: "If an account exists with this detail, a password reset OTP has been sent." };
-      }
-
-      const otpHash = CryptoUtil.hashToken(otp);
-      const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
-
-      await withDbTimeout(
-        prisma.otpVerification.create({
-          data: {
-            userId: user.id,
-            identifier: user.email || user.phone || identifier,
-            otpHash,
-            purpose: "PASSWORD_RESET",
-            expiresAt,
-          },
-        }),
-        1000
-      );
-    } catch {
-      Logger.info(`Dev Password Reset OTP for ${identifier}: ${otp}`);
+    if (!user) {
+      return { message: "If an account exists with this detail, a password reset OTP has been sent." };
     }
 
-    return { message: `If an account exists with this detail, a password reset OTP has been sent. (Dev OTP: ${otp})` };
+    const otpHash = CryptoUtil.hashToken(otp);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
+
+    await prisma.otpVerification.create({
+      data: {
+        userId: user.id,
+        identifier: user.email || user.phone || identifier,
+        otpHash,
+        purpose: "PASSWORD_RESET",
+        expiresAt,
+      },
+    });
+
+    return { message: "If an account exists with this detail, a password reset OTP has been sent." };
   }
 
   /**
@@ -746,56 +547,49 @@ export class AuthService {
     const isEmail = identifier.includes("@");
     const normalizedIdentifier = isEmail ? identifier.toLowerCase().trim() : normalizePhone(identifier);
 
-    try {
-      const otpRecord = await withDbTimeout(
-        prisma.otpVerification.findFirst({
-          where: {
-            identifier: normalizedIdentifier,
-            purpose: "PASSWORD_RESET",
-            isConsumed: false,
-          },
-          orderBy: { createdAt: "desc" },
-        }),
-        1000
-      );
+    const otpRecord = await prisma.otpVerification.findFirst({
+      where: {
+        identifier: normalizedIdentifier,
+        purpose: "PASSWORD_RESET",
+        isConsumed: false,
+      },
+      orderBy: { createdAt: "desc" },
+    });
 
-      if (otpRecord) {
-        await withDbTimeout(
-          prisma.otpVerification.update({
-            where: { id: otpRecord.id },
-            data: { isConsumed: true },
-          }),
-          1000
-        );
-
-        const user = await withDbTimeout(
-          prisma.user.findFirst({
-            where: isEmail ? { email: normalizedIdentifier } : { phone: normalizedIdentifier },
-          }),
-          1000
-        );
-
-        if (user) {
-          const passwordHash = await CryptoUtil.hashPassword(newPassword);
-          await withDbTimeout(
-            prisma.user.update({
-              where: { id: user.id },
-              data: { passwordHash },
-            }),
-            1000
-          );
-          await TokenService.revokeAllUserSessions(user.id);
-          await AuditService.log({
-            userId: user.id,
-            action: AuditAction.AUTH_PASSWORD_RESET,
-            resource: `User:${user.id}`,
-            details: { identifier: normalizedIdentifier },
-          });
-        }
-      }
-    } catch {
-      // Dev mode pass
+    if (!otpRecord || otpRecord.expiresAt < new Date()) {
+      throw new Error("Invalid or expired OTP. Please request a new one.");
     }
+
+    const expectedHash = CryptoUtil.hashToken(otp.trim());
+    if (otpRecord.otpHash !== expectedHash) {
+      throw new Error("Incorrect OTP. Please check and try again.");
+    }
+
+    await prisma.otpVerification.update({
+      where: { id: otpRecord.id },
+      data: { isConsumed: true },
+    });
+
+    const user = await prisma.user.findFirst({
+      where: isEmail ? { email: normalizedIdentifier } : { phone: normalizedIdentifier },
+    });
+
+    if (!user) {
+      throw new Error("User account not found.");
+    }
+
+    const passwordHash = await CryptoUtil.hashPassword(newPassword);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash },
+    });
+    await TokenService.revokeAllUserSessions(user.id);
+    await AuditService.log({
+      userId: user.id,
+      action: AuditAction.AUTH_PASSWORD_RESET,
+      resource: `User:${user.id}`,
+      details: { identifier: normalizedIdentifier },
+    });
 
     return { message: "Password has been reset successfully. Please log in with your new password." };
   }
@@ -865,122 +659,98 @@ export class AuthService {
     const avatarUrl = verifiedPicture || data.profile?.picture;
     const googleSub = verifiedSub || data.profile?.sub || `google_${CryptoUtil.hashToken(email).slice(0, 16)}`;
 
-    let user: any = null;
+    let user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { identities: { some: { provider: "google", providerUserId: googleSub } } },
+          { email },
+        ],
+      },
+      include: {
+        customerProfile: true,
+        identities: true,
+      },
+    });
 
-    // Database lookup & persistence
-    try {
-      user = await withDbTimeout(
-        prisma.user.findFirst({
-          where: {
-            OR: [
-              { identities: { some: { provider: "google", providerUserId: googleSub } } },
-              { email },
-            ],
-          },
-          include: {
-            customerProfile: true,
-            identities: true,
-          },
-        }),
-        1500
+    if (user) {
+      const hasGoogleIdentity = user.identities?.some(
+        (i: any) => i.provider === "google" && i.providerUserId === googleSub
       );
-
-      if (user) {
-        const hasGoogleIdentity = user.identities?.some(
-          (i: any) => i.provider === "google" && i.providerUserId === googleSub
-        );
-        if (!hasGoogleIdentity) {
-          await prisma.authIdentity.create({
-            data: {
-              userId: user.id,
+      if (!hasGoogleIdentity) {
+        await prisma.authIdentity.create({
+          data: {
+            userId: user.id,
+            provider: "google",
+            providerUserId: googleSub,
+            profileData: { email, name: fullName, picture: avatarUrl },
+          },
+        }).catch(() => {});
+      }
+      if ((!user.avatarUrl && avatarUrl) || !user.isEmailVerified) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            avatarUrl: user.avatarUrl || avatarUrl,
+            isEmailVerified: true,
+          },
+        }).catch(() => {});
+      }
+    } else {
+      // Create new user with customer profile and Google identity
+      user = await prisma.user.create({
+        data: {
+          email,
+          role: Role.CUSTOMER,
+          status: AccountStatus.ACTIVE,
+          isEmailVerified: true,
+          avatarUrl,
+          customerProfile: {
+            create: {
+              fullName,
+              whatsappOptIn: false,
+            },
+          },
+          cart: {
+            create: {},
+          },
+          notificationPreferences: {
+            create: {
+              emailOrders: true,
+              smsOrders: true,
+              whatsappOrders: false,
+            },
+          },
+          consents: {
+            create: {
+              policyType: "TERMS_AND_PRIVACY",
+              policyVersion: "1.0",
+              ipAddress: data.ipAddress,
+              userAgent: data.userAgent,
+            },
+          },
+          identities: {
+            create: {
               provider: "google",
               providerUserId: googleSub,
               profileData: { email, name: fullName, picture: avatarUrl },
             },
-          }).catch(() => {});
-        }
-        if ((!user.avatarUrl && avatarUrl) || !user.isEmailVerified) {
-          await prisma.user.update({
-            where: { id: user.id },
-            data: {
-              avatarUrl: user.avatarUrl || avatarUrl,
-              isEmailVerified: true,
-            },
-          }).catch(() => {});
-        }
-      } else {
-        // Create new user with customer profile and Google identity
-        user = await withDbTimeout(
-          prisma.user.create({
-            data: {
-              email,
-              role: Role.CUSTOMER,
-              status: AccountStatus.ACTIVE,
-              isEmailVerified: true,
-              avatarUrl,
-              customerProfile: {
-                create: {
-                  fullName,
-                  whatsappOptIn: false,
-                },
-              },
-              cart: {
-                create: {},
-              },
-              notificationPreferences: {
-                create: {
-                  emailOrders: true,
-                  smsOrders: true,
-                  whatsappOrders: false,
-                },
-              },
-              consents: {
-                create: {
-                  policyType: "TERMS_AND_PRIVACY",
-                  policyVersion: "1.0",
-                  ipAddress: data.ipAddress,
-                  userAgent: data.userAgent,
-                },
-              },
-              identities: {
-                create: {
-                  provider: "google",
-                  providerUserId: googleSub,
-                  profileData: { email, name: fullName, picture: avatarUrl },
-                },
-              },
-            },
-            include: {
-              customerProfile: true,
-            },
-          }),
-          2000
-        );
-      }
-    } catch {
-      Logger.warn("Database lookup in Google auth timed out; synchronizing with devStore");
-    }
-
-    // Sync to devStore
-    let devUser = devStore.findUserByIdentifier(email);
-    if (!devUser) {
-      devUser = devStore.addUser({
-        id: user?.id || `dev-google-${Date.now()}`,
-        email,
-        passwordHash: "",
-        role: AppRole.CUSTOMER,
-        fullName,
-        avatarUrl,
-        status: "ACTIVE",
+          },
+        },
+        include: {
+          customerProfile: true,
+          identities: true,
+        },
       });
-    } else if (avatarUrl && !devUser.avatarUrl) {
-      devUser.avatarUrl = avatarUrl;
     }
 
-    const userId = user?.id || devUser.id;
-    const userRole = (user?.role as AppRole) || devUser.role || AppRole.CUSTOMER;
-    const userFullName = user?.customerProfile?.fullName || devUser.fullName || fullName;
-    const finalAvatar = avatarUrl || user?.avatarUrl || devUser.avatarUrl;
+    if (!user) {
+      throw new Error("Unable to sign in or register with Google.");
+    }
+
+    const userId = user.id;
+    const userRole = (user.role as unknown as AppRole) || AppRole.CUSTOMER;
+    const userFullName = user.customerProfile?.fullName || fullName;
+    const finalAvatar = avatarUrl || user.avatarUrl;
 
     const accessToken = TokenService.generateAccessToken({
       userId,
@@ -1010,10 +780,10 @@ export class AuthService {
       user: {
         id: userId,
         email,
-        phone: user?.phone || devUser?.phone || null,
+        phone: user.phone || null,
         role: userRole,
-        avatarUrl: finalAvatar || null,
         fullName: userFullName,
+        avatarUrl: finalAvatar,
       },
       tokens: {
         accessToken,

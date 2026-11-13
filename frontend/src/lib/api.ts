@@ -13,9 +13,6 @@ const rawApiUrl =
 
 export const API_BASE_URL = rawApiUrl.trim().replace(/\/$/, "");
 
-const SUPABASE_STORAGE_PUBLIC_BASE =
-  "https://zxiatmlrdfzfettbyqmj.supabase.co/storage/v1/object/public/prescriptions";
-
 export interface PrescriptionFileRef {
   objectKey?: string | null;
   originalFileName?: string | null;
@@ -24,68 +21,70 @@ export interface PrescriptionFileRef {
 }
 
 /**
- * Resolves a prescription file or download URL so that relative backend URLs,
- * Supabase storage CDN paths, and embedded base64 are seamlessly routed,
- * preventing 404 errors when viewing or downloading prescriptions.
+ * Resolves a prescription file or download URL.
+ * Medical records are strictly authenticated with signed URLs or authenticated download paths.
  */
 export function resolvePrescriptionUrl(
   url?: string | null,
   prescriptionId?: string,
   fileUpload?: PrescriptionFileRef | null
 ): string {
-  // 1. If base64 data URI is available, return data URL directly
-  if (fileUpload?.fileDataBase64) {
-    const mime = fileUpload.mimeType || "application/octet-stream";
-    return `data:${mime};base64,${fileUpload.fileDataBase64}`;
-  }
-
-  // 2. If objectKey is available in metadata, resolve to direct Supabase storage CDN
-  const objectKey = fileUpload?.objectKey;
-  if (objectKey) {
-    const cleanKey = objectKey.replace(/^\/+/, "");
-    return `${SUPABASE_STORAGE_PUBLIC_BASE}/${cleanKey}`;
-  }
-
   const prodBackend = "https://nayantara-backend.onrender.com";
   const defaultBackend = isProd ? prodBackend : "http://localhost:5000";
 
-  // 3. If URL contains raw objectKey (e.g. /api/v1/prescriptions/raw/prescriptions%2F... or http://localhost:5000/api/v1/prescriptions/raw/...)
-  if (url && (url.includes("/prescriptions/raw/") || url.includes("/raw/"))) {
+  let tokenParam = "";
+  if (typeof window !== "undefined") {
     try {
-      const match = url.match(/\/raw\/(.+)$/);
-      if (match && match[1]) {
-        const decodedKey = decodeURIComponent(match[1]).replace(/^\/+/, "");
-        return `${SUPABASE_STORAGE_PUBLIC_BASE}/${decodedKey}`;
+      const storedToken = localStorage.getItem("token") || localStorage.getItem("accessToken");
+      if (storedToken) {
+        tokenParam = `?token=${encodeURIComponent(storedToken)}`;
       }
     } catch {
-      // ignore decode error and proceed
+      // ignore localStorage errors
     }
   }
 
-  if (!url || url === "#") {
-    if (prescriptionId) {
-      return `${defaultBackend}/api/v1/prescriptions/${prescriptionId}/file`;
+  // 1. If already an absolute signed URL (Supabase S3 signed URL, blob, etc.), return as-is
+  if (url && (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("blob:"))) {
+    // Replace localhost in production
+    if (isProd && (url.includes("localhost:5000") || url.includes("127.0.0.1:5000"))) {
+      url = url.replace(/https?:\/\/(localhost|127\.0\.0\.1):5000/, prodBackend);
     }
-    return "#";
-  }
-
-  // 4. Replace localhost/127.0.0.1 in production environments
-  if (isProd && (url.includes("localhost:5000") || url.includes("127.0.0.1:5000"))) {
-    url = url.replace(/https?:\/\/(localhost|127\.0\.0\.1):5000/, prodBackend);
-  }
-
-  // 5. If already absolute URL (e.g. Supabase signed URL or CDN), return as-is
-  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:") || url.startsWith("blob:")) {
+    // If it's a backend file URL without a token and we have one, attach token for browser download
+    if (url.includes("/api/v1/prescriptions/") && !url.includes("token=") && tokenParam) {
+      url = url.includes("?") ? `${url}&${tokenParam.slice(1)}` : `${url}${tokenParam}`;
+    }
     return url;
   }
 
-  // 6. If relative path (e.g. /api/v1/...), ALWAYS prepend backend origin so Vercel doesn't show 404 SPA page
-  const normalizedPath = url.startsWith("/") ? url : `/${url}`;
-  if (normalizedPath.startsWith("/api/")) {
-    const backendOrigin = API_BASE_URL.replace(/\/api\/v1\/?$/, "");
-    return `${backendOrigin || defaultBackend}${normalizedPath}`;
+  // 2. Direct endpoint by prescriptionId
+  if (prescriptionId) {
+    return `${defaultBackend}/api/v1/prescriptions/${prescriptionId}/file${tokenParam}`;
   }
-  return `${API_BASE_URL}${normalizedPath}`;
+
+  if (!url || url === "#") {
+    return "#";
+  }
+
+  // 3. Relative backend path (e.g. /api/v1/...)
+  const normalizedPath = url.startsWith("/") ? url : `/${url}`;
+  const backendOrigin = API_BASE_URL.replace(/\/api\/v1\/?$/, "");
+  const fullUrl = `${backendOrigin || defaultBackend}${normalizedPath}`;
+  if (!fullUrl.includes("token=") && tokenParam) {
+    return fullUrl.includes("?") ? `${fullUrl}&${tokenParam.slice(1)}` : `${fullUrl}${tokenParam}`;
+  }
+  return fullUrl;
+}
+
+/**
+ * Fetches an authenticated, temporary 5-minute signed download URL for a prescription file
+ */
+export async function fetchPrescriptionDownloadUrl(prescriptionId: string): Promise<string> {
+  const res = await apiRequest<{ downloadUrl: string }>(`/prescriptions/${prescriptionId}/download-url`);
+  if (!res.success || !res.data?.downloadUrl) {
+    throw new Error(res.message || "Failed to generate prescription download URL.");
+  }
+  return res.data.downloadUrl;
 }
 
 interface RequestOptions extends RequestInit {

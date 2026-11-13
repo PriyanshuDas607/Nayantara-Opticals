@@ -44,7 +44,6 @@ export class PrescriptionService {
           mimeType: data.file.mimetype,
           sizeBytes: data.file.size,
           uploadStatus: UploadStatus.AVAILABLE,
-          fileDataBase64: data.file.buffer.toString("base64"),
         },
       });
 
@@ -219,12 +218,19 @@ export class PrescriptionService {
     });
 
     if (!rx || !rx.fileUpload || rx.deletedAt) {
-      throw new Error("Prescription file not found or has been deleted.");
+      const err = new Error("Prescription file not found or has been deleted.") as Error & { statusCode: number; code: string };
+      err.statusCode = 404;
+      err.code = "NOT_FOUND";
+      throw err;
     }
 
     // RBAC and IDOR Authorization Check (CUSTOMER only allowed to access their own)
-    if (requestingUserRole === "CUSTOMER" && rx.userId !== requestingUserId) {
-      throw new Error("Unauthorized to access this prescription.");
+    const isPrivileged = ["DOCTOR", "OWNER", "SUPER_ADMIN", "ADMIN"].includes(requestingUserRole);
+    if (!isPrivileged && rx.userId !== requestingUserId) {
+      const err = new Error("Unauthorized to access this prescription.") as Error & { statusCode: number; code: string };
+      err.statusCode = 403;
+      err.code = "FORBIDDEN";
+      throw err;
     }
 
     // Generate signed download URL from Supabase Storage with direct backend endpoint fallback

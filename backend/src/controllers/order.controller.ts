@@ -2,14 +2,6 @@ import { Request, Response, NextFunction } from "express";
 import { OrderStatus } from "@prisma/client";
 import { OrderService } from "../services/order.service.js";
 import { PaymentService } from "../services/payment.service.js";
-import { devStore } from "../utils/devStore.js";
-
-function withDbTimeout<T>(promise: Promise<T>, ms = 10000): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Database connection timeout")), ms)),
-  ]);
-}
 
 export class OrderController {
   static async validateCheckout(req: Request, res: Response, next: NextFunction) {
@@ -34,47 +26,16 @@ export class OrderController {
         return;
       }
 
-      try {
-        const result = await withDbTimeout(
-          OrderService.createOrder({
-            userId: req.user.userId,
-            ...req.body,
-          }),
-          800
-        );
+      const result = await OrderService.createOrder({
+        userId: req.user.userId,
+        ...req.body,
+      });
 
-        res.status(201).json({
-          success: true,
-          message: "Order placed successfully.",
-          data: result,
-        });
-        return;
-      } catch {
-        // Dynamic in-memory devStore order fallback
-        const items = req.body.items || [{ productName: "Selected Eyewear Frame", quantity: 1, unitPricePaise: 349900 }];
-        const totalPaise = items.reduce((sum: number, it: any) => sum + (it.unitPricePaise || 349900) * (it.quantity || 1), 0);
-
-        const newOrder = devStore.addOrder({
-          totalPaise,
-          paymentMethod: req.body.paymentMethod || "ONLINE",
-          paymentStatus: req.body.paymentMethod === "COD" ? "PENDING" : "PAID",
-          status: req.body.paymentMethod === "COD" ? "PLACED" : "PROCESSING",
-          customerName: req.body.customerName || "Customer",
-          phone: req.body.phone || "+91 9876543210",
-          items: items.map((it: any) => ({
-            productName: it.productName || "Handcrafted Optical Frame",
-            quantity: it.quantity || 1,
-            unitPricePaise: it.unitPricePaise || 349900,
-          })),
-        });
-
-        res.status(201).json({
-          success: true,
-          message: "Order placed successfully.",
-          data: newOrder,
-        });
-        return;
-      }
+      res.status(201).json({
+        success: true,
+        message: "Order placed successfully.",
+        data: result,
+      });
     } catch (error) {
       next(error);
     }

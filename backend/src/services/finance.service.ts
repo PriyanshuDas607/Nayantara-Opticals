@@ -1,12 +1,4 @@
 import { prisma } from "../utils/prisma.js";
-import { devStore } from "../utils/devStore.js";
-
-function withDbTimeout<T>(promise: Promise<T>, ms = 700): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Database connection timeout")), ms)),
-  ]);
-}
 
 export interface OwnerFinancialOverview {
   storeId: string;
@@ -104,51 +96,26 @@ export class FinanceService {
    * Scoped dynamic financial aggregation for Store Owner
    */
   static async getOwnerFinancialOverview(storeId?: string): Promise<OwnerFinancialOverview> {
-    const targetStoreId = storeId || devStore.stores[0]?.id || "store-uttam-nagar-01";
-    const store = devStore.stores.find((s) => s.id === targetStoreId) || devStore.stores[0];
-    const storeName = store?.name || "Nayantara Opticals";
+    const targetStore = storeId
+      ? await prisma.store.findUnique({ where: { id: storeId } })
+      : await prisma.store.findFirst();
+    const targetStoreId = targetStore?.id || storeId || "";
+    const storeName = targetStore?.name || "Nayantara Opticals";
 
-    let orders: any[] = [];
-    let appointments: any[] = [];
-
-    try {
-      const [dbOrders, dbAppts] = await Promise.all([
-        withDbTimeout(
-          prisma.order.findMany({
-            where: { storeId: targetStoreId },
-            include: {
-              items: true,
-              user: { include: { customerProfile: true } },
-            },
-            orderBy: { createdAt: "desc" },
-          }),
-          600
-        ),
-        withDbTimeout(
-          prisma.appointment.findMany({
-            where: { storeId: targetStoreId },
-            orderBy: { createdAt: "desc" },
-          }),
-          600
-        ),
-      ]);
-
-      if (dbOrders && dbOrders.length > 0) {
-        orders = dbOrders;
-      }
-      if (dbAppts && dbAppts.length > 0) {
-        appointments = dbAppts;
-      }
-    } catch {
-      // Fallback to devStore dynamic in-memory dataset
-    }
-
-    if (orders.length === 0) {
-      orders = devStore.orders.filter((o) => !o.storeId || o.storeId === targetStoreId);
-    }
-    if (appointments.length === 0) {
-      appointments = devStore.appointments;
-    }
+    const [orders, appointments] = await Promise.all([
+      prisma.order.findMany({
+        where: targetStoreId ? { storeId: targetStoreId } : {},
+        include: {
+          items: true,
+          user: { include: { customerProfile: true } },
+        },
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.appointment.findMany({
+        where: targetStoreId ? { storeId: targetStoreId } : {},
+        orderBy: { createdAt: "desc" },
+      }),
+    ]);
 
     return this.computeOwnerFinancials(targetStoreId, storeName, orders, appointments);
   }
@@ -157,46 +124,14 @@ export class FinanceService {
    * Consolidated dynamic financial aggregation for Super Admin
    */
   static async getAdminFinancialOverview(): Promise<AdminFinancialOverview> {
-    let orders: any[] = [];
-    let appointments: any[] = [];
-
-    try {
-      const [dbOrders, dbAppts] = await Promise.all([
-        withDbTimeout(
-          prisma.order.findMany({
-            include: {
-              items: true,
-              user: { include: { customerProfile: true } },
-              store: true,
-            },
-            orderBy: { createdAt: "desc" },
-          }),
-          600
-        ),
-        withDbTimeout(
-          prisma.appointment.findMany({
-            orderBy: { createdAt: "desc" },
-          }),
-          600
-        ),
-      ]);
-
-      if (dbOrders && dbOrders.length > 0) {
-        orders = dbOrders;
-      }
-      if (dbAppts && dbAppts.length > 0) {
-        appointments = dbAppts;
-      }
-    } catch {
-      // Fallback to devStore
-    }
-
-    if (orders.length === 0) {
-      orders = devStore.orders;
-    }
-    if (appointments.length === 0) {
-      appointments = devStore.appointments;
-    }
+    const orders = await prisma.order.findMany({
+      include: {
+        items: true,
+        user: { include: { customerProfile: true } },
+        store: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
 
     return this.computeAdminFinancials(orders);
   }

@@ -2,7 +2,6 @@ import { OrderStatus, PaymentMethod, PaymentStatus, Prisma } from "@prisma/clien
 import { prisma } from "../utils/prisma.js";
 import { PaymentService } from "./payment.service.js";
 import { NotificationService } from "./notification.service.js";
-import { devStore } from "../utils/devStore.js";
 
 export class OrderService {
   /**
@@ -222,57 +221,37 @@ export class OrderService {
    * Customer gets their orders
    */
   static async getCustomerOrders(userId: string) {
-    try {
-      const orders = await Promise.race([
-        prisma.order.findMany({
-          where: { userId },
-          include: {
-            items: { include: { product: { include: { images: { where: { isPrimary: true } } } } } },
-            address: true,
-            history: { orderBy: { createdAt: "desc" } },
-            payments: true,
-          },
-          orderBy: { createdAt: "desc" },
-        }),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Timeout")), 700)),
-      ]);
-      if (orders && orders.length > 0) return orders;
-    } catch {
-      // Fallback to devStore
-    }
-    return devStore.orders;
+    return prisma.order.findMany({
+      where: { userId },
+      include: {
+        items: { include: { product: { include: { images: { where: { isPrimary: true } } } } } },
+        address: true,
+        history: { orderBy: { createdAt: "desc" } },
+        payments: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
   }
 
   /**
    * Customer gets single order by ID
    */
-  static async getOrderById(orderId: string, userId?: string) {
-    try {
-      const where: Prisma.OrderWhereUniqueInput = { id: orderId };
-      const order = await Promise.race([
-        prisma.order.findUnique({
-          where,
-          include: {
-            items: { include: { product: { include: { images: { where: { isPrimary: true } } } } } },
-            address: true,
-            history: { orderBy: { createdAt: "desc" } },
-            payments: true,
-            user: { select: { id: true, email: true, phone: true, customerProfile: true } },
-          },
-        }),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Timeout")), 700)),
-      ]);
+  static async getOrderById(orderId: string, _userId?: string) {
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        items: { include: { product: { include: { images: { where: { isPrimary: true } } } } } },
+        address: true,
+        history: { orderBy: { createdAt: "desc" } },
+        payments: true,
+        user: { select: { id: true, email: true, phone: true, customerProfile: true } },
+      },
+    });
 
-      if (order) return order;
-    } catch {
-      // Fallback
-    }
-
-    const fallbackOrder = devStore.orders.find((o) => o.id === orderId || o.orderNumber === orderId);
-    if (!fallbackOrder) {
+    if (!order) {
       throw new Error("Order not found.");
     }
-    return fallbackOrder;
+    return order;
   }
 
   /**
@@ -288,60 +267,32 @@ export class OrderService {
     const limit = Math.min(50, Math.max(1, Number(filters.limit) || 20));
     const skip = (page - 1) * limit;
 
-    try {
-      const where: Prisma.OrderWhereInput = {};
-      if (filters.storeId) where.storeId = filters.storeId;
-      if (filters.status) where.status = filters.status;
+    const where: Prisma.OrderWhereInput = {};
+    if (filters.storeId) where.storeId = filters.storeId;
+    if (filters.status) where.status = filters.status;
 
-      const [total, orders] = await Promise.all([
-        Promise.race([
-          prisma.order.count({ where }),
-          new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Timeout")), 700)),
-        ]),
-        Promise.race([
-          prisma.order.findMany({
-            where,
-            skip,
-            take: limit,
-            include: {
-              items: true,
-              address: true,
-              user: { select: { id: true, email: true, phone: true, customerProfile: true } },
-            },
-            orderBy: { createdAt: "desc" },
-          }),
-          new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Timeout")), 700)),
-        ]),
-      ]);
-
-      if (orders && orders.length > 0) {
-        return {
-          orders,
-          pagination: {
-            page,
-            limit,
-            total,
-            totalPages: Math.ceil(total / limit),
-          },
-        };
-      }
-    } catch {
-      // Fallback
-    }
-
-    const filtered = devStore.orders.filter((o) => {
-      if (filters.storeId && o.storeId && o.storeId !== filters.storeId) return false;
-      if (filters.status && o.status !== filters.status) return false;
-      return true;
-    });
+    const [total, orders] = await Promise.all([
+      prisma.order.count({ where }),
+      prisma.order.findMany({
+        where,
+        skip,
+        take: limit,
+        include: {
+          items: true,
+          address: true,
+          user: { select: { id: true, email: true, phone: true, customerProfile: true } },
+        },
+        orderBy: { createdAt: "desc" },
+      }),
+    ]);
 
     return {
-      orders: filtered.slice(skip, skip + limit),
+      orders,
       pagination: {
         page,
         limit,
-        total: filtered.length,
-        totalPages: Math.ceil(filtered.length / limit) || 1,
+        total,
+        totalPages: Math.ceil(total / limit) || 1,
       },
     };
   }
@@ -350,30 +301,19 @@ export class OrderService {
    * Update order status (Owner or Admin)
    */
   static async updateOrderStatus(orderId: string, status: OrderStatus, changedById: string, notes?: string) {
-    try {
-      const updated = await Promise.race([
-        prisma.order.update({
-          where: { id: orderId },
-          data: {
+    return prisma.order.update({
+      where: { id: orderId },
+      data: {
+        status,
+        history: {
+          create: {
             status,
-            history: {
-              create: {
-                status,
-                changedById,
-                notes,
-              },
-            },
+            changedById,
+            notes,
           },
-          include: { items: true, address: true, user: { include: { customerProfile: true } } },
-        }),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Timeout")), 700)),
-      ]);
-      if (updated) return updated;
-    } catch {
-      // Fallback to devStore
-    }
-
-    const devOrder = devStore.updateOrderStatus(orderId, status);
-    return devOrder || { id: orderId, status };
+        },
+      },
+      include: { items: true, address: true, user: { include: { customerProfile: true } } },
+    });
   }
 }

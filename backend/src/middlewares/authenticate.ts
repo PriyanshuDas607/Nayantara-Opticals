@@ -18,6 +18,8 @@ export const authenticate = (req: Request, res: Response, next: NextFunction): v
     token = authHeader.substring(7);
   } else if (req.cookies?.accessToken) {
     token = req.cookies.accessToken;
+  } else if (typeof req.query.token === "string" && req.query.token) {
+    token = req.query.token;
   }
 
   if (!token) {
@@ -53,6 +55,8 @@ export const optionalAuthenticate = (req: Request, _res: Response, next: NextFun
     token = authHeader.substring(7);
   } else if (req.cookies?.accessToken) {
     token = req.cookies.accessToken;
+  } else if (typeof req.query.token === "string" && req.query.token) {
+    token = req.query.token;
   }
 
   if (token) {

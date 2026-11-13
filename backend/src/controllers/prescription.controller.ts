@@ -1,7 +1,9 @@
 import { Request, Response, NextFunction } from "express";
+import path from "path";
 import { Role } from "@prisma/client";
 import { PrescriptionService } from "../services/prescription.service.js";
 import { StorageService } from "../services/storage.service.js";
+import { AuditService } from "../services/audit.service.js";
 import { prisma } from "../utils/prisma.js";
 
 export class PrescriptionController {
@@ -90,10 +92,54 @@ export class PrescriptionController {
    */
   static async getRawFile(req: Request, res: Response, next: NextFunction) {
     try {
+      const user = req.user;
+      if (!user) {
+        res.status(401).json({
+          success: false,
+          message: "Authentication required to access prescription files.",
+          error: { code: "UNAUTHORIZED" },
+        });
+        return;
+      }
+
       const paramKey = req.params.objectKey || (req.params as Record<string, string>)["0"];
       const objectKey = Array.isArray(paramKey) ? paramKey[0] : paramKey;
       if (!objectKey) {
         res.status(400).send("Invalid file request.");
+        return;
+      }
+
+      const cleanKey = decodeURIComponent(objectKey);
+      const keyBase = path.basename(cleanKey);
+
+      // Verify fileUpload & prescription ownership
+      const fileRecord = await prisma.fileUpload.findFirst({
+        where: {
+          OR: [
+            { objectKey: cleanKey },
+            { objectKey: objectKey },
+            { objectKey: { endsWith: keyBase } },
+          ],
+        },
+        include: {
+          prescription: true,
+        },
+      });
+
+      if (!fileRecord) {
+        res.status(404).send("Prescription file not found.");
+        return;
+      }
+
+      const isPrivileged = ["DOCTOR", "OWNER", "SUPER_ADMIN", "ADMIN"].includes(user.role);
+      const isOwner = fileRecord.prescription?.userId === user.userId;
+
+      if (!isPrivileged && !isOwner) {
+        res.status(403).json({
+          success: false,
+          message: "Forbidden: You do not have permission to view this prescription.",
+          error: { code: "FORBIDDEN" },
+        });
         return;
       }
 
@@ -103,13 +149,27 @@ export class PrescriptionController {
         return;
       }
 
+      // Audit log every read
+      await AuditService.log({
+        userId: user.userId,
+        action: "VIEW_PRESCRIPTION_FILE",
+        resource: fileRecord.prescription ? `Prescription:${fileRecord.prescription.id}` : `FileUpload:${fileRecord.id}`,
+        ipAddress: req.ip,
+        userAgent: req.headers["user-agent"],
+        details: {
+          fileUploadId: fileRecord.id,
+          fileName: fileRecord.originalFileName,
+          endpoint: "getRawFile",
+        },
+      });
+
       res.removeHeader("X-Frame-Options");
       res.setHeader("Content-Security-Policy", "frame-ancestors *");
       res.setHeader("Access-Control-Allow-Origin", "*");
       res.setHeader("Content-Type", fileData.mimeType);
       res.setHeader("Content-Disposition", `inline; filename="${fileData.fileName}"`);
       res.setHeader("Content-Length", fileData.buffer.length);
-      res.setHeader("Cache-Control", "public, max-age=86400");
+      res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
       res.send(fileData.buffer);
     } catch (error) {
       next(error);
@@ -121,6 +181,16 @@ export class PrescriptionController {
    */
   static async getFileById(req: Request, res: Response, next: NextFunction) {
     try {
+      const user = req.user;
+      if (!user) {
+        res.status(401).json({
+          success: false,
+          message: "Authentication required to access prescription files.",
+          error: { code: "UNAUTHORIZED" },
+        });
+        return;
+      }
+
       const param = req.params.id;
       const id = Array.isArray(param) ? param[0] : param;
       if (!id) {
@@ -133,8 +203,21 @@ export class PrescriptionController {
         include: { fileUpload: true },
       });
 
-      if (!rx || !rx.fileUpload) {
+      if (!rx || !rx.fileUpload || rx.deletedAt) {
         res.status(404).send("Prescription record not found.");
+        return;
+      }
+
+      // Ownership and Role Check
+      const isPrivileged = ["DOCTOR", "OWNER", "SUPER_ADMIN", "ADMIN"].includes(user.role);
+      const isOwner = rx.userId === user.userId;
+
+      if (!isPrivileged && !isOwner) {
+        res.status(403).json({
+          success: false,
+          message: "Forbidden: You do not have permission to view this prescription.",
+          error: { code: "FORBIDDEN" },
+        });
         return;
       }
 
@@ -144,13 +227,27 @@ export class PrescriptionController {
         return;
       }
 
+      // Audit log every read
+      await AuditService.log({
+        userId: user.userId,
+        action: "VIEW_PRESCRIPTION_FILE",
+        resource: `Prescription:${rx.id}`,
+        ipAddress: req.ip,
+        userAgent: req.headers["user-agent"],
+        details: {
+          fileUploadId: rx.fileUploadId,
+          fileName: rx.fileUpload.originalFileName,
+          endpoint: "getFileById",
+        },
+      });
+
       res.removeHeader("X-Frame-Options");
       res.setHeader("Content-Security-Policy", "frame-ancestors *");
       res.setHeader("Access-Control-Allow-Origin", "*");
       res.setHeader("Content-Type", fileData.mimeType);
       res.setHeader("Content-Disposition", `inline; filename="${fileData.fileName}"`);
       res.setHeader("Content-Length", fileData.buffer.length);
-      res.setHeader("Cache-Control", "public, max-age=86400");
+      res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
       res.send(fileData.buffer);
     } catch (error) {
       next(error);

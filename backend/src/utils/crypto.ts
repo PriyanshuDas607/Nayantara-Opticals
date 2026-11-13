@@ -41,13 +41,22 @@ export class CryptoUtil {
   }
 
   /**
-   * Verifies a Razorpay webhook or payment signature using HMAC SHA256
+   * Verifies a Razorpay webhook or payment signature using HMAC SHA256.
+   * Defends against timing attacks and length-mismatch RangeErrors.
    */
-  static verifyHmacSha256(data: string, signature: string, secret: string): boolean {
+  static verifyHmacSha256(data: string | Buffer, signature: string, secret: string): boolean {
+    if (!signature || !secret) {
+      return false;
+    }
     const expectedSignature = crypto.createHmac("sha256", secret).update(data).digest("hex");
-    return crypto.timingSafeEqual(
-      Buffer.from(signature, "utf-8"),
-      Buffer.from(expectedSignature, "utf-8")
-    );
+    const sigBuf = Buffer.from(signature, "utf-8");
+    const expectedBuf = Buffer.from(expectedSignature, "utf-8");
+
+    // timingSafeEqual throws RangeError if buffer lengths differ
+    if (sigBuf.length !== expectedBuf.length) {
+      return false;
+    }
+
+    return crypto.timingSafeEqual(sigBuf, expectedBuf);
   }
 }

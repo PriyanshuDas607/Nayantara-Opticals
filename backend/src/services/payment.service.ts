@@ -140,20 +140,39 @@ export class PaymentService {
   }
 
   /**
-   * Processes Razorpay Webhooks idempotently
+   * Processes Razorpay Webhooks idempotently with raw HMAC verification
    */
-  static async handleWebhook(rawBody: string, signature: string, payload: { event: string; payload: { payment?: { entity?: { id?: string; order_id?: string; amount?: number; error_description?: string } } } }) {
-    // 1. Verify Webhook Signature
-    const isValidSignature =
-      config.nodeEnv === "development"
-        ? true
-        : CryptoUtil.verifyHmacSha256(rawBody, signature, config.razorpay.webhookSecret);
+  static async handleWebhook(
+    rawBodyOrParams:
+      | string
+      | {
+          rawBody: string | Buffer;
+          signature: string;
+          payload: any;
+          eventId?: string;
+        },
+    signatureParam?: string,
+    payloadParam?: any,
+    eventIdParam?: string
+  ) {
+    const isObjectCall = typeof rawBodyOrParams === "object" && !Buffer.isBuffer(rawBodyOrParams);
+    const rawBody = isObjectCall ? rawBodyOrParams.rawBody : (rawBodyOrParams as string);
+    const signature = isObjectCall ? rawBodyOrParams.signature : (signatureParam || "");
+    const payload = isObjectCall ? rawBodyOrParams.payload : payloadParam;
+    const eventId = isObjectCall
+      ? rawBodyOrParams.eventId || `evt_${Date.now()}`
+      : eventIdParam || payload?.payload?.payment?.entity?.id || `evt_${Date.now()}`;
 
-    if (!isValidSignature) {
-      throw new Error("Invalid webhook signature.");
+    // 1. Verify Webhook Signature (strictly verified unless explicit ALLOW_INSECURE_WEBHOOKS=true)
+    const shouldVerify = !config.allowInsecureWebhooks;
+    if (shouldVerify) {
+      const isValidSignature = CryptoUtil.verifyHmacSha256(rawBody, signature, config.razorpay.webhookSecret);
+      if (!isValidSignature) {
+        const error: any = new Error("Invalid webhook signature.");
+        error.statusCode = 400;
+        throw error;
+      }
     }
-
-    const eventId = payload.payload?.payment?.entity?.id || `evt_${Date.now()}`;
 
     // 2. Idempotency check: Ensure event has not been processed already
     const existing = await prisma.paymentWebhookEvent.findUnique({
@@ -164,18 +183,27 @@ export class PaymentService {
       return { status: "already_processed" };
     }
 
-    await prisma.paymentWebhookEvent.create({
-      data: {
-        eventId,
-        eventType: payload.event,
-        payload: JSON.stringify(payload),
-        isProcessed: true,
-        processedAt: new Date(),
-      },
-    });
+    // 3. Insert into PaymentWebhookEvent (with P2002 concurrency guard)
+    try {
+      await prisma.paymentWebhookEvent.create({
+        data: {
+          eventId,
+          eventType: payload?.event || "unknown",
+          payload: payload || {}, // Pass JSON object directly, no double JSON.stringify
+          isProcessed: true,
+          processedAt: new Date(),
+        },
+      });
+    } catch (createError: any) {
+      if (createError?.code === "P2002") {
+        return { status: "already_processed" };
+      }
+      throw createError;
+    }
 
-    const paymentEntity = payload.payload?.payment?.entity;
-    if (payload.event === "payment.captured" && paymentEntity?.order_id) {
+    // 4. Update payment and order status if payment.captured
+    const paymentEntity = payload?.payload?.payment?.entity;
+    if (payload?.event === "payment.captured" && paymentEntity?.order_id) {
       await prisma.payment.updateMany({
         where: { razorpayOrderId: paymentEntity.order_id },
         data: {

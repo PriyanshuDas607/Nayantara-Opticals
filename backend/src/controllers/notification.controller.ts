@@ -1,17 +1,9 @@
 import { Request, Response, NextFunction } from "express";
 import { Role, NotificationChannel, NotificationStatus } from "@prisma/client";
 import { prisma } from "../utils/prisma.js";
-import { devStore, DevNotification, DevBroadcastLog } from "../utils/devStore.js";
-import { Role as AppRole } from "../constants/index.js";
 import { NotificationService } from "../services/notification.service.js";
 import { Logger } from "../utils/logger.js";
-
-function withDbTimeout<T>(promise: Promise<T>, ms = 1200): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Database connection timeout")), ms)),
-  ]);
-}
+import { AuditService } from "../services/audit.service.js";
 
 function parseMetadata(meta: unknown): Record<string, any> {
   if (!meta) return {};
@@ -41,62 +33,26 @@ export class NotificationController {
         return;
       }
 
-      let notifications: any[] = [];
+      const dbNotifs = await prisma.notification.findMany({
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      });
 
-      try {
-        const dbNotifs = await withDbTimeout(
-          prisma.notification.findMany({
-            where: { userId },
-            orderBy: { createdAt: "desc" },
-            take: 50,
-          }),
-          1000
-        );
-
-        if (dbNotifs && dbNotifs.length > 0) {
-          notifications = dbNotifs.map((n) => {
-            const meta = parseMetadata(n.metadata);
-            return {
-              id: n.id,
-              userId: n.userId,
-              channel: n.channel,
-              title: n.title,
-              body: n.body,
-              metadata: meta,
-              read: Boolean(meta.read),
-              status: n.status,
-              createdAt: n.createdAt.toISOString(),
-            };
-          });
-        }
-      } catch (err) {
-        Logger.warn("[NotificationController] DB fetch failed or timed out, falling back to devStore:", err);
-      }
-
-      // Merge with devStore notifications
-      const devNotifs = devStore.getUserNotifications(userId);
-      if (devNotifs && devNotifs.length > 0) {
-        const existingIds = new Set(notifications.map((n) => n.id));
-        for (const dn of devNotifs) {
-          if (!existingIds.has(dn.id)) {
-            const meta = parseMetadata(dn.metadata);
-            notifications.push({
-              id: dn.id,
-              userId: dn.userId,
-              channel: dn.channel,
-              title: dn.title,
-              body: dn.body,
-              metadata: meta,
-              read: Boolean(meta.read),
-              status: dn.status,
-              createdAt: dn.createdAt,
-            });
-          }
-        }
-      }
-
-      // Sort by newest first
-      notifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      const notifications = dbNotifs.map((n) => {
+        const meta = parseMetadata(n.metadata);
+        return {
+          id: n.id,
+          userId: n.userId,
+          channel: n.channel,
+          title: n.title,
+          body: n.body,
+          metadata: meta,
+          read: Boolean(meta.read),
+          status: n.status,
+          createdAt: n.createdAt.toISOString(),
+        };
+      });
 
       const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -124,30 +80,16 @@ export class NotificationController {
         return;
       }
 
-      // Update in devStore
-      devStore.markNotificationRead(id, userId);
+      const existing = await prisma.notification.findUnique({ where: { id } });
+      if (existing && existing.userId === userId) {
+        const meta = parseMetadata(existing.metadata);
+        meta.read = true;
+        meta.readAt = new Date().toISOString();
 
-      // Update in DB if present
-      try {
-        const existing = await withDbTimeout(
-          prisma.notification.findUnique({ where: { id } }),
-          800
-        );
-        if (existing && existing.userId === userId) {
-          const meta = parseMetadata(existing.metadata);
-          meta.read = true;
-          meta.readAt = new Date().toISOString();
-
-          await withDbTimeout(
-            prisma.notification.update({
-              where: { id },
-              data: { metadata: meta },
-            }),
-            800
-          );
-        }
-      } catch (err) {
-        Logger.warn("[NotificationController] DB markRead skipped/timed out:", err);
+        await prisma.notification.update({
+          where: { id },
+          data: { metadata: meta },
+        });
       }
 
       res.json({ success: true, message: "Notification marked as read." });
@@ -168,32 +110,20 @@ export class NotificationController {
         return;
       }
 
-      devStore.markAllNotificationsRead(userId);
+      const unreadNotifs = await prisma.notification.findMany({
+        where: { userId },
+      });
 
-      try {
-        const unreadDbNotifs = await withDbTimeout(
-          prisma.notification.findMany({
-            where: { userId },
-          }),
-          800
-        );
-
-        for (const notif of unreadDbNotifs) {
-          const meta = parseMetadata(notif.metadata);
-          if (!meta.read) {
-            meta.read = true;
-            meta.readAt = new Date().toISOString();
-            await withDbTimeout(
-              prisma.notification.update({
-                where: { id: notif.id },
-                data: { metadata: meta },
-              }),
-              400
-            ).catch(() => null);
-          }
+      for (const notif of unreadNotifs) {
+        const meta = parseMetadata(notif.metadata);
+        if (!meta.read) {
+          meta.read = true;
+          meta.readAt = new Date().toISOString();
+          await prisma.notification.update({
+            where: { id: notif.id },
+            data: { metadata: meta },
+          }).catch(() => null);
         }
-      } catch (err) {
-        Logger.warn("[NotificationController] DB markAllRead skipped/timed out:", err);
       }
 
       res.json({ success: true, message: "All notifications marked as read." });
@@ -216,18 +146,9 @@ export class NotificationController {
         return;
       }
 
-      devStore.deleteNotification(id, userId);
-
-      try {
-        await withDbTimeout(
-          prisma.notification.deleteMany({
-            where: { id, userId },
-          }),
-          800
-        );
-      } catch (err) {
-        Logger.warn("[NotificationController] DB delete notification skipped/timed out:", err);
-      }
+      await prisma.notification.deleteMany({
+        where: { id, userId },
+      });
 
       res.json({ success: true, message: "Notification deleted." });
     } catch (error) {
@@ -239,60 +160,33 @@ export class NotificationController {
    * GET /api/notifications/customers
    * Returns list of customers for audience targeting in Owner & Admin panels
    */
-  static async getCustomers(req: Request, res: Response, next: NextFunction) {
+  static async getCustomers(_req: Request, res: Response, next: NextFunction) {
     try {
-      const customerMap = new Map<string, any>();
-
-      // 1. Get devStore customers
-      for (const u of devStore.users) {
-        if (u.role === AppRole.CUSTOMER) {
-          customerMap.set(u.id, {
-            id: u.id,
-            fullName: u.fullName || "Customer",
-            email: u.email || "",
-            phone: u.phone || "",
-            createdAt: u.createdAt,
-            totalOrders: devStore.orders.filter((o) => o.user?.email === u.email).length,
-            totalAppointments: devStore.appointments.filter((a) => a.user?.phone === u.phone).length,
-          });
-        }
-      }
-
-      // 2. Query DB customers
-      try {
-        const dbCustomers = await withDbTimeout(
-          prisma.user.findMany({
-            where: { role: Role.CUSTOMER },
-            include: {
-              customerProfile: true,
-              _count: {
-                select: {
-                  orders: true,
-                  appointments: true,
-                },
-              },
+      const dbCustomers = await prisma.user.findMany({
+        where: { role: Role.CUSTOMER },
+        include: {
+          customerProfile: true,
+          _count: {
+            select: {
+              orders: true,
+              appointments: true,
             },
-            take: 100,
-          }),
-          1000
-        );
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 100,
+      });
 
-        for (const cu of dbCustomers) {
-          customerMap.set(cu.id, {
-            id: cu.id,
-            fullName: cu.customerProfile?.fullName || "Valued Customer",
-            email: cu.email || "",
-            phone: cu.phone || "",
-            createdAt: cu.createdAt.toISOString(),
-            totalOrders: cu._count?.orders ?? 0,
-            totalAppointments: cu._count?.appointments ?? 0,
-          });
-        }
-      } catch (err) {
-        Logger.warn("[NotificationController] Failed to query customers from DB:", err);
-      }
+      const customers = dbCustomers.map((cu) => ({
+        id: cu.id,
+        fullName: cu.customerProfile?.fullName || "Valued Customer",
+        email: cu.email || "",
+        phone: cu.phone || "",
+        createdAt: cu.createdAt.toISOString(),
+        totalOrders: cu._count?.orders ?? 0,
+        totalAppointments: cu._count?.appointments ?? 0,
+      }));
 
-      const customers = Array.from(customerMap.values());
       res.json({ success: true, data: customers });
     } catch (error) {
       next(error);
@@ -307,8 +201,7 @@ export class NotificationController {
     try {
       const senderId = req.user?.userId || "system";
       const senderRole = req.user?.role || "OWNER";
-      const senderUser = devStore.users.find((u) => u.id === senderId);
-      const senderName = senderUser?.fullName || (senderRole === "SUPER_ADMIN" ? "Nayantara Executive Admin" : "Nayantara Store Owner");
+      const senderName = senderRole === "SUPER_ADMIN" ? "Nayantara Executive Admin" : "Nayantara Store Owner";
 
       const {
         title,
@@ -329,92 +222,30 @@ export class NotificationController {
         return;
       }
 
-      // 1. Resolve recipients
-      interface TargetRecipient {
-        id: string;
-        name: string;
-        email?: string;
-        phone?: string;
+      let whereCondition: any = { role: Role.CUSTOMER };
+
+      if (target === "SPECIFIC_USERS" && Array.isArray(userIds) && userIds.length > 0) {
+        whereCondition.id = { in: userIds };
+      } else if (target === "WITH_APPOINTMENTS") {
+        whereCondition.appointments = { some: {} };
+      } else if (target === "WITH_ORDERS") {
+        whereCondition.orders = { some: {} };
       }
 
-      const recipientMap = new Map<string, TargetRecipient>();
+      const dbUsers = await prisma.user.findMany({
+        where: whereCondition,
+        include: { customerProfile: true },
+        take: 200,
+      });
 
-      // Check devStore customers
-      for (const u of devStore.users) {
-        if (u.role === AppRole.CUSTOMER) {
-          const hasAppt = devStore.appointments.some((a) => a.user?.phone === u.phone || a.user?.email === u.email);
-          const hasOrder = devStore.orders.some((o) => o.user?.phone === u.phone || o.user?.email === u.email);
+      const recipients = dbUsers.map((du) => ({
+        id: du.id,
+        name: du.customerProfile?.fullName || "Valued Customer",
+        email: du.email || undefined,
+        phone: du.phone || undefined,
+      }));
 
-          let eligible = false;
-          if (target === "ALL") eligible = true;
-          else if (target === "SPECIFIC_USERS" && Array.isArray(userIds) && userIds.includes(u.id)) eligible = true;
-          else if (target === "WITH_APPOINTMENTS" && hasAppt) eligible = true;
-          else if (target === "WITH_ORDERS" && hasOrder) eligible = true;
-
-          if (eligible) {
-            recipientMap.set(u.id, {
-              id: u.id,
-              name: u.fullName || "Customer",
-              email: u.email,
-              phone: u.phone,
-            });
-          }
-        }
-      }
-
-      // Check DB customers
-      try {
-        let whereCondition: any = { role: Role.CUSTOMER };
-
-        if (target === "SPECIFIC_USERS" && Array.isArray(userIds) && userIds.length > 0) {
-          whereCondition.id = { in: userIds };
-        } else if (target === "WITH_APPOINTMENTS") {
-          whereCondition.appointments = { some: {} };
-        } else if (target === "WITH_ORDERS") {
-          whereCondition.orders = { some: {} };
-        }
-
-        const dbUsers = await withDbTimeout(
-          prisma.user.findMany({
-            where: whereCondition,
-            include: { customerProfile: true },
-            take: 200,
-          }),
-          1000
-        );
-
-        for (const du of dbUsers) {
-          recipientMap.set(du.id, {
-            id: du.id,
-            name: du.customerProfile?.fullName || "Valued Customer",
-            email: du.email || undefined,
-            phone: du.phone || undefined,
-          });
-        }
-      } catch (err) {
-        Logger.warn("[NotificationController] Broadcast DB user lookup timed out/failed:", err);
-      }
-
-      const recipients = Array.from(recipientMap.values());
-
-      if (recipients.length === 0) {
-        // Fallback: if no recipients matched, ensure at least default test customer receives it
-        const fallbackCustomer = devStore.users.find((u) => u.role === AppRole.CUSTOMER);
-        if (fallbackCustomer) {
-          recipients.push({
-            id: fallbackCustomer.id,
-            name: fallbackCustomer.fullName || "Customer",
-            email: fallbackCustomer.email,
-            phone: fallbackCustomer.phone,
-          });
-        }
-      }
-
-      const nowIso = new Date().toISOString();
-
-      // 2. Dispatch notifications to each recipient
       for (const rec of recipients) {
-        // Replace {name} placeholder
         const personalizedTitle = title.replace(/\{name\}/gi, rec.name);
         const personalizedBody = body.replace(/\{name\}/gi, rec.name);
 
@@ -434,40 +265,17 @@ export class NotificationController {
           },
         };
 
-        const notifId = `notif-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+        await prisma.notification.create({
+          data: {
+            userId: rec.id,
+            channel: NotificationChannel.IN_APP,
+            title: personalizedTitle,
+            body: personalizedBody,
+            metadata: metadata,
+            status: NotificationStatus.DELIVERED,
+          },
+        }).catch((e) => Logger.error("[Broadcast] Error creating in-app notification:", e));
 
-        // Save to devStore
-        devStore.addNotification({
-          id: notifId,
-          userId: rec.id,
-          channel: "IN_APP",
-          title: personalizedTitle,
-          body: personalizedBody,
-          metadata,
-          status: "DELIVERED",
-          createdAt: nowIso,
-        });
-
-        // Save to DB
-        try {
-          await withDbTimeout(
-            prisma.notification.create({
-              data: {
-                userId: rec.id,
-                channel: NotificationChannel.IN_APP,
-                title: personalizedTitle,
-                body: personalizedBody,
-                metadata: metadata,
-                status: NotificationStatus.DELIVERED,
-              },
-            }),
-            500
-          );
-        } catch {
-          // handled
-        }
-
-        // Deliver to external channels if requested (e.g. WhatsApp, SMS, Email)
         const extChannels = (channels || []).filter((c: string) => c !== "IN_APP");
         if (extChannels.length > 0) {
           const prismaChannels: NotificationChannel[] = extChannels
@@ -493,8 +301,7 @@ export class NotificationController {
         }
       }
 
-      // 3. Log broadcast to history
-      const broadcastLog: DevBroadcastLog = {
+      const broadcastLog = {
         id: `broadcast-${Date.now()}`,
         title,
         body,
@@ -511,10 +318,15 @@ export class NotificationController {
           role: senderRole,
           name: senderName,
         },
-        createdAt: nowIso,
+        createdAt: new Date().toISOString(),
       };
 
-      devStore.addBroadcastLog(broadcastLog);
+      await AuditService.log({
+        userId: senderId,
+        action: "BROADCAST_SENT" as any,
+        resource: "Broadcast",
+        details: broadcastLog,
+      }).catch(() => null);
 
       Logger.info(`[Notification Broadcast] Sent by ${senderRole} (${senderName}) to ${recipients.length} customers.`);
 
@@ -533,12 +345,33 @@ export class NotificationController {
    * GET /api/notifications/broadcast-history
    * Returns list of past broadcast campaigns sent by Store Owner & Super Admin
    */
-  static async getBroadcastHistory(req: Request, res: Response, next: NextFunction) {
+  static async getBroadcastHistory(_req: Request, res: Response, next: NextFunction) {
     try {
-      const logs = devStore.getBroadcastLogs();
+      const logs = await prisma.auditLog.findMany({
+        where: { action: "BROADCAST_SENT" },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      });
+
+      const history = logs.map((l) => {
+        const details = parseMetadata(l.details);
+        return {
+          id: l.id,
+          title: details.title || "Broadcast Campaign",
+          body: details.body || "",
+          category: details.category || "PROMOTION",
+          priority: details.priority || "NORMAL",
+          target: details.target || "ALL",
+          recipientCount: details.recipientCount || 0,
+          channels: details.channels || ["IN_APP"],
+          sentBy: details.sentBy || { userId: l.userId, role: "OWNER" },
+          createdAt: l.createdAt.toISOString(),
+        };
+      });
+
       res.json({
         success: true,
-        data: logs,
+        data: history,
       });
     } catch (error) {
       next(error);

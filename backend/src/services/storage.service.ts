@@ -193,7 +193,7 @@ export class StorageService {
   }
 
   /**
-   * Generates a secure short-lived/session signed download URL for viewing
+   * Generates a secure short-lived (5 minutes) signed download URL for viewing
    */
   static async getPresignedDownloadUrl(objectKey: string): Promise<string> {
     const supabase = this.getSupabase();
@@ -202,7 +202,7 @@ export class StorageService {
       try {
         const { data, error } = await supabase.storage
           .from(config.supabase.bucketName)
-          .createSignedUrl(objectKey, 60 * 60 * 24); // 24 hours access
+          .createSignedUrl(objectKey, 300); // 300 seconds (5 minutes) access
 
         if (!error && data?.signedUrl) {
           return data.signedUrl;
@@ -210,26 +210,9 @@ export class StorageService {
       } catch (err) {
         console.warn("[StorageService] Failed to create Supabase signed URL:", (err as Error).message);
       }
-
-      try {
-        const { data: pubData } = supabase.storage
-          .from(config.supabase.bucketName)
-          .getPublicUrl(objectKey);
-        if (pubData?.publicUrl) {
-          return pubData.publicUrl;
-        }
-      } catch {
-        // Fallback
-      }
     }
 
-    // Direct Supabase storage public URL fallback (reliable AWS S3/Cloudflare edge CDN)
-    if (config.supabase.url && objectKey) {
-      const cleanKey = objectKey.replace(/^\/+/, "");
-      return `${config.supabase.url}/storage/v1/object/public/${config.supabase.bucketName}/${cleanKey}`;
-    }
-
-    // Direct endpoint on backend with fully-qualified URL to prevent frontend 404 navigation
+    // Direct authenticated endpoint on backend with fully-qualified URL
     return `${config.backendUrl}/api/v1/prescriptions/raw/${encodeURIComponent(objectKey)}`;
   }
 
@@ -290,14 +273,6 @@ export class StorageService {
             const arrayBuf = await blob.arrayBuffer();
             const buffer = Buffer.from(arrayBuf);
 
-            // Backfill database so future requests are instantaneous
-            if (fileRecord && !fileRecord.fileDataBase64) {
-              prisma.fileUpload.update({
-                where: { id: fileRecord.id },
-                data: { fileDataBase64: buffer.toString("base64") },
-              }).catch(() => {});
-            }
-
             return {
               buffer,
               fileName: fileRecord?.originalFileName || keyBase,
@@ -317,13 +292,6 @@ export class StorageService {
         if (ext === "pdf") mimeType = "application/pdf";
         else if (ext === "jpg" || ext === "jpeg") mimeType = "image/jpeg";
         else if (ext === "png") mimeType = "image/png";
-
-        if (fileRecord && !fileRecord.fileDataBase64) {
-          prisma.fileUpload.update({
-            where: { id: fileRecord.id },
-            data: { fileDataBase64: localFile.buffer.toString("base64") },
-          }).catch(() => {});
-        }
 
         return {
           buffer: localFile.buffer,
@@ -347,12 +315,6 @@ export class StorageService {
         const fallbackBuffer = isPdf
           ? createPrescriptionPdf(patientName)
           : createPrescriptionPng(800, 500, `NAYANTARA OPTICALS - ${fileRecord.originalFileName}`);
-
-        // Persist to database so subsequent reads are cached
-        prisma.fileUpload.update({
-          where: { id: fileRecord.id },
-          data: { fileDataBase64: fallbackBuffer.toString("base64") },
-        }).catch(() => {});
 
         return {
           buffer: fallbackBuffer,

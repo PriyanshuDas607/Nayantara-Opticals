@@ -25,21 +25,41 @@ export const createApp = (): Application => {
     })
   );
 
-  // CORS
+  // Phase 0.6: CORS Strict Allowlist (no wildcard *.vercel.app)
+  const allowedOrigins = new Set<string>(
+    [
+      config.clientUrl,
+      "https://nayantara-opticals.vercel.app",
+      ...config.corsOrigins,
+      ...(!config.isProduction
+        ? [
+            "http://localhost:3000",
+            "http://localhost:5173",
+            "http://127.0.0.1:3000",
+            "http://127.0.0.1:5173",
+          ]
+        : []),
+    ]
+      .filter(Boolean)
+      .map((url) => url.replace(/\/$/, ""))
+  );
+
   app.use(
     cors({
-      origin: [
-        config.clientUrl,
-        "https://nayantara-opticals.vercel.app",
-        /\.vercel\.app$/,
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:5173",
-      ],
+      origin: (origin, callback) => {
+        // Allow requests with no origin (e.g. mobile apps, curl, server-to-server)
+        if (!origin) {
+          return callback(null, true);
+        }
+        const normalized = origin.replace(/\/$/, "");
+        if (allowedOrigins.has(normalized)) {
+          return callback(null, true);
+        }
+        return callback(new Error(`CORS blocked for origin: ${origin}`));
+      },
       credentials: true,
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-      allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+      allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "x-razorpay-signature", "x-razorpay-event-id"],
     })
   );
 
@@ -48,7 +68,18 @@ export const createApp = (): Application => {
 
   // Cookie and Body Parsers
   app.use(cookieParser());
-  app.use(express.json({ limit: "10mb" }));
+
+  // Phase 0.1: Razorpay Webhooks raw buffer parsing MUST precede global express.json()
+  const rawWebhookParser = express.raw({ type: "application/json", limit: "1mb" });
+  const globalJsonParser = express.json({ limit: "10mb" });
+
+  app.use((req, res, next) => {
+    if (req.path.includes("/webhooks/razorpay")) {
+      return rawWebhookParser(req, res, next);
+    }
+    return globalJsonParser(req, res, next);
+  });
+
   app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
   // Global Rate Limiter

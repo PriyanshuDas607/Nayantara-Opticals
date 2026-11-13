@@ -2,7 +2,6 @@ import { Request, Response, NextFunction } from "express";
 import { AuthService } from "../services/auth.service.js";
 import { TokenService } from "../services/token.service.js";
 import { prisma } from "../utils/prisma.js";
-import { devStore } from "../utils/devStore.js";
 import { Role } from "../constants/index.js";
 import { config } from "../config/index.js";
 import { Logger } from "../utils/logger.js";
@@ -213,60 +212,33 @@ export class AuthController {
 
       const userId = req.user.userId;
 
-      try {
-        const user = await prisma.user.findUnique({
-          where: { id: userId },
-          include: {
-            customerProfile: true,
-            ownerProfile: { include: { store: true } },
-            addresses: true,
-          },
-        });
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+          customerProfile: true,
+          ownerProfile: { include: { store: true } },
+          addresses: true,
+        },
+      });
 
-        if (user) {
-          res.json({
-            success: true,
-            data: {
-              id: user.id,
-              email: user.email,
-              phone: user.phone,
-              role: user.role,
-              avatarUrl: user.avatarUrl,
-              customerProfile: user.customerProfile,
-              ownerProfile: user.ownerProfile,
-              addresses: user.addresses,
-            },
-          });
-          return;
-        }
-      } catch {
-        // Fallback to devStore if DB is not available
-      }
-
-      // Check devStore
-      const devUser = devStore.users.find((u) => u.id === userId);
-      if (devUser) {
-        const addresses = devStore.getAddresses(userId);
-        res.json({
-          success: true,
-          data: {
-            id: devUser.id,
-            email: devUser.email,
-            phone: devUser.phone,
-            role: devUser.role,
-            customerProfile: {
-              fullName: devUser.fullName,
-              gender: devUser.gender,
-              dateOfBirth: devUser.dateOfBirth,
-              whatsappOptIn: devUser.whatsappOptIn,
-            },
-            addresses,
-          },
-        });
+      if (!user) {
+        res.status(404).json({ success: false, message: "User not found." });
         return;
       }
 
-      res.status(404).json({ success: false, message: "User not found." });
+      res.json({
+        success: true,
+        data: {
+          id: user.id,
+          email: user.email,
+          phone: user.phone,
+          role: user.role,
+          avatarUrl: user.avatarUrl,
+          customerProfile: user.customerProfile,
+          ownerProfile: user.ownerProfile,
+          addresses: user.addresses,
+        },
+      });
     } catch (error) {
       next(error);
     }
@@ -282,53 +254,42 @@ export class AuthController {
       const userId = req.user.userId;
       const { fullName, phone, gender, dateOfBirth, whatsappOptIn } = req.body;
 
-      // Update dev store
-      devStore.updateUserProfile(userId, {
-        fullName: fullName || undefined,
-        phone: phone || undefined,
-        gender: gender || undefined,
-        dateOfBirth: dateOfBirth || undefined,
-        whatsappOptIn: whatsappOptIn !== undefined ? Boolean(whatsappOptIn) : undefined,
-      });
-
-      // Update Prisma if connected
-      try {
-        await prisma.user.update({
-          where: { id: userId },
-          data: {
-            phone: phone || undefined,
-            customerProfile: {
-              upsert: {
-                create: {
-                  fullName: fullName || "Valued Customer",
-                  gender: gender || undefined,
-                  dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
-                  whatsappOptIn: Boolean(whatsappOptIn),
-                },
-                update: {
-                  fullName: fullName || undefined,
-                  gender: gender || undefined,
-                  dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
-                  whatsappOptIn: whatsappOptIn !== undefined ? Boolean(whatsappOptIn) : undefined,
-                },
+      const updated = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          phone: phone || undefined,
+          customerProfile: {
+            upsert: {
+              create: {
+                fullName: fullName || "Valued Customer",
+                gender: gender || undefined,
+                dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
+                whatsappOptIn: Boolean(whatsappOptIn),
+              },
+              update: {
+                fullName: fullName || undefined,
+                gender: gender || undefined,
+                dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
+                whatsappOptIn: whatsappOptIn !== undefined ? Boolean(whatsappOptIn) : undefined,
               },
             },
           },
-        });
-      } catch {
-        // Handled via devStore
-      }
+        },
+        include: {
+          customerProfile: true,
+        },
+      });
 
       res.json({
         success: true,
         message: "Profile updated successfully.",
         data: {
           id: userId,
-          fullName,
-          phone,
-          gender,
-          dateOfBirth,
-          whatsappOptIn,
+          fullName: updated.customerProfile?.fullName,
+          phone: updated.phone,
+          gender: updated.customerProfile?.gender,
+          dateOfBirth: updated.customerProfile?.dateOfBirth,
+          whatsappOptIn: updated.customerProfile?.whatsappOptIn,
         },
       });
     } catch (error) {
@@ -344,20 +305,11 @@ export class AuthController {
         return;
       }
 
-      try {
-        const addresses = await prisma.address.findMany({
-          where: { userId },
-          orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
-        });
-        if (addresses && addresses.length > 0) {
-          res.json({ success: true, data: addresses });
-          return;
-        }
-      } catch {
-        // Fallback to devStore
-      }
+      const addresses = await prisma.address.findMany({
+        where: { userId },
+        orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
+      });
 
-      const addresses = devStore.getAddresses(userId);
       res.json({ success: true, data: addresses });
     } catch (error) {
       next(error);
@@ -421,60 +373,36 @@ export class AuthController {
         });
       }
 
-      const devAddr = devStore.addAddress({
-        userId,
-        fullName,
-        phone,
-        alternatePhone,
-        addressLine1,
-        addressLine2: addressLine2 || "",
-        landmark: landmark || "",
-        city,
-        state,
-        pincode,
-        country,
-        type: type.toUpperCase() as "HOME" | "WORK" | "OTHER",
-        isDefault: Boolean(isDefault),
-      });
-
-      try {
-        if (isDefault) {
-          await prisma.address.updateMany({
-            where: { userId },
-            data: { isDefault: false },
-          });
-        }
-        const created = await prisma.address.create({
-          data: {
-            userId,
-            fullName,
-            phone,
-            addressLine1,
-            addressLine2: addressLine2 || "",
-            landmark: landmark || null,
-            city,
-            state,
-            pincode,
-            country,
-            type: (type.toUpperCase() as any) || "HOME",
-            isDefault: Boolean(isDefault),
-          },
-        });
-        res.status(201).json({
-          success: true,
-          message: "Address added successfully.",
-          data: created,
-          token: freshAccessToken,
-        });
-        return;
-      } catch {
-        res.status(201).json({
-          success: true,
-          message: "Address added successfully.",
-          data: devAddr,
-          token: freshAccessToken,
+      if (isDefault) {
+        await prisma.address.updateMany({
+          where: { userId },
+          data: { isDefault: false },
         });
       }
+
+      const created = await prisma.address.create({
+        data: {
+          userId,
+          fullName,
+          phone,
+          addressLine1,
+          addressLine2: addressLine2 || "",
+          landmark: landmark || null,
+          city,
+          state,
+          pincode,
+          country,
+          type: (type.toUpperCase() as any) || "HOME",
+          isDefault: Boolean(isDefault),
+        },
+      });
+
+      res.status(201).json({
+        success: true,
+        message: "Address added successfully.",
+        data: created,
+        token: freshAccessToken,
+      });
     } catch (error) {
       next(error);
     }
@@ -491,43 +419,34 @@ export class AuthController {
       const id = String(req.params.id);
       const updates = req.body;
 
-      const devAddr = devStore.updateAddress(id, userId, updates);
-
-      try {
-        if (updates.isDefault) {
-          await prisma.address.updateMany({
-            where: { userId },
-            data: { isDefault: false },
-          });
-        }
-        const updated = await prisma.address.update({
-          where: { id },
-          data: {
-            fullName: updates.fullName,
-            phone: updates.phone,
-            addressLine1: updates.addressLine1,
-            addressLine2: updates.addressLine2,
-            landmark: updates.landmark,
-            city: updates.city,
-            state: updates.state,
-            pincode: updates.pincode,
-            type: updates.type ? (updates.type.toUpperCase() as any) : undefined,
-            isDefault: updates.isDefault !== undefined ? Boolean(updates.isDefault) : undefined,
-          },
-        });
-        res.json({
-          success: true,
-          message: "Address updated successfully.",
-          data: updated,
-        });
-        return;
-      } catch {
-        res.json({
-          success: true,
-          message: "Address updated successfully.",
-          data: devAddr,
+      if (updates.isDefault) {
+        await prisma.address.updateMany({
+          where: { userId },
+          data: { isDefault: false },
         });
       }
+
+      const updated = await prisma.address.update({
+        where: { id },
+        data: {
+          fullName: updates.fullName,
+          phone: updates.phone,
+          addressLine1: updates.addressLine1,
+          addressLine2: updates.addressLine2,
+          landmark: updates.landmark,
+          city: updates.city,
+          state: updates.state,
+          pincode: updates.pincode,
+          type: updates.type ? (updates.type.toUpperCase() as any) : undefined,
+          isDefault: updates.isDefault !== undefined ? Boolean(updates.isDefault) : undefined,
+        },
+      });
+
+      res.json({
+        success: true,
+        message: "Address updated successfully.",
+        data: updated,
+      });
     } catch (error) {
       next(error);
     }
@@ -540,18 +459,11 @@ export class AuthController {
         return;
       }
 
-      const userId = req.user.userId;
       const id = String(req.params.id);
 
-      devStore.deleteAddress(id, userId);
-
-      try {
-        await prisma.address.delete({
-          where: { id },
-        });
-      } catch {
-        // Handled via devStore
-      }
+      await prisma.address.delete({
+        where: { id },
+      });
 
       res.json({
         success: true,
@@ -572,20 +484,15 @@ export class AuthController {
       const userId = req.user.userId;
       const id = String(req.params.id);
 
-      devStore.setDefaultAddress(id, userId);
+      await prisma.address.updateMany({
+        where: { userId },
+        data: { isDefault: false },
+      });
 
-      try {
-        await prisma.address.updateMany({
-          where: { userId },
-          data: { isDefault: false },
-        });
-        await prisma.address.update({
-          where: { id },
-          data: { isDefault: true },
-        });
-      } catch {
-        // Handled via devStore
-      }
+      await prisma.address.update({
+        where: { id },
+        data: { isDefault: true },
+      });
 
       res.json({
         success: true,

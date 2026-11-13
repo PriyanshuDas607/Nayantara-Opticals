@@ -17,7 +17,7 @@ export function normalizePhone(phone: string): string {
     cleaned = cleaned.substring(1);
   }
 
-  if (cleaned.startsWith("91") && cleaned.length >= 11) {
+  if (cleaned.startsWith("91") && cleaned.length === 12) {
     return `+${cleaned}`;
   }
 
@@ -25,12 +25,12 @@ export function normalizePhone(phone: string): string {
     return `+91${cleaned}`;
   }
 
-  return `+91${cleaned}`;
+  return cleaned;
 }
 
 export function isValidIndianPhone(phone: string): boolean {
   if (!phone) return false;
   const normalized = normalizePhone(phone);
-  // Match standard Indian phone numbers (+91 followed by 7-12 digits) or valid international E.164
-  return /^\+91[0-9]{7,12}$/.test(normalized) || /^\+[0-9]{7,15}$/.test(normalized);
+  // Match standard 10-digit Indian mobile numbers prefixed with +91 (starts with 6, 7, 8, or 9)
+  return /^\+91[6-9]\d{9}$/.test(normalized);
 }

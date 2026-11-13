@@ -1,6 +1,5 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../utils/prisma.js";
-import { devStore, DevProduct } from "../utils/devStore.js";
 
 export interface GetProductsQuery {
   page?: number;
@@ -69,8 +68,7 @@ export class ProductService {
     const limit = Math.min(100, Math.max(1, Number(query.limit) || 50));
     const skip = (page - 1) * limit;
 
-    try {
-      const where: Prisma.ProductWhereInput = {
+    const where: Prisma.ProductWhereInput = {
         isActive: true,
         deletedAt: null,
       };
@@ -163,96 +161,43 @@ export class ProductService {
           totalPages: Math.ceil(total / limit) || 1,
         },
       };
-    } catch (err) {
-      console.warn("Database query failed in getPublicProducts, falling back to devStore:", err);
-    }
-
-    // Fallback: Filter devStore products
-    let filtered = [...devStore.products];
-
-    if (query.category && query.category !== "All" && query.category !== "all") {
-      const catLower = query.category.toLowerCase().replace(/\s+/g, "-");
-      filtered = filtered.filter(
-        (p) =>
-          p.category.toLowerCase() === query.category?.toLowerCase() ||
-          p.categoryId.toLowerCase() === catLower
-      );
-    }
-
-    if (query.gender && query.gender !== "All") {
-      filtered = filtered.filter((p) => p.gender.toLowerCase() === query.gender?.toLowerCase() || p.gender === "Unisex");
-    }
-
-    if (query.search) {
-      const q = query.search.toLowerCase().trim();
-      filtered = filtered.filter(
-        (p) =>
-          p.name.toLowerCase().includes(q) ||
-          p.brand.toLowerCase().includes(q) ||
-          p.description.toLowerCase().includes(q) ||
-          p.tags.some((t) => t.toLowerCase().includes(q))
-      );
-    }
-
-    if (query.sortBy === "price_asc") {
-      filtered.sort((a, b) => a.price - b.price);
-    } else if (query.sortBy === "price_desc") {
-      filtered.sort((a, b) => b.price - a.price);
-    }
-
-    const total = filtered.length;
-    const paginated = filtered.slice(skip, skip + limit);
-
-    return {
-      products: paginated,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit) || 1,
-      },
-    };
   }
 
   /**
    * Get single product by slug or ID
    */
   static async getProductBySlugOrId(identifier: string) {
-    try {
-      const product = await prisma.product.findFirst({
-        where: {
-          OR: [{ slug: identifier }, { id: identifier }],
-          isActive: true,
-          deletedAt: null,
+    const product = await prisma.product.findFirst({
+      where: {
+        OR: [{ slug: identifier }, { id: identifier }],
+        isActive: true,
+        deletedAt: null,
+      },
+      include: {
+        category: true,
+        brand: true,
+        images: { orderBy: { sortOrder: "asc" } },
+        variants: {
+          include: { inventory: true },
         },
-        include: {
-          category: true,
-          brand: true,
-          images: { orderBy: { sortOrder: "asc" } },
-          variants: {
-            include: { inventory: true },
-          },
-          inventory: true,
-        },
-      });
+        inventory: true,
+      },
+    });
 
-      if (product) {
-        const primaryImage = product.images?.[0]?.url || "https://images.unsplash.com/photo-1591076482161-42ce6da69f67?w=800&auto=format&fit=crop&q=80";
-        const stock = product.inventory?.quantity ?? 15;
-        return {
-          ...product,
-          price: product.pricePaise / 100,
-          originalPrice: product.salePricePaise ? product.salePricePaise / 100 : undefined,
-          image: primaryImage,
-          stockCount: stock,
-          inStock: stock > 0,
-        };
-      }
-    } catch {
-      // Fall through to devStore
+    if (!product) {
+      return null;
     }
 
-    return devStore.products.find((p) => p.id === identifier || p.slug === identifier) || null;
+    const primaryImage = product.images?.[0]?.url || "https://images.unsplash.com/photo-1591076482161-42ce6da69f67?w=800&auto=format&fit=crop&q=80";
+    const stock = product.inventory?.quantity ?? 15;
+    return {
+      ...product,
+      price: product.pricePaise / 100,
+      originalPrice: product.salePricePaise ? product.salePricePaise / 100 : undefined,
+      image: primaryImage,
+      stockCount: stock,
+      inStock: stock > 0,
+    };
   }
 
   /**
@@ -294,8 +239,7 @@ export class ProductService {
 
     const resolvedCategory = await resolveCategory(data.categoryId || data.category);
 
-    try {
-      let storeId = data.storeId;
+    let storeId = data.storeId;
       if (!storeId) {
         const defaultStore = await prisma.store.findFirst();
         storeId = defaultStore?.id;
@@ -349,33 +293,6 @@ export class ProductService {
         });
       });
 
-      // Mirror into devStore
-      devStore.addProduct({
-        id: newProduct.id,
-        name: newProduct.name,
-        slug: newProduct.slug,
-        brand: data.brand || "Nayantara Eyewear",
-        category: resolvedCategory.name,
-        categoryId: resolvedCategory.slug,
-        gender: data.gender || "Unisex",
-        frameShape: data.frameShape || "Square",
-        frameMaterial: data.frameMaterial || "Acetate",
-        frameType: data.frameType || "Full Rim",
-        description: data.description || "Fine eyewear from Nayantara Opticals.",
-        style: data.frameShape || "Modern",
-        price,
-        pricePaise,
-        originalPrice,
-        inStock: true,
-        stockCount,
-        isFeatured: Boolean(data.isFeatured),
-        isBestSeller: Boolean(data.isBestSeller),
-        image: primaryImage,
-        images: allImages.map((url, i) => ({ url, sortOrder: i })),
-        tags: [resolvedCategory.name, data.gender || "Unisex"],
-        storeId,
-      });
-
       return {
         ...newProduct,
         price,
@@ -384,174 +301,118 @@ export class ProductService {
         stockCount,
         inStock: true,
       };
-    } catch (err) {
-      console.error("Prisma createProduct error, falling back to devStore:", err);
-      // In-memory devStore creation fallback
-      const devProd = devStore.addProduct({
-        name: data.name,
-        brand: data.brand || "Nayantara Eyewear",
-        category: resolvedCategory.name,
-        gender: data.gender || "Unisex",
-        frameShape: data.frameShape || "Square",
-        frameMaterial: data.frameMaterial || "Handcrafted Acetate",
-        frameType: data.frameType || "Full Rim",
-        description: data.description || "Fine eyewear from Nayantara Opticals.",
-        style: data.frameShape || "Modern",
-        price,
-        pricePaise,
-        originalPrice,
-        inStock: true,
-        stockCount,
-        isFeatured: Boolean(data.isFeatured),
-        isBestSeller: Boolean(data.isBestSeller),
-        image: primaryImage,
-        images: allImages.map((url, i) => ({ url, sortOrder: i })),
-        tags: [resolvedCategory.name, data.gender || "Unisex"],
-        storeId: data.storeId,
-      });
-
-      return devProd;
-    }
   }
 
   /**
    * Update Product (Admin or Owner)
    */
   static async updateProduct(id: string, _storeIdFilter?: string, data?: any) {
-    try {
-      const existing = await prisma.product.findFirst({
-        where: {
-          OR: [{ id }, { slug: id }],
-        },
-        include: { images: true, inventory: true, category: true },
-      });
+    const existing = await prisma.product.findFirst({
+      where: {
+        OR: [{ id }, { slug: id }],
+      },
+      include: { images: true, inventory: true, category: true },
+    });
 
-      if (existing) {
-        let categoryId = existing.categoryId;
-        if (data?.category || data?.categoryId) {
-          const resolved = await resolveCategory(data.categoryId || data.category);
-          categoryId = resolved.id;
-        }
-
-        const pricePaise = data?.pricePaise || (data?.price ? Math.round(data.price * 100) : existing.pricePaise);
-        const salePricePaise = data?.salePricePaise || (data?.originalPrice ? Math.round(data.originalPrice * 100) : existing.salePricePaise);
-
-        const updated = await prisma.product.update({
-          where: { id: existing.id },
-          data: {
-            name: data?.name ?? existing.name,
-            description: data?.description ?? existing.description,
-            categoryId,
-            pricePaise,
-            salePricePaise,
-            frameShape: data?.frameShape ?? existing.frameShape,
-            frameMaterial: data?.frameMaterial ?? existing.frameMaterial,
-            frameType: data?.frameType ?? existing.frameType,
-            gender: data?.gender ?? existing.gender,
-            color: data?.color ?? existing.color,
-            size: data?.size ?? existing.size,
-            isFeatured: data?.isFeatured !== undefined ? Boolean(data.isFeatured) : existing.isFeatured,
-            images: data?.image
-              ? {
-                  deleteMany: {},
-                  create: [{ url: data.image, isPrimary: true, sortOrder: 0 }],
-                }
-              : undefined,
-            inventory: data?.stockCount !== undefined
-              ? {
-                  upsert: {
-                    create: { quantity: Number(data.stockCount) },
-                    update: { quantity: Number(data.stockCount) },
-                  },
-                }
-              : undefined,
-          },
-          include: {
-            category: true,
-            images: true,
-            inventory: true,
-          },
-        });
-
-        devStore.updateProduct(id, data || {});
-        devStore.updateProduct(existing.id, data || {});
-
-        const primaryImage = updated.images?.[0]?.url || data?.image || "https://images.unsplash.com/photo-1591076482161-42ce6da69f67?w=800&auto=format&fit=crop&q=80";
-        const stock = updated.inventory?.quantity ?? 15;
-
-        return {
-          ...updated,
-          price: updated.pricePaise / 100,
-          originalPrice: updated.salePricePaise ? updated.salePricePaise / 100 : undefined,
-          image: primaryImage,
-          stockCount: stock,
-          inStock: stock > 0,
-        };
-      }
-    } catch (err) {
-      console.error("Prisma updateProduct error:", err);
+    if (!existing) {
+      throw new Error("Product not found.");
     }
 
-    return devStore.updateProduct(id, data || {});
+    let categoryId = existing.categoryId;
+    if (data?.category || data?.categoryId) {
+      const resolved = await resolveCategory(data.categoryId || data.category);
+      categoryId = resolved.id;
+    }
+
+    const pricePaise = data?.pricePaise || (data?.price ? Math.round(data.price * 100) : existing.pricePaise);
+    const salePricePaise = data?.salePricePaise || (data?.originalPrice ? Math.round(data.originalPrice * 100) : existing.salePricePaise);
+
+    const updated = await prisma.product.update({
+      where: { id: existing.id },
+      data: {
+        name: data?.name ?? existing.name,
+        description: data?.description ?? existing.description,
+        categoryId,
+        pricePaise,
+        salePricePaise,
+        frameShape: data?.frameShape ?? existing.frameShape,
+        frameMaterial: data?.frameMaterial ?? existing.frameMaterial,
+        frameType: data?.frameType ?? existing.frameType,
+        gender: data?.gender ?? existing.gender,
+        color: data?.color ?? existing.color,
+        size: data?.size ?? existing.size,
+        isFeatured: data?.isFeatured !== undefined ? Boolean(data.isFeatured) : existing.isFeatured,
+        images: data?.image
+          ? {
+              deleteMany: {},
+              create: [{ url: data.image, isPrimary: true, sortOrder: 0 }],
+            }
+          : undefined,
+        inventory: data?.stockCount !== undefined
+          ? {
+              upsert: {
+                create: { quantity: Number(data.stockCount) },
+                update: { quantity: Number(data.stockCount) },
+              },
+            }
+          : undefined,
+      },
+      include: {
+        category: true,
+        images: true,
+        inventory: true,
+      },
+    });
+
+    const primaryImage = updated.images?.[0]?.url || data?.image || "https://images.unsplash.com/photo-1591076482161-42ce6da69f67?w=800&auto=format&fit=crop&q=80";
+    const stock = updated.inventory?.quantity ?? 15;
+
+    return {
+      ...updated,
+      price: updated.pricePaise / 100,
+      originalPrice: updated.salePricePaise ? updated.salePricePaise / 100 : undefined,
+      image: primaryImage,
+      stockCount: stock,
+      inStock: stock > 0,
+    };
   }
 
   /**
-   * Delete Product (Soft delete in DB and remove from devStore)
+   * Delete Product (Soft delete in DB)
    */
   static async deleteProduct(id: string, _storeIdFilter?: string) {
-    try {
-      const existing = await prisma.product.findFirst({
-        where: {
-          OR: [{ id }, { slug: id }],
+    const existing = await prisma.product.findFirst({
+      where: {
+        OR: [{ id }, { slug: id }],
+      },
+    });
+
+    if (existing) {
+      await prisma.product.update({
+        where: { id: existing.id },
+        data: {
+          deletedAt: new Date(),
+          isActive: false,
         },
       });
-
-      if (existing) {
-        await prisma.product.update({
-          where: { id: existing.id },
-          data: {
-            deletedAt: new Date(),
-            isActive: false,
-          },
-        });
-        devStore.deleteProduct(existing.id);
-        devStore.deleteProduct(id);
-        return true;
-      }
-    } catch (err) {
-      console.error("Prisma deleteProduct error:", err);
+      return true;
     }
 
-    devStore.deleteProduct(id);
-    return true;
+    throw new Error("Product not found.");
   }
 
   /**
    * Categories Listing
    */
   static async getCategories() {
-    try {
-      const cats = await prisma.category.findMany({
-        where: { isActive: true },
-        orderBy: { name: "asc" },
-      });
-      if (cats.length > 0) {
-        return [
-          { id: "all", name: "All", slug: "all" },
-          ...cats.map((c) => ({ id: c.id, name: c.name, slug: c.slug })),
-        ];
-      }
-    } catch {
-      // Fallback
-    }
+    const cats = await prisma.category.findMany({
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+    });
 
     return [
       { id: "all", name: "All", slug: "all" },
-      { id: "eyeglasses", name: "Eyeglasses", slug: "eyeglasses" },
-      { id: "sunglasses", name: "Sunglasses", slug: "sunglasses" },
-      { id: "contact-lenses", name: "Contact Lenses", slug: "contact-lenses" },
-      { id: "hearing-aids", name: "Hearing Aids", slug: "hearing-aids" },
-      { id: "vision-aids", name: "Vision Aids", slug: "vision-aids" },
+      ...cats.map((c) => ({ id: c.id, name: c.name, slug: c.slug })),
     ];
   }
 }

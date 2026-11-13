@@ -40,10 +40,10 @@ router.post(
 );
 
 // 2. Direct streaming endpoints (served from PostgreSQL DB, Supabase, or local storage)
-router.get("/:id/file", PrescriptionController.getFileById);
-router.get("/file/:id", PrescriptionController.getFileById);
-router.get("/raw/:objectKey(*)", PrescriptionController.getRawFile);
-router.get("/raw/*", PrescriptionController.getRawFile);
+router.get("/:id/file", authenticate, PrescriptionController.getFileById);
+router.get("/file/:id", authenticate, PrescriptionController.getFileById);
+router.get("/raw/:objectKey(*)", authenticate, PrescriptionController.getRawFile);
+router.get("/raw/*", authenticate, PrescriptionController.getRawFile);
 
 // 3. Presigned direct-to-storage APIs
 router.post(

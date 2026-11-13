@@ -1,10 +1,21 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "npm install --prefix frontend",
-  "buildCommand": "DANGEROUSLY_DEPLOY_VULNERABLE_TANSTACK_START_XSS=1 npm run build --prefix frontend",
+  "buildCommand": "npm run build --prefix frontend",
   "outputDirectory": "frontend/dist/client",
   "cleanUrls": true,
   "rewrites": [
     { "source": "/((?!assets/.*|favicon.*|robots\\.txt|.*\\..*).*)", "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy-Report-Only",
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://checkout.razorpay.com; connect-src 'self' https://api.razorpay.com https://*.supabase.co https://nayantara-backend.onrender.com; img-src 'self' data: blob: https://*.supabase.co; frame-src 'self' https://api.razorpay.com;"
+        }
+      ]
+    }
   ]
 }

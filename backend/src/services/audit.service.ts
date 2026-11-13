@@ -1,13 +1,6 @@
 import { prisma } from "../utils/prisma.js";
 import { Logger } from "../utils/logger.js";
 
-function withDbTimeout<T>(promise: Promise<T>, ms = 600): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Database connection timeout")), ms)),
-  ]);
-}
-
 export enum AuditAction {
   // Authentication & Security
   AUTH_LOGIN_SUCCESS = "AUTH_LOGIN_SUCCESS",
@@ -70,9 +63,6 @@ export interface AuditLogEntry {
   } | null;
 }
 
-// In-memory fallback logs for dev resilience
-const inMemoryAuditLogs: AuditLogEntry[] = [];
-
 export class AuditService {
   /**
    * Appends an immutable audit log entry.
@@ -89,30 +79,22 @@ export class AuditService {
       createdAt: new Date(),
     };
 
-    // Always push to in-memory first for instant sync
-    inMemoryAuditLogs.unshift(entry);
-    if (inMemoryAuditLogs.length > 500) inMemoryAuditLogs.pop();
-
     try {
-      await withDbTimeout(
-        prisma.auditLog.create({
-          data: {
-            id: entry.id,
-            userId: entry.userId,
-            action: entry.action,
-            resource: entry.resource,
-            ipAddress: entry.ipAddress,
-            userAgent: entry.userAgent,
-            details: options.details ? (options.details as any) : undefined,
-            createdAt: entry.createdAt,
-          },
-        }),
-        600
-      );
+      await prisma.auditLog.create({
+        data: {
+          id: entry.id,
+          userId: entry.userId,
+          action: entry.action,
+          resource: entry.resource,
+          ipAddress: entry.ipAddress,
+          userAgent: entry.userAgent,
+          details: options.details ? (options.details as any) : undefined,
+          createdAt: entry.createdAt,
+        },
+      });
       Logger.info(`[AuditTrail] ${entry.action} on ${entry.resource}`);
-    } catch {
-      // In-memory already recorded
-      Logger.info(`[AuditTrail (InMem)] ${entry.action} on ${entry.resource}`);
+    } catch (err) {
+      Logger.error(`[AuditTrail Error] Failed to write audit log for ${entry.action} on ${entry.resource}:`, err);
     }
   }
 
@@ -129,50 +111,32 @@ export class AuditService {
     const limit = Math.min(100, Math.max(1, params.limit || 30));
     const skip = (page - 1) * limit;
 
-    try {
-      const where: Record<string, unknown> = {};
-      if (params.action) where.action = params.action;
-      if (params.userId) where.userId = params.userId;
+    const where: Record<string, unknown> = {};
+    if (params.action) where.action = params.action;
+    if (params.userId) where.userId = params.userId;
 
-      const [total, logs] = await withDbTimeout(
-        Promise.all([
-          prisma.auditLog.count({ where }),
-          prisma.auditLog.findMany({
-            where,
-            orderBy: { createdAt: "desc" },
-            skip,
-            take: limit,
-            include: {
-              user: {
-                select: {
-                  email: true,
-                  phone: true,
-                  role: true,
-                },
-              },
+    const [total, logs] = await Promise.all([
+      prisma.auditLog.count({ where }),
+      prisma.auditLog.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+        include: {
+          user: {
+            select: {
+              email: true,
+              phone: true,
+              role: true,
             },
-          }),
-        ]),
-        800
-      );
+          },
+        },
+      }),
+    ]);
 
-      return {
-        total,
-        logs: logs as unknown as AuditLogEntry[],
-      };
-    } catch {
-      let filtered = inMemoryAuditLogs;
-      if (params.action) {
-        filtered = filtered.filter((l) => l.action.toLowerCase().includes(params.action!.toLowerCase()));
-      }
-      if (params.userId) {
-        filtered = filtered.filter((l) => l.userId === params.userId);
-      }
-
-      return {
-        total: filtered.length,
-        logs: filtered.slice(skip, skip + limit),
-      };
-    }
+    return {
+      total,
+      logs: logs as unknown as AuditLogEntry[],
+    };
   }
 }
