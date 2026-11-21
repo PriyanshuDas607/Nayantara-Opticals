@@ -6,6 +6,33 @@ import { Role } from "../constants/index.js";
 import { config } from "../config/index.js";
 import { Logger } from "../utils/logger.js";
 
+const setAuthCookies = (res: Response, accessToken?: string, refreshToken?: string) => {
+  const isProd = config.isProduction || config.nodeEnv === "production";
+  if (accessToken) {
+    res.cookie("accessToken", accessToken, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: "lax",
+      maxAge: 15 * 60 * 1000, // 15 minutes
+      path: "/",
+    });
+  }
+  if (refreshToken) {
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: "lax",
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      path: "/",
+    });
+  }
+};
+
+const clearAuthCookies = (res: Response) => {
+  res.clearCookie("accessToken", { path: "/" });
+  res.clearCookie("refreshToken", { path: "/" });
+};
+
 export class AuthController {
   static async register(req: Request, res: Response, next: NextFunction) {
     try {
@@ -43,15 +70,8 @@ export class AuthController {
         return;
       }
 
-      // Standard login: Set HttpOnly cookie for refresh token
-      if (result.tokens?.refreshToken) {
-        res.cookie("refreshToken", result.tokens.refreshToken, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "lax",
-          maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-        });
-      }
+      // Standard login: Set HttpOnly cookies
+      setAuthCookies(res, result.tokens?.accessToken, result.tokens?.refreshToken);
 
       res.json({
         success: true,
@@ -71,12 +91,7 @@ export class AuthController {
         userAgent: req.headers["user-agent"],
       });
 
-      res.cookie("refreshToken", result.tokens.refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-      });
+      setAuthCookies(res, result.tokens?.accessToken, result.tokens?.refreshToken);
 
       res.json({
         success: true,
@@ -109,12 +124,7 @@ export class AuthController {
         req.headers["user-agent"]
       );
 
-      res.cookie("refreshToken", result.tokens.refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-      });
+      setAuthCookies(res, result.tokens?.accessToken, result.tokens?.refreshToken);
 
       res.json({
         success: true,
@@ -161,12 +171,7 @@ export class AuthController {
         req.headers["user-agent"]
       );
 
-      res.cookie("refreshToken", result.refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-      });
+      setAuthCookies(res, result.accessToken, result.refreshToken);
 
       res.json({
         success: true,
@@ -184,7 +189,7 @@ export class AuthController {
       if (token) {
         await TokenService.revokeSession(token);
       }
-      res.clearCookie("refreshToken");
+      clearAuthCookies(res);
       res.json({ success: true, message: "Logged out successfully." });
     } catch (error) {
       next(error);
@@ -196,7 +201,7 @@ export class AuthController {
       if (req.user?.userId) {
         await TokenService.revokeAllUserSessions(req.user.userId);
       }
-      res.clearCookie("refreshToken");
+      clearAuthCookies(res);
       res.json({ success: true, message: "Logged out from all devices successfully." });
     } catch (error) {
       next(error);
@@ -524,14 +529,7 @@ export class AuthController {
         userAgent: req.headers["user-agent"],
       });
 
-      if (result.tokens?.refreshToken) {
-        res.cookie("refreshToken", result.tokens.refreshToken, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "lax",
-          maxAge: 7 * 24 * 60 * 60 * 1000,
-        });
-      }
+      setAuthCookies(res, result.tokens?.accessToken, result.tokens?.refreshToken);
 
       res.json({
         success: true,
@@ -646,15 +644,8 @@ export class AuthController {
         userAgent: req.headers["user-agent"],
       });
 
-      // Set HttpOnly refresh token cookie
-      if (authResult.tokens?.refreshToken) {
-        res.cookie("refreshToken", authResult.tokens.refreshToken, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "lax",
-          maxAge: 7 * 24 * 60 * 60 * 1000,
-        });
-      }
+      // Set HttpOnly cookies
+      setAuthCookies(res, authResult.tokens?.accessToken, authResult.tokens?.refreshToken);
 
       // Redirect user to frontend with token & user info
       const redirectUrl = new URL(`${clientOrigin}/login`);

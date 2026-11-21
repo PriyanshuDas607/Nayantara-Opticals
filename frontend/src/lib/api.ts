@@ -111,6 +111,7 @@ export async function apiRequest<T = unknown>(
 
   try {
     const res = await fetch(url, {
+      credentials: options.credentials || "include",
       ...options,
       headers,
     });
@@ -120,44 +121,42 @@ export async function apiRequest<T = unknown>(
     // If 401 Unauthorized / Token Expired and not already retrying
     if (res.status === 401 && !options._isRetry && !endpoint.includes("/auth/refresh") && !endpoint.includes("/auth/login") && typeof window !== "undefined") {
       const storedRefreshToken = localStorage.getItem("nayantara_refresh_token");
-      if (storedRefreshToken) {
-        try {
-          const refreshRes = await fetch(`${API_BASE_URL}/auth/refresh`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ refreshToken: storedRefreshToken }),
-          });
+      try {
+        const refreshRes = await fetch(`${API_BASE_URL}/auth/refresh`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(storedRefreshToken ? { refreshToken: storedRefreshToken } : {}),
+        });
 
-          const refreshData = await refreshRes.json().catch(() => ({}));
-          const newAccessToken = refreshData?.data?.tokens?.accessToken || refreshData?.tokens?.accessToken;
-          const newRefreshToken = refreshData?.data?.tokens?.refreshToken || refreshData?.tokens?.refreshToken;
+        const refreshData = await refreshRes.json().catch(() => ({}));
+        const newAccessToken = refreshData?.data?.tokens?.accessToken || refreshData?.tokens?.accessToken;
+        const newRefreshToken = refreshData?.data?.tokens?.refreshToken || refreshData?.tokens?.refreshToken;
 
-          if (refreshRes.ok && newAccessToken) {
+        if (refreshRes.ok) {
+          if (newAccessToken) {
             localStorage.setItem("nayantara_access_token", newAccessToken);
-            if (newRefreshToken) {
-              localStorage.setItem("nayantara_refresh_token", newRefreshToken);
-            }
-            if (refreshData?.data?.user) {
-              localStorage.setItem("nayantara_user", JSON.stringify(refreshData.data.user));
-            }
-
-            // Retry request with fresh token
-            return await apiRequest<T>(endpoint, {
-              ...options,
-              token: newAccessToken,
-              _isRetry: true,
-            });
-          } else {
-            // Refresh token is completely dead; clear stale session
-            localStorage.removeItem("nayantara_access_token");
-            localStorage.removeItem("nayantara_refresh_token");
           }
-        } catch {
-          // Token refresh network error
+          if (newRefreshToken) {
+            localStorage.setItem("nayantara_refresh_token", newRefreshToken);
+          }
+          if (refreshData?.data?.user) {
+            localStorage.setItem("nayantara_user", JSON.stringify(refreshData.data.user));
+          }
+
+          // Retry request with fresh token and rotated cookies
+          return await apiRequest<T>(endpoint, {
+            ...options,
+            token: newAccessToken,
+            _isRetry: true,
+          });
+        } else {
+          // Refresh token is completely dead; clear stale session
+          localStorage.removeItem("nayantara_access_token");
+          localStorage.removeItem("nayantara_refresh_token");
         }
-      } else {
-        // No refresh token available, remove stale expired access token
-        localStorage.removeItem("nayantara_access_token");
+      } catch {
+        // Token refresh network error
       }
     }
 

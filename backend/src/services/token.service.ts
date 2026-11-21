@@ -3,7 +3,7 @@ import { config } from "../config/index.js";
 import { prisma } from "../utils/prisma.js";
 import { CryptoUtil } from "../utils/crypto.js";
 import { Role } from "../constants/index.js";
-import { Logger } from "../utils/logger.js";
+import { AuditService } from "./audit.service.js";
 
 export interface AccessTokenPayload {
   userId: string;
@@ -18,21 +18,9 @@ export interface TwoFactorTokenPayload {
   purpose: "2FA_VERIFICATION";
 }
 
-interface DevSession {
-  userId: string;
-  tokenHash: string;
-  role: Role;
-  email: string | null;
-  storeId?: string | null;
-  expiresAt: Date;
-  isRevoked: boolean;
-}
-
-const devSessions = new Map<string, DevSession>();
-
 export class TokenService {
   /**
-   * Generates a short-lived access JWT token
+   * Generates a short-lived access JWT token (15 minutes)
    */
   static generateAccessToken(payload: AccessTokenPayload): string {
     return jwt.sign(payload, config.jwt.accessSecret, {
@@ -70,51 +58,40 @@ export class TokenService {
   }
 
   /**
-   * Creates a new refresh token and saves its hash in the database (or dev fallback)
+   * Creates a new refresh token and saves its hash in the database with session family tracking
    */
   static async createRefreshTokenSession(
     userId: string,
     deviceInfo?: string,
     ipAddress?: string,
     userAgent?: string,
-    devMetadata?: { role: Role; email: string | null; storeId?: string | null }
+    familyId?: string
   ): Promise<string> {
     const rawRefreshToken = CryptoUtil.generateSecureToken(48);
     const tokenHash = CryptoUtil.hashToken(rawRefreshToken);
+    const sessionFamilyId = familyId || CryptoUtil.generateSecureToken(16);
 
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + config.jwt.refreshExpiresInDays);
 
-    try {
-      await prisma.refreshTokenSession.create({
-        data: {
-          userId,
-          tokenHash,
-          deviceInfo,
-          ipAddress,
-          userAgent,
-          expiresAt,
-          isRevoked: false,
-        },
-      });
-    } catch {
-      Logger.warn("Database unavailable for session storage; using in-memory dev session");
-      devSessions.set(tokenHash, {
+    await prisma.refreshTokenSession.create({
+      data: {
         userId,
         tokenHash,
-        role: devMetadata?.role || Role.SUPER_ADMIN,
-        email: devMetadata?.email || null,
-        storeId: devMetadata?.storeId || null,
+        familyId: sessionFamilyId,
+        deviceInfo,
+        ipAddress,
+        userAgent,
         expiresAt,
         isRevoked: false,
-      });
-    }
+      },
+    });
 
     return rawRefreshToken;
   }
 
   /**
-   * Rotates a refresh token with reuse detection
+   * Rotates a refresh token with session family tracking and reuse detection
    */
   static async rotateRefreshToken(
     rawRefreshToken: string,
@@ -124,93 +101,101 @@ export class TokenService {
   ): Promise<{ accessToken: string; refreshToken: string; user: { id: string; role: Role; email: string | null; storeId?: string | null } }> {
     const tokenHash = CryptoUtil.hashToken(rawRefreshToken);
 
-    try {
-      const session = await prisma.refreshTokenSession.findUnique({
-        where: { tokenHash },
-        include: {
-          user: {
-            include: { ownerProfile: true },
-          },
+    const session = await prisma.refreshTokenSession.findUnique({
+      where: { tokenHash },
+      include: {
+        user: {
+          include: { ownerProfile: true },
+        },
+      },
+    });
+
+    if (!session) {
+      const err = new Error("Invalid refresh token session. Please log in again.") as Error & { statusCode: number; code: string };
+      err.statusCode = 401;
+      err.code = "INVALID_SESSION";
+      throw err;
+    }
+
+    // Reuse detection: if token is already revoked, someone is attempting to replay an old token!
+    if (session.isRevoked) {
+      if (session.familyId) {
+        await prisma.refreshTokenSession.updateMany({
+          where: { familyId: session.familyId },
+          data: { isRevoked: true },
+        });
+      } else {
+        await prisma.refreshTokenSession.updateMany({
+          where: { userId: session.userId },
+          data: { isRevoked: true },
+        });
+      }
+
+      await AuditService.log({
+        userId: session.userId,
+        action: "REFRESH_TOKEN_REUSE_DETECTED",
+        resource: `RefreshTokenSession:${session.id}`,
+        ipAddress,
+        userAgent,
+        details: {
+          familyId: session.familyId,
+          tokenId: session.id,
+          reason: "Revoked refresh token presented for rotation (session family revoked)",
         },
       });
 
-      if (session) {
-        if (session.isRevoked || session.expiresAt < new Date()) {
-          // Token reuse or expired token detected: revoke all sessions for safety
-          await prisma.refreshTokenSession.updateMany({
-            where: { userId: session.userId },
-            data: { isRevoked: true },
-          });
-          throw new Error("Suspicious session activity detected. All active sessions invalidated. Please log in again.");
-        }
-
-        // Revoke the old token
-        await prisma.refreshTokenSession.update({
-          where: { id: session.id },
-          data: { isRevoked: true },
-        });
-
-        const userRole = session.user.role as Role;
-        const storeId = session.user.ownerProfile?.storeId || null;
-
-        const newRefreshToken = await this.createRefreshTokenSession(
-          session.userId,
-          deviceInfo || session.deviceInfo || undefined,
-          ipAddress,
-          userAgent,
-          { role: userRole, email: session.user.email, storeId }
-        );
-
-        const newAccessToken = this.generateAccessToken({
-          userId: session.user.id,
-          role: userRole,
-          storeId,
-        });
-
-        return {
-          accessToken: newAccessToken,
-          refreshToken: newRefreshToken,
-          user: {
-            id: session.user.id,
-            role: userRole,
-            email: session.user.email,
-            storeId,
-          },
-        };
-      }
-    } catch (dbErr) {
-      Logger.warn("Database query failed during token rotation, checking in-memory store");
+      const err = new Error("Suspicious session activity detected. Token reuse detected. All active sessions have been invalidated. Please log in again.") as Error & { statusCode: number; code: string };
+      err.statusCode = 401;
+      err.code = "TOKEN_REUSE_DETECTED";
+      throw err;
     }
 
-    // Check dev fallback sessions
-    const devSession = devSessions.get(tokenHash);
-    if (!devSession || devSession.isRevoked || devSession.expiresAt < new Date()) {
-      throw new Error("Invalid or expired refresh token");
+    // Check expiration
+    if (session.expiresAt < new Date()) {
+      await prisma.refreshTokenSession.update({
+        where: { id: session.id },
+        data: { isRevoked: true },
+      });
+      const err = new Error("Refresh token has expired. Please log in again.") as Error & { statusCode: number; code: string };
+      err.statusCode = 401;
+      err.code = "SESSION_EXPIRED";
+      throw err;
     }
 
-    devSession.isRevoked = true;
+    // Revoke the old token (one-time use rotation)
+    await prisma.refreshTokenSession.update({
+      where: { id: session.id },
+      data: { isRevoked: true },
+    });
+
+    const userRole = session.user.role as Role;
+    const storeId = session.user.ownerProfile?.storeId || null;
+
+    // Continue the same session family for rotation continuity
+    const sessionFamilyId = session.familyId || CryptoUtil.generateSecureToken(16);
+
     const newRefreshToken = await this.createRefreshTokenSession(
-      devSession.userId,
-      deviceInfo,
-      ipAddress,
-      userAgent,
-      { role: devSession.role, email: devSession.email, storeId: devSession.storeId }
+      session.userId,
+      deviceInfo || session.deviceInfo || undefined,
+      ipAddress || session.ipAddress || undefined,
+      userAgent || session.userAgent || undefined,
+      sessionFamilyId
     );
 
     const newAccessToken = this.generateAccessToken({
-      userId: devSession.userId,
-      role: devSession.role,
-      storeId: devSession.storeId,
+      userId: session.user.id,
+      role: userRole,
+      storeId,
     });
 
     return {
       accessToken: newAccessToken,
       refreshToken: newRefreshToken,
       user: {
-        id: devSession.userId,
-        role: devSession.role,
-        email: devSession.email,
-        storeId: devSession.storeId,
+        id: session.user.id,
+        role: userRole,
+        email: session.user.email,
+        storeId,
       },
     };
   }
@@ -220,32 +205,19 @@ export class TokenService {
    */
   static async revokeSession(rawRefreshToken: string): Promise<void> {
     const tokenHash = CryptoUtil.hashToken(rawRefreshToken);
-    try {
-      await prisma.refreshTokenSession.updateMany({
-        where: { tokenHash },
-        data: { isRevoked: true },
-      });
-    } catch {
-      // In-memory fallback
-      const dev = devSessions.get(tokenHash);
-      if (dev) dev.isRevoked = true;
-    }
+    await prisma.refreshTokenSession.updateMany({
+      where: { tokenHash },
+      data: { isRevoked: true },
+    });
   }
 
   /**
    * Revokes all active refresh token sessions for a user (Logout All Devices)
    */
   static async revokeAllUserSessions(userId: string): Promise<void> {
-    try {
-      await prisma.refreshTokenSession.updateMany({
-        where: { userId },
-        data: { isRevoked: true },
-      });
-    } catch {
-      // In-memory fallback
-      for (const dev of devSessions.values()) {
-        if (dev.userId === userId) dev.isRevoked = true;
-      }
-    }
+    await prisma.refreshTokenSession.updateMany({
+      where: { userId },
+      data: { isRevoked: true },
+    });
   }
 }

@@ -33,11 +33,16 @@ export class NotificationController {
         return;
       }
 
-      const dbNotifs = await prisma.notification.findMany({
-        where: { userId },
-        orderBy: { createdAt: "desc" },
-        take: 50,
-      });
+      const [dbNotifs, unreadCount] = await Promise.all([
+        prisma.notification.findMany({
+          where: { userId },
+          orderBy: { createdAt: "desc" },
+          take: 50,
+        }),
+        prisma.notification.count({
+          where: { userId, readAt: null },
+        }),
+      ]);
 
       const notifications = dbNotifs.map((n) => {
         const meta = parseMetadata(n.metadata);
@@ -48,13 +53,12 @@ export class NotificationController {
           title: n.title,
           body: n.body,
           metadata: meta,
-          read: Boolean(meta.read),
+          read: n.readAt !== null || Boolean(meta.read),
+          readAt: n.readAt ? n.readAt.toISOString() : (meta.readAt || null),
           status: n.status,
           createdAt: n.createdAt.toISOString(),
         };
       });
-
-      const unreadCount = notifications.filter((n) => !n.read).length;
 
       res.json({
         success: true,
@@ -80,19 +84,16 @@ export class NotificationController {
         return;
       }
 
-      const existing = await prisma.notification.findUnique({ where: { id } });
-      if (existing && existing.userId === userId) {
-        const meta = parseMetadata(existing.metadata);
-        meta.read = true;
-        meta.readAt = new Date().toISOString();
+      const now = new Date();
+      const result = await prisma.notification.updateMany({
+        where: { id, userId, readAt: null },
+        data: { readAt: now },
+      });
 
-        await prisma.notification.update({
-          where: { id },
-          data: { metadata: meta },
-        });
-      }
-
-      res.json({ success: true, message: "Notification marked as read." });
+      res.json({
+        success: true,
+        message: result.count > 0 ? "Notification marked as read." : "Notification already read or not found.",
+      });
     } catch (error) {
       next(error);
     }
@@ -110,23 +111,17 @@ export class NotificationController {
         return;
       }
 
-      const unreadNotifs = await prisma.notification.findMany({
-        where: { userId },
+      const now = new Date();
+      const result = await prisma.notification.updateMany({
+        where: { userId, readAt: null },
+        data: { readAt: now },
       });
 
-      for (const notif of unreadNotifs) {
-        const meta = parseMetadata(notif.metadata);
-        if (!meta.read) {
-          meta.read = true;
-          meta.readAt = new Date().toISOString();
-          await prisma.notification.update({
-            where: { id: notif.id },
-            data: { metadata: meta },
-          }).catch(() => null);
-        }
-      }
-
-      res.json({ success: true, message: "All notifications marked as read." });
+      res.json({
+        success: true,
+        message: "All notifications marked as read.",
+        count: result.count,
+      });
     } catch (error) {
       next(error);
     }

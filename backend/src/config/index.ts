@@ -148,7 +148,7 @@ export const config = {
   jwt: {
     accessSecret: parsedEnv.JWT_ACCESS_SECRET,
     refreshSecret: parsedEnv.JWT_REFRESH_SECRET,
-    accessExpiresIn: "30d",
+    accessExpiresIn: "15m",
     refreshExpiresInDays: 30,
   },
 

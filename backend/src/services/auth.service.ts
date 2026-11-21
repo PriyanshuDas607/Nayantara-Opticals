@@ -142,8 +142,7 @@ export class AuthService {
       user.id,
       undefined,
       data.ipAddress,
-      data.userAgent,
-      { role: AppRole.CUSTOMER, email: user.email }
+      data.userAgent
     );
 
     await AuditService.log({
@@ -267,8 +266,7 @@ export class AuthService {
         user.id,
         undefined,
         data.ipAddress,
-        data.userAgent,
-        { role, email: user.email, storeId }
+        data.userAgent
       );
 
       await AuditService.log({
@@ -352,8 +350,7 @@ export class AuthService {
       payload.userId,
       undefined,
       data.ipAddress,
-      data.userAgent,
-      { role: AppRole.SUPER_ADMIN, email: "admin@nayantaraopticals.com", storeId: null }
+      data.userAgent
     );
 
     await AuditService.log({
@@ -479,8 +476,7 @@ export class AuthService {
       user.id,
       undefined,
       ipAddress,
-      userAgent,
-      { role: user.role as any, email: user.email }
+      userAgent
     );
 
     await AuditService.log({
@@ -761,8 +757,7 @@ export class AuthService {
       userId,
       undefined,
       data.ipAddress,
-      data.userAgent,
-      { role: userRole, email }
+      data.userAgent
     );
 
     try {

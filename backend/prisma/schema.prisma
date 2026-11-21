@@ -184,6 +184,7 @@ model RefreshTokenSession {
   id           String    @id @default(uuid())
   userId       String
   tokenHash    String    @unique
+  familyId     String?
   deviceInfo   String?
   ipAddress    String?
   userAgent    String?
@@ -195,6 +196,7 @@ model RefreshTokenSession {
   user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([familyId])
 }
 
 model EmailVerificationToken {
@@ -783,6 +785,7 @@ model Notification {
   channel     NotificationChannel
   title       String
   body        String
+  readAt      DateTime?
   metadata    Json?
   status      NotificationStatus  @default(PENDING)
   createdAt   DateTime            @default(now())
@@ -791,6 +794,7 @@ model Notification {
   logs        NotificationDeliveryLog[]
 
   @@index([userId])
+  @@index([userId, readAt])
 }
 
 model NotificationDeliveryLog {
